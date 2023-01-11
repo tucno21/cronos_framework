@@ -45,7 +45,7 @@ class App
         $this->router = new Router();
 
         //instanciamos la clase Request y almacenamos en la propiedad request
-        $this->request = new Request();
+        $this->request = Container::singleton(Request::class);
 
         return $this;
     }

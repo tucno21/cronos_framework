@@ -2,17 +2,18 @@
 
 use Cronos\Routing\Route;
 use App\Controllers\UserController;
+use Cronos\Routing\Request;
 
-Route::get('/producto/{producto}', function () {
-    echo 'Hello producto';
+Route::get('/producto/{producto}', function (Request $request) {
+    dd($request->dataGet());
 });
 
 Route::get('/', function () {
     echo 'Hello World s';
 });
 
-Route::get('/users', function () {
-    echo 'Hello Users';
+Route::get('/users/{id}', function (string $id) {
+    echo $id;
 });
 
 Route::post('/post', function () {

@@ -7,6 +7,7 @@ use Cronos\Routing\Route;
 use Cronos\Http\HttpMethod;
 use Cronos\Routing\Request;
 use Cronos\Errors\HttpNotFoundException;
+use Cronos\Container\DependencyInjection;
 
 
 class Router
@@ -24,7 +25,7 @@ class Router
     public function resolve(Request $request)
     {
         //obtener la instancia de la clase Route dependiendo de la uri y el metodo http
-        $route = $this->resolveRoute($request->uri(), $request->method()->value);
+        $route = $this->resolveRoute($request);
 
         //obtener la accion de la instancia de la clase Route
         $action = $route->action();
@@ -36,18 +37,21 @@ class Router
             $action[0] = $controller;
         }
 
-        //ejecutar la accion sea una funcion o una clase
-        return call_user_func($action);
+        //obtener los parametros que se declara en la funcion o metodo de la ruta del framework
+        $params = DependencyInjection::resolveParameters($action, $route->parseParameters($request->uri()));
+
+        //ejecutar la accion sea una funcion o una clase y sus parametros
+        return call_user_func($action, ...$params);
     }
 
-    public function resolveRoute(string $uri, string $method)
+    public function resolveRoute(Request $request)
     {
-        //recorrer el array de rutas dependiendo del metodo http
-        foreach ($this->routes[$method] as $route) {
-            //verificar si la ruta coincide con la uri que viene de la peticion
-            //$route es una instancia de la clase Route
-            if ($route->matches($uri)) {
-                //retornar la Route especifico
+        //obtener el metodo http de la peticion de la clase Request
+        //y recorrer el array de rutas dependiendo del metodo http
+        foreach ($this->routes[$request->method()->value] as $route) {
+            //verificar si la ruta del framework coincide con la uri que viene de la peticion
+            if ($route->matches($request->uri())) {
+                //retornamos el objeto class Route
                 return $route;
             }
         }
