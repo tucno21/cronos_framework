@@ -18,12 +18,18 @@ class Router
 
     public function resolve(string $uri, string $method)
     {
-        dd($this->routes);
         $method = strtoupper($method);
         if (array_key_exists($uri, $this->routes[$method])) {
-            return $this->routes[$method][$uri];
+            $action = $this->routes[$method][$uri];
+            if ($action instanceof Closure) {
+                return $action();
+            }
+            if (is_array($action)) {
+                $controller = new $action[0]();
+                return $controller->{$action[1]}();
+            }
         }
-        return null;
+        // return null;
     }
 
     public function get(string $uri, Closure|array $action)

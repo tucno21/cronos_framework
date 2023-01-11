@@ -24,7 +24,8 @@ class App
 
     protected function runServiceProvider(string $type): self
     {
-        //ejecutar el archivo web.php donde esta las rutas
+        $this->router = new Router();
+        $app = $this->router;
         require_once self::$root . "/routes/$type.php";
 
         return $this;
@@ -41,6 +42,6 @@ class App
 
     public function run()
     {
-        echo 'Hello World';
+        $this->router->resolve($_SERVER["REQUEST_URI"], $_SERVER["REQUEST_METHOD"]);
     }
 }
