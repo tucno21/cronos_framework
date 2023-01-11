@@ -6,12 +6,15 @@ use Throwable;
 use Cronos\Routing\Router;
 use Cronos\Container\Container;
 use Cronos\Errors\HttpNotFoundException;
+use Cronos\Routing\Request;
 
 class App
 {
     public static string $root;
 
     public Router $router;
+
+    public Request $request;
 
     public static function bootstrap(string $root)
     {
@@ -41,13 +44,16 @@ class App
         //instanciamos la clase Router y almacenamos en la propiedad router
         $this->router = new Router();
 
+        //instanciamos la clase Request y almacenamos en la propiedad request
+        $this->request = new Request();
+
         return $this;
     }
 
     public function run()
     {
         try {
-            $this->router->resolve($_SERVER["REQUEST_URI"], $_SERVER["REQUEST_METHOD"]);
+            $this->router->resolve($this->request);
         } catch (HttpNotFoundException $e) {
             echo 'no existe la ruta Error: 404';
             echo '<br>';

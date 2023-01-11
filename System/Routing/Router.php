@@ -5,6 +5,7 @@ namespace Cronos\Routing;
 use Closure;
 use Cronos\Routing\Route;
 use Cronos\Http\HttpMethod;
+use Cronos\Routing\Request;
 use Cronos\Errors\HttpNotFoundException;
 
 
@@ -20,10 +21,10 @@ class Router
         }
     }
 
-    public function resolve(string $uri, string $method)
+    public function resolve(Request $request)
     {
         //obtener la instancia de la clase Route dependiendo de la uri y el metodo http
-        $route = $this->resolveRoute($uri, $method);
+        $route = $this->resolveRoute($request->uri(), $request->method()->value);
 
         //obtener la accion de la instancia de la clase Route
         $action = $route->action();
