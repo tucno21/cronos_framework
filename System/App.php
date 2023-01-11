@@ -15,19 +15,21 @@ class App
 
     public static function bootstrap(string $root)
     {
+        //obtenemos la ruta del proyecto framework
         self::$root = $root;
 
+        //obtenemos la instancia de la clase App y almacenamos en el contenedor
         $app = Container::singleton(self::class);
 
+        //retornamos la instancia de la clase App y ejecutamos el metodo runServiceProvider
         return $app
-            // ->setHttpConnection()
+            ->setHttpConnection()
             ->runServiceProvider("web");
     }
 
     protected function runServiceProvider(string $type): self
     {
-        $this->router = new Router();
-        $app = $this->router;
+        //obtenemos la ruta del archivo routes/web.php
         require_once self::$root . "/routes/$type.php";
 
         return $this;
@@ -36,7 +38,7 @@ class App
 
     protected function setHttpConnection(): self
     {
-        //obtenemos la instancia de la clase Router
+        //instanciamos la clase Router y almacenamos en la propiedad router
         $this->router = new Router();
 
         return $this;

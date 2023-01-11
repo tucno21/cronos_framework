@@ -3,6 +3,7 @@
 namespace Cronos\Routing;
 
 use Closure;
+use Cronos\Routing\Route;
 use Cronos\Http\HttpMethod;
 use Cronos\Errors\HttpNotFoundException;
 
@@ -21,48 +22,76 @@ class Router
 
     public function resolve(string $uri, string $method)
     {
-        $method = strtoupper($method);
-        if (array_key_exists($uri, $this->routes[$method])) {
-            $action = $this->routes[$method][$uri];
-            if ($action instanceof Closure) {
-                return $action();
-            }
-            if (is_array($action)) {
-                $controller = new $action[0]();
-                return $controller->{$action[1]}();
+        //obtener la instancia de la clase Route dependiendo de la uri y el metodo http
+        $route = $this->resolveRoute($uri, $method);
+
+        //obtener la accion de la instancia de la clase Route
+        $action = $route->action();
+
+        //verificar si la accion es un array
+        if (is_array($action)) {
+            //instanciar el controlador
+            $controller = new $action[0];
+            $action[0] = $controller;
+        }
+
+        //ejecutar la accion sea una funcion o una clase
+        return call_user_func($action);
+    }
+
+    public function resolveRoute(string $uri, string $method)
+    {
+        //recorrer el array de rutas dependiendo del metodo http
+        foreach ($this->routes[$method] as $route) {
+            //verificar si la ruta coincide con la uri que viene de la peticion
+            //$route es una instancia de la clase Route
+            if ($route->matches($uri)) {
+                //retornar la Route especifico
+                return $route;
             }
         }
 
+        //si no existe la ruta lanzar una excepcion
         throw new HttpNotFoundException();
     }
 
-    public function get(string $uri, Closure|array $action)
+    protected function registerRoute(HttpMethod $method, string $uri, Closure|array $action): Route
     {
-        //registrar la ruta del framework a la propiedad routes
-        $this->routes[HttpMethod::GET->value][$uri] = $action;
+        //instanciar route y se lo asignamos a la propiedad routes
+        $route = new Route($uri, $action);
+        //almacenamos la instancia de la clase Route en la propiedad routes
+        $this->routes[$method->value][] = $route;
+        //retornar la route
+        return $route;
     }
 
-    public function post(string $uri, Closure|array $action)
+    public function get(string $uri, Closure|array $action): Route
     {
         //registrar la ruta del framework a la propiedad routes
-        $this->routes[HttpMethod::POST->value][$uri] = $action;
+        return $this->registerRoute(HttpMethod::GET, $uri, $action);
     }
 
-    public function put(string $uri, Closure|array $action)
+    public function post(string $uri, Closure|array $action): Route
     {
         //registrar la ruta del framework a la propiedad routes
-        $this->routes[HttpMethod::PUT->value][$uri] = $action;
+        return $this->registerRoute(HttpMethod::POST, $uri, $action);
     }
 
-    public function patch(string $uri, Closure|array $action)
+    public function put(string $uri, Closure|array $action): Route
     {
         //registrar la ruta del framework a la propiedad routes
-        $this->routes[HttpMethod::PATCH->value][$uri] = $action;
+        return $this->registerRoute(HttpMethod::PUT, $uri, $action);
     }
 
-    public function delete(string $uri, Closure|array $action)
+    public function patch(string $uri, Closure|array $action): Route
     {
         //registrar la ruta del framework a la propiedad routes
-        $this->routes[HttpMethod::DELETE->value][$uri] = $action;
+        return $this->registerRoute(HttpMethod::PATCH, $uri, $action);
+    }
+
+    public function delete(string $uri, Closure|array $action): Route
+    {
+        //registrar la ruta del framework a la propiedad routes
+        return $this->registerRoute(HttpMethod::DELETE, $uri, $action);
     }
 }

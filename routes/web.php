@@ -1,33 +1,38 @@
 <?php
 
+use Cronos\Routing\Route;
 use App\Controllers\UserController;
 
-$app->get('/', function () {
+Route::get('/producto/{producto}', function () {
+    echo 'Hello producto';
+});
+
+Route::get('/', function () {
     echo 'Hello World s';
 });
 
-$app->get('/users', function () {
+Route::get('/users', function () {
     echo 'Hello Users';
 });
 
-$app->post('/post', function () {
+Route::post('/post', function () {
     echo 'Hello post';
 });
 
-$app->put('/put', function () {
+Route::put('/put', function () {
     echo 'Hello put';
 });
 
-$app->patch('/patch', function () {
+Route::patch('/patch', function () {
     echo 'Hello patch';
 });
 
-$app->delete('/delete', function () {
+Route::delete('/delete', function () {
     echo 'Hello delete';
 });
 
-$app->get('/get_controller', [UserController::class, 'index']);
-$app->post('/post_controller', [UserController::class, 'store']);
-$app->put('/put_controller', [UserController::class, 'update']);
-$app->patch('/patch_controller', [UserController::class, 'update']);
-$app->delete('/delete_controller', [UserController::class, 'destroy']);
+Route::get('/get_controller', [UserController::class, 'index']);
+Route::post('/post_controller', [UserController::class, 'store']);
+Route::put('/put_controller', [UserController::class, 'update']);
+Route::patch('/patch_controller', [UserController::class, 'update']);
+Route::delete('/delete_controller', [UserController::class, 'destroy']);
