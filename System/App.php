@@ -7,7 +7,7 @@ use Cronos\Http\Request;
 use Cronos\Routing\Router;
 use Cronos\Container\Container;
 use Cronos\Errors\HttpNotFoundException;
-
+use Cronos\Http\Response;
 
 class App
 {
@@ -16,6 +16,8 @@ class App
     public Router $router;
 
     public Request $request;
+
+    public Response $response;
 
     public static function bootstrap(string $root)
     {
@@ -48,13 +50,21 @@ class App
         //instanciamos la clase Request y almacenamos en la propiedad request
         $this->request = Container::singleton(Request::class);
 
+        //instanciamos la clase Response y almacenamos en la propiedad response
+        $this->response = Container::singleton(Response::class);
+
         return $this;
     }
 
     public function run()
     {
         try {
-            $this->router->resolve($this->request);
+
+            $response = $this->router->resolve($this->request);
+            if (!is_null($response)) {
+                //se ejecuta solo si es una instancia de la clase Response
+                $this->response->sendResponse($response);
+            }
         } catch (HttpNotFoundException $e) {
             echo 'no existe la ruta Error: 404';
             echo '<br>';

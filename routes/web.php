@@ -3,11 +3,23 @@
 use Cronos\Routing\Route;
 use App\Controllers\UserController;
 use Cronos\Http\Request;
+use Cronos\Http\Response;
+
+Route::get('/', function () {
+    return Response::text('Hello World!');
+});
+
+Route::get('/route/{param}/users/{users}', function (string $param, string $users) {
+    return Response::json(['param' => $param, 'users' => $users]);
+});
+
+Route::get('/redirect', function () {
+    return Response::redirect('/');
+});
 
 Route::get('/get', function (Request $request) {
-    // echo 'get';
-    // die;
-    dd($request->all());
+    // dd($request->all());
+    return Response::json($request->all());
 });
 
 Route::post('/post', function (Request $request) {

@@ -3,9 +3,10 @@
 namespace Cronos\Routing;
 
 use Closure;
+use Cronos\Http\Request;
+use Cronos\Http\Response;
 use Cronos\Routing\Route;
 use Cronos\Http\HttpMethod;
-use Cronos\Http\Request;
 use Cronos\Errors\HttpNotFoundException;
 use Cronos\Container\DependencyInjection;
 
@@ -22,7 +23,7 @@ class Router
         }
     }
 
-    public function resolve(Request $request)
+    public function resolve(Request $request): mixed
     {
         //obtener la instancia de la clase Route dependiendo de la uri y el metodo http
         $route = $this->resolveRoute($request);
