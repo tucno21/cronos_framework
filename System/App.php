@@ -3,10 +3,11 @@
 namespace Cronos;
 
 use Throwable;
+use Cronos\Http\Request;
 use Cronos\Routing\Router;
 use Cronos\Container\Container;
 use Cronos\Errors\HttpNotFoundException;
-use Cronos\Routing\Request;
+
 
 class App
 {

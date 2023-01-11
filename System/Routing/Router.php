@@ -5,7 +5,7 @@ namespace Cronos\Routing;
 use Closure;
 use Cronos\Routing\Route;
 use Cronos\Http\HttpMethod;
-use Cronos\Routing\Request;
+use Cronos\Http\Request;
 use Cronos\Errors\HttpNotFoundException;
 use Cronos\Container\DependencyInjection;
 

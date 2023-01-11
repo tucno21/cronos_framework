@@ -2,7 +2,7 @@
 
 use Cronos\Routing\Route;
 use App\Controllers\UserController;
-use Cronos\Routing\Request;
+use Cronos\Http\Request;
 
 Route::get('/get', function (Request $request) {
     // echo 'get';

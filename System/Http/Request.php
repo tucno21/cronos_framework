@@ -1,6 +1,6 @@
 <?php
 
-namespace Cronos\Routing;
+namespace Cronos\Http;
 
 use Cronos\Http\HttpMethod;
 
