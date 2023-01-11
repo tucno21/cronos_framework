@@ -4,6 +4,7 @@ namespace Cronos;
 
 use Cronos\Routing\Router;
 use Cronos\Container\Container;
+use Cronos\Errors\HttpNotFoundException;
 
 class App
 {
@@ -42,6 +43,11 @@ class App
 
     public function run()
     {
-        $this->router->resolve($_SERVER["REQUEST_URI"], $_SERVER["REQUEST_METHOD"]);
+        try {
+            $this->router->resolve($_SERVER["REQUEST_URI"], $_SERVER["REQUEST_METHOD"]);
+        } catch (HttpNotFoundException $e) {
+            echo 'no existe la ruta Error: 404';
+            echo $e->getMessage();
+        }
     }
 }
