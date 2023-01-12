@@ -32,4 +32,11 @@ class HomeController extends Controller
             'message' => 'Datos validados correctamente',
         ]);
     }
+
+    public function user(string $user)
+    {
+        return json([
+            'message' => "user: $user",
+        ]);
+    }
 }

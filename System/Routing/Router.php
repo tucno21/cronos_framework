@@ -7,13 +7,18 @@ use Cronos\Http\Request;
 use Cronos\Http\Response;
 use Cronos\Routing\Route;
 use Cronos\Http\HttpMethod;
+use Cronos\Container\Container;
+use Cronos\Errors\RouteException;
 use Cronos\Errors\HttpNotFoundException;
 use Cronos\Container\DependencyInjection;
 
 
 class Router
 {
-    protected array $routes = [];
+    public array $routes = [];
+
+    public array $nameUrl = [];
+    public array $nameRoute = [];
 
     public function __construct()
     {
@@ -85,7 +90,7 @@ class Router
 
     public function get(string $uri, Closure|array $action): Route
     {
-        //registrar la ruta del framework a la propiedad routes
+        array_push($this->nameUrl, $uri);
         return $this->registerRoute(HttpMethod::GET, $uri, $action);
     }
 
@@ -111,5 +116,64 @@ class Router
     {
         //registrar la ruta del framework a la propiedad routes
         return $this->registerRoute(HttpMethod::DELETE, $uri, $action);
+    }
+
+    public function name(string $name)
+    {
+        foreach ($this->nameUrl as $key => $value) {
+            $this->nameRoute[$name] = $value;
+        }
+    }
+
+    public function route(string $nameRoute, string|array $params = null)
+    {
+        if (isset($this->nameRoute[$nameRoute])) {
+            //comprobar si $nameRoute tiene llaves {} para agregarle los parametros
+            if (!strpos($this->nameRoute[$nameRoute], '{')) {
+                if ($params === null) {
+                    return base_url . $this->nameRoute[$nameRoute];
+                }
+                return base_url . $this->nameRoute[$nameRoute] . '/' . $params;
+            }
+
+            //user/{user}/products/{id}
+            $pre_url = preg_replace('/\{([a-zA-Z]+)\}/', 'cronosXcronos', $this->nameRoute[$nameRoute]);
+            //user/cronosXcronos/products/cronosXcronos
+
+            if ($params === null) {
+                throw new RouteException('La ruta ' . $nameRoute . ' requiere parametros');
+            }
+
+
+            if (is_string($params)) {
+                $params = [$params];
+            }
+
+            //contar cuantos cronosXcronos hay en la $pre_url
+            $count = substr_count($pre_url, 'cronosXcronos');
+            //contar cuantos parametros hay en el array $params
+            $countParams = count($params);
+
+            //comprobar si los parametros son iguales a los cronosXcronos
+            if ($count !== $countParams) {
+                throw new RouteException('La ruta ' . $nameRoute . ' requiere ' . $count . ' parametros');
+            }
+
+            //separar $keys por / en un array
+            $keys = explode('/', $pre_url);
+            //buscar cronosXcronos en el array $keys
+            foreach ($keys as $key => $value) {
+                if ($value === 'cronosXcronos') {
+                    //reemplazar cronosXcronos por el valor de $params
+                    $keys[$key] = array_shift($params);
+                }
+            }
+
+            //unir el array $keys por /
+            $url = implode('/', $keys);
+            return base_url . $url;
+        }
+
+        throw new RouteException('La ruta ' . $nameRoute . ' no existe');
     }
 }

@@ -119,4 +119,11 @@ class Route
 
         return $this;
     }
+
+    public function name(string $name): self
+    {
+        Container::resolve(App::class)->router->name($name);
+        //almacenamos el nombre de la ruta
+        return $this;
+    }
 }

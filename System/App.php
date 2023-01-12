@@ -9,6 +9,7 @@ use Cronos\Http\Response;
 use Cronos\Routing\Router;
 use Cronos\View\CronosEngine;
 use Cronos\Container\Container;
+use Cronos\Errors\RouteException;
 use Cronos\Errors\HttpNotFoundException;
 
 class App
@@ -47,7 +48,7 @@ class App
     protected function setHttpConnection(): self
     {
         //instanciamos la clase Router y almacenamos en la propiedad router
-        $this->router = new Router();
+        $this->router = Container::singleton(Router::class);
 
         //instanciamos la clase Request y almacenamos en la propiedad request
         $this->request = Container::singleton(Request::class);
@@ -66,7 +67,6 @@ class App
     public function run()
     {
         try {
-
             $response = $this->router->resolve($this->request);
             if (!is_null($response)) {
                 //se ejecuta solo si es una instancia de la clase Response
@@ -75,6 +75,9 @@ class App
         } catch (HttpNotFoundException $e) {
             $response = view('error/404');
             $this->abort($response->setStatusCode(404));
+        } catch (RouteException $e) {
+            $response = json(["message" => $e->getMessage()]);
+            $this->abort($response->setStatusCode(500));
         } catch (Throwable $e) {
             $response = json([
                 "Type error" => $e::class,
