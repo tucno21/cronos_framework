@@ -73,27 +73,29 @@ class App
                 $this->response->sendResponse($response);
             }
         } catch (HttpNotFoundException $e) {
-            echo 'no existe la ruta Error: 404';
-            echo '<br>';
-            echo '<br>';
-            echo $e->getFile();
-            echo '<br>';
-            echo '<br>';
-            echo $e->getLine();
+            $response = view('error/404');
+            $this->abort($response->setStatusCode(404));
         } catch (Throwable $e) {
-            echo $e::class;
-            echo '<br>';
-            echo '<br>';
-            echo $e->getMessage();
-            echo '<br>';
-            echo '<br>';
-            echo $e->getTraceAsString();
-            echo '<br>';
-            echo '<br>';
-            echo $e->getFile();
-            echo '<br>';
-            echo '<br>';
-            echo $e->getLine();
+            $response = json([
+                "Type error" => $e::class,
+                "message" => $e->getMessage(),
+                "file" => $e->getFile(),
+                "line" => $e->getLine(),
+                "trace" => $e->getTrace(),
+                "TraceAsString" => $e->getTraceAsString(),
+            ]);
+            $this->abort($response->setStatusCode(500));
         }
+    }
+
+    public function abort(Response $response)
+    {
+        $this->terminate($response);
+    }
+
+    public function terminate(Response $response)
+    {
+        $this->response->sendResponse($response);
+        exit();
     }
 }

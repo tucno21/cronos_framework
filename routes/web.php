@@ -1,16 +1,16 @@
 <?php
 
 use Cronos\Routing\Route;
-use App\Controllers\UserController;
+// use App\Controllers\UserController;
 use Cronos\Http\Request;
 use Cronos\Http\Response;
 
 Route::get('/', function (Request $request) {
-    return view('producto/index', ['data' => $request->all()]);
+    return view('home');
 });
 
 Route::get('/cambio', function (Request $request) {
-    return view('home');
+    return view('form');
 });
 
 Route::get('/route/{param}/users/{users}', function (string $param, string $users) {
