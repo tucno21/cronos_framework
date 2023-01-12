@@ -5,8 +5,8 @@ use App\Controllers\UserController;
 use Cronos\Http\Request;
 use Cronos\Http\Response;
 
-Route::get('/', function () {
-    return Response::text('Hello World!');
+Route::get('/', function (Request $request) {
+    return Response::view('producto/index', ['data' => $request->all()]);
 });
 
 Route::get('/route/{param}/users/{users}', function (string $param, string $users) {

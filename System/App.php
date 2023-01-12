@@ -3,11 +3,13 @@
 namespace Cronos;
 
 use Throwable;
+use Cronos\View\View;
 use Cronos\Http\Request;
+use Cronos\Http\Response;
 use Cronos\Routing\Router;
+use Cronos\View\CronosEngine;
 use Cronos\Container\Container;
 use Cronos\Errors\HttpNotFoundException;
-use Cronos\Http\Response;
 
 class App
 {
@@ -52,6 +54,11 @@ class App
 
         //instanciamos la clase Response y almacenamos en la propiedad response
         $this->response = Container::singleton(Response::class);
+
+        Container::singleton(
+            View::class,
+            fn () => new CronosEngine(__DIR__ . '/../resources/views')
+        );
 
         return $this;
     }

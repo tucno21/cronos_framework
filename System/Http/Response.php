@@ -2,6 +2,9 @@
 
 namespace Cronos\Http;
 
+use Cronos\View\View;
+use Cronos\Container\Container;
+
 class Response
 {
     //iniciamos con el codigo de respuesta 200
@@ -101,6 +104,15 @@ class Response
         return (new self())
             ->setStatusCode($statusCode)
             ->setHeaders("Location", $url);
+    }
+
+    public static function view(string $viewName, array $params = [], string $layout = null): self
+    {
+        $content = Container::resolve(View::class)->render($viewName, $params, $layout);
+
+        return (new self())
+            ->setContentType("text/html")
+            ->setContent($content);
     }
 
     //ejectuamos la respuestas que hemos preparado
