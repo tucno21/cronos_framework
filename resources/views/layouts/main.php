@@ -29,7 +29,6 @@
     </nav>
 
     <main class="container">
-        <p><?= $data->email ?></p>
         @content
     </main>
 </body>

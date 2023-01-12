@@ -19,7 +19,9 @@
 			"Cronos\\": "./System"
 		},
 		"files": [
-			"System/Helpers/debug.php"
+			"System/Helpers/debug.php",
+			"System/Helpers/app.php",
+			"System/Helpers/http.php"
 		]
 	}
 }

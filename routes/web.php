@@ -6,7 +6,11 @@ use Cronos\Http\Request;
 use Cronos\Http\Response;
 
 Route::get('/', function (Request $request) {
-    return Response::view('producto/index', ['data' => $request->all()]);
+    return view('producto/index', ['data' => $request->all()]);
+});
+
+Route::get('/cambio', function (Request $request) {
+    return view('home');
 });
 
 Route::get('/route/{param}/users/{users}', function (string $param, string $users) {
@@ -14,7 +18,7 @@ Route::get('/route/{param}/users/{users}', function (string $param, string $user
 });
 
 Route::get('/redirect', function () {
-    return Response::redirect('/');
+    return redirect('/cambio?name=juan');
 });
 
 Route::get('/get', function (Request $request) {
