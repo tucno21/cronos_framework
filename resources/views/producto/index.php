@@ -1,1 +1,0 @@
-<h1>producto <?= $data->name ?> </h1>
