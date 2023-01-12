@@ -20,6 +20,9 @@ class Route
     //almacenamos los parametros de la uri en un array
     protected array $parameters;
 
+    //almacenamos los middlewares
+    protected array $middlewares = [];
+
     public function __construct(string $uri, Closure|array $action)
     {
         //alamacenar la uri que viene del framework
@@ -96,5 +99,24 @@ class Route
     {
         //enviamos la uri y la accion al router mediante la instancia de la clase App
         return Container::resolve(App::class)->router->delete($uri, $action);
+    }
+
+    public function middlewares(): array
+    {
+        return $this->middlewares;
+    }
+
+    public function middleware(string|array $middlewares): self
+    {
+        if (is_string($middlewares)) {
+            //si es un string lo convertimos en array
+            $middlewares = [$middlewares];
+        }
+
+        //array_map crea un nuevo array con los resultados de la funcion
+        //almacenamos los middlewares en el array $middlewares
+        $this->middlewares = array_map(fn ($middleware) => new $middleware, $middlewares);
+
+        return $this;
     }
 }

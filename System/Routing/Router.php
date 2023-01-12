@@ -42,7 +42,8 @@ class Router
         $params = DependencyInjection::resolveParameters($action, $route->parseParameters($request->uri()));
 
         //ejecutar la accion sea una funcion o una clase y sus parametros
-        return call_user_func($action, ...$params);
+        // return call_user_func($action, ...$params);
+        return $this->runMiddlewares($request, $route->middlewares(), fn () => call_user_func($action, ...$params));
     }
 
     public function resolveRoute(Request $request)
@@ -59,6 +60,17 @@ class Router
 
         //si no existe la ruta lanzar una excepcion
         throw new HttpNotFoundException();
+    }
+
+    protected function runMiddlewares(Request $request, array $middlewares, $target): Response
+    {
+        if (count($middlewares) === 0) {
+            //ejecutamos los controladores
+            return $target();
+        }
+
+        //ejecutamos el primer middleware y le pasamos el request y la funcion que se ejecutara  que esta en el objeto Route declarado en la linea web.php
+        return $middlewares[0]->handle($request, fn ($request) => $this->runMiddlewares($request, array_slice($middlewares, 1), $target));
     }
 
     protected function registerRoute(HttpMethod $method, string $uri, Closure|array $action): Route

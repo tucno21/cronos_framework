@@ -44,6 +44,28 @@ class Request
         return $this->method;
     }
 
+    public function getHeaders(): array
+    {
+        return $this->headers;
+    }
+
+    public function setHeaders(array $headers): self
+    {
+        foreach ($headers as $header => $value) {
+            $this->headers[$header] = $value;
+        }
+        return $this;
+    }
+
+    public function headers(string $key = null): array|string|null
+    {
+        if (is_null($key)) {
+            return $this->headers;
+        }
+
+        return $this->headers[$key] ?? null;
+    }
+
     protected function postPutPatchDelete(): array
     {
         //obtener los headers cabezera
