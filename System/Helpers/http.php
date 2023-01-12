@@ -2,9 +2,9 @@
 
 use Cronos\Http\Response;
 
-function json(array $data): Response
+function json(array|object $data, int $statusCode = 200): Response
 {
-    return Response::json($data);
+    return Response::json($data, $statusCode);
 }
 
 function redirect(string $url): Response

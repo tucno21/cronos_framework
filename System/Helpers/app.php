@@ -30,6 +30,11 @@ if (!function_exists('last_char')) {
     }
 }
 
+/**
+ * formato de salida de validation
+ */
+define('RESULT_TYPE', 'object');
+
 $baseURL = 'http://cronos_framework.test/';
 
 /**

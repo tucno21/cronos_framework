@@ -19,6 +19,17 @@ class HomeController extends Controller
 
     public function store(Request $request)
     {
-        dd($request->all());
+        $valid = $this->validate($request->all(), [
+            'name' => 'required|min:3|max:10',
+            'email' => 'required|email',
+        ]);
+
+        if ($valid !== true) {
+            return json($valid, 422);
+        }
+
+        return json([
+            'message' => 'Datos validados correctamente',
+        ]);
     }
 }
