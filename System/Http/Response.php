@@ -99,11 +99,32 @@ class Response
             ->setContent($text);
     }
 
-    public static function redirect(string $url, int $statusCode = 200): self
+    public static function redirect(string $url = null, int $statusCode = 200): self
     {
+        if (is_null($url)) {
+            return (new self());
+        } else {
+            return (new self())
+                ->setStatusCode($statusCode)
+                ->setHeaders("Location", $url);
+        }
+    }
+
+    public static function route(string $nameRoute): self
+    {
+        $route = route($nameRoute);
+        // eliminar http:// o https://
+        // $route = preg_replace('/^http(s)?:\/\//', '', $route);
+        // // obtener el host
+        // $host = $_SERVER['HTTP_HOST'];
+        // // eliminar el host
+        // $route = preg_replace('/^' . $host . '/', '', $route);
+
+        // // dd($route);
+
         return (new self())
-            ->setStatusCode($statusCode)
-            ->setHeaders("Location", $url);
+            ->setStatusCode(200)
+            ->setHeaders("Location", $route);
     }
 
     public static function view(string $viewName, array $params = [], string $layout = null): self

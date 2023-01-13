@@ -9,7 +9,7 @@ function json(array|object $data, int $statusCode = 200): Response
     return Response::json($data, $statusCode);
 }
 
-function redirect(string $url): Response
+function redirect(string $url = null): Response
 {
     return Response::redirect($url);
 }
