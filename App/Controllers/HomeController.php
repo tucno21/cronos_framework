@@ -9,6 +9,32 @@ class HomeController extends Controller
 {
     public function index()
     {
+        //ver las sesiones creadas
+        // session()->flash('message', 'Hola mundo');
+
+        $data = [
+            'id' => 2,
+            'name' => 'Cronos',
+            'email' => 'cc@cc',
+            'categories' => [
+                'php',
+                'javascript',
+                'css',
+                'html',
+            ],
+        ];
+
+        $data = (object) $data;
+
+        session()->put('user', $data);
+        // session()->put('competencia', $data);
+        // session()->push('user.profesion', 'programador');
+        // session()->forget('user');
+        // session()->flush();
+        // $sesion = $_SESSION;
+        $sesion = session()->user();
+        dd($sesion);
+
         return view('home');
     }
 

@@ -8,17 +8,17 @@ use Cronos\Http\Middleware;
 use App\Controllers\HomeController;
 
 
-class AuthMiddleware implements Middleware
-{
-    public function handle(Request $request, Closure $next): Response
-    {
-        if ($request->headers('Connection') == 'keep-alive') {
-            return json(['message' => 'Unauthorized'], 401);
-        }
+// class AuthMiddleware implements Middleware
+// {
+//     public function handle(Request $request, Closure $next): Response
+//     {
+//         if ($request->headers('Connection') !== 'keep-alive') {
+//             return json(['message' => 'Unauthorized'], 401);
+//         }
 
-        return $next($request);
-    }
-}
+//         return $next($request);
+//     }
+// }
 // class LoginMiddleware implements Middleware
 // {
 //     public function handle(Request $request, Closure $next): Response
@@ -31,7 +31,7 @@ class AuthMiddleware implements Middleware
 //     }
 // }
 
-Route::get('/', [HomeController::class, 'index'])->name('home.index')->middleware(AuthMiddleware::class);
+Route::get('/', [HomeController::class, 'index'])->name('home.index');
 Route::get('/user/{user}', [HomeController::class, 'user'])->name('home.user');
 Route::get('/form', [HomeController::class, 'form'])->name('home.form');
 Route::post('/form', [HomeController::class, 'store']);

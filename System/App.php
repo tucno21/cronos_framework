@@ -7,10 +7,13 @@ use Cronos\View\View;
 use Cronos\Http\Request;
 use Cronos\Http\Response;
 use Cronos\Routing\Router;
+use Cronos\Session\Session;
 use Cronos\View\CronosEngine;
 use Cronos\Container\Container;
 use Cronos\Errors\RouteException;
+use Cronos\Session\SessionStorage;
 use Cronos\Errors\HttpNotFoundException;
+use Cronos\Session\PhpNativeSessionStorage;
 
 class App
 {
@@ -21,6 +24,8 @@ class App
     public Request $request;
 
     public Response $response;
+
+    public Session $session;
 
     public static function bootstrap(string $root)
     {
@@ -55,6 +60,8 @@ class App
 
         //instanciamos la clase Response y almacenamos en la propiedad response
         $this->response = Container::singleton(Response::class);
+
+        $this->session = Container::singleton(Session::class);
 
         Container::singleton(
             View::class,

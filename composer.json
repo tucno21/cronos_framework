@@ -21,7 +21,8 @@
 		"files": [
 			"System/Helpers/debug.php",
 			"System/Helpers/app.php",
-			"System/Helpers/http.php"
+			"System/Helpers/http.php",
+			"System/Helpers/session.php"
 		]
 	}
 }
