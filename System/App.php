@@ -10,11 +10,11 @@ use Cronos\Routing\Router;
 use Cronos\Http\HttpMethod;
 use Cronos\Session\Session;
 use Cronos\View\CronosEngine;
+use Cronos\Database\PdoDriver;
 use Cronos\Container\Container;
 use Cronos\Errors\RouteException;
-use Cronos\Session\SessionStorage;
+use Cronos\Database\DatabaseDriver;
 use Cronos\Errors\HttpNotFoundException;
-use Cronos\Session\PhpNativeSessionStorage;
 
 class App
 {
@@ -28,6 +28,8 @@ class App
 
     public Session $session;
 
+    public DatabaseDriver $database;
+
     public static function bootstrap(string $root)
     {
         //obtenemos la ruta del proyecto framework
@@ -39,13 +41,23 @@ class App
         //retornamos la instancia de la clase App y ejecutamos el metodo runServiceProvider
         return $app
             ->setHttpConnection()
-            ->runServiceProvider("web");
+            ->runServiceProvider("web")
+            ->setUpDatabaseConnection();
     }
 
     protected function runServiceProvider(string $type): self
     {
         //obtenemos la ruta del archivo routes/web.php
         require_once self::$root . "/routes/$type.php";
+
+        return $this;
+    }
+
+
+    protected function setUpDatabaseConnection(): self
+    {
+        $this->database = Container::singleton(DatabaseDriver::class, PdoDriver::class);
+        $this->database->connect('mysql', 'localhost', 3306, 'test', 'root', 'root');
 
         return $this;
     }
