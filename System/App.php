@@ -7,6 +7,7 @@ use Cronos\View\View;
 use Cronos\Http\Request;
 use Cronos\Http\Response;
 use Cronos\Routing\Router;
+use Cronos\Http\HttpMethod;
 use Cronos\Session\Session;
 use Cronos\View\CronosEngine;
 use Cronos\Container\Container;
@@ -63,12 +64,22 @@ class App
 
         $this->session = Container::singleton(Session::class);
 
+        $this->uriCurrent();
+
         Container::singleton(
             View::class,
             fn () => new CronosEngine(__DIR__ . '/../resources/views')
         );
 
         return $this;
+    }
+
+    protected function uriCurrent()
+    {
+        //almacenamos la ruta actual en la variable de sesion previousPath
+        if ($this->request->method() == HttpMethod::GET) {
+            $this->session->previousPath($this->request->uri());
+        }
     }
 
     public function run()

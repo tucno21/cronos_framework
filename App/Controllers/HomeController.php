@@ -14,6 +14,7 @@ class HomeController extends Controller
 
     public function form()
     {
+        // dd($_SESSION);
         return view('form');
     }
 
@@ -25,10 +26,10 @@ class HomeController extends Controller
         ]);
 
         if ($valid !== true) {
-            return json($valid, 422);
+            return back()->withErrors($request->all(), $valid);
         }
 
-        return redirect()->route('home.index');
+        return redirect()->route('home.index')->with('message', 'Formulario enviado correctamente 22');
     }
 
     public function user(string $user)

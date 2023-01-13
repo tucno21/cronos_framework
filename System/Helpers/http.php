@@ -14,6 +14,11 @@ function redirect(string $url = null): Response
     return Response::redirect($url);
 }
 
+function back(): Response
+{
+    return Response::back();
+}
+
 function view(string $viewName, array $params = [], string $layout = null): Response
 {
     return Response::view($viewName, $params, $layout);

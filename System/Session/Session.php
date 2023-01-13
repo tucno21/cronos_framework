@@ -9,6 +9,9 @@ class Session
     protected SessionStorage $storage;
 
     public const FLASH_KEY = '_flash';
+    public const SESSION_CRONOS_PREVIOUS_PATH = '_cronos_previous_path';
+
+    public const SESSION_ERRORS_IMPUTS = '_errors_inputs';
 
     public function __construct()
     {
@@ -17,6 +20,10 @@ class Session
 
         if (!$this->storage->has(self::FLASH_KEY)) {
             $this->storage->set(self::FLASH_KEY, ['old' => [], 'new' => []]);
+        }
+
+        if (!$this->storage->has(self::SESSION_CRONOS_PREVIOUS_PATH)) {
+            $this->storage->set(self::SESSION_CRONOS_PREVIOUS_PATH, ['old' => '', 'new' => '']);
         }
     }
 
@@ -152,13 +159,82 @@ class Session
 
     public function attempt(mixed $value)
     {
-        //almacenar en la sesion
+        //almacenar en la sesion sin clave
         return $this->storage->set('SESSION_CRONOS', $value);
     }
 
     public function user()
     {
-        //obtener el valor de la sesion
+        //obtener el valor de la sesion sin clave
         return $this->storage->get('SESSION_CRONOS');
+    }
+
+    public function previousPath(string $path)
+    {
+        //funcion que guarda el path anterior para el uso de la funcion back()
+        $previousPath = $this->storage->get(self::SESSION_CRONOS_PREVIOUS_PATH);
+        $previousPath['old'] = $previousPath['new'];
+        $previousPath['new'] = $path;
+        $this->storage->set(self::SESSION_CRONOS_PREVIOUS_PATH, $previousPath);
+    }
+
+    public function setErrorsInputs(array|object $dataInput, array|object $errors)
+    {
+        //almacena los errores de los inputs y los datos que se enviaron
+        $this->storage->set(self::SESSION_ERRORS_IMPUTS, ['dataInput' => $dataInput, 'errors' => $errors]);
+    }
+
+    public function error(string $key): ?string
+    {
+        //obtener los errores de los inputs mediante la clave
+        $content = $this->storage->get(self::SESSION_ERRORS_IMPUTS);
+
+        $errors = [];
+        if (is_object($content["errors"])) {
+            $errors = (array) $content["errors"];
+        } else {
+            $errors = $content["errors"];
+        }
+
+        return $errors[$key] ?? null;
+    }
+
+    public function old(string $key): ?string
+    {
+        //obtener los datos que se enviaron mediante la clave
+        $content = $this->storage->get(self::SESSION_ERRORS_IMPUTS);
+
+        $dataInput = [];
+        if (is_object($content["dataInput"])) {
+            $dataInput = (array) $content["dataInput"];
+        } else {
+            $dataInput = $content["dataInput"];
+        }
+
+        return $dataInput[$key] ?? null;
+    }
+
+    public function ifError(string $key): bool
+    {
+        //verificar si existe un error en un input
+        $content = $this->storage->get(self::SESSION_ERRORS_IMPUTS);
+
+        $errors = [];
+        if (is_object($content["errors"])) {
+            $errors = (array) $content["errors"];
+        } else {
+            $errors = $content["errors"];
+        }
+
+        return isset($errors[$key]);
+    }
+
+    public function deleteErrorsInputs()
+    {
+        //eliminar los errores de los inputs y los datos que se enviaron
+        $content = $this->storage->get(self::SESSION_ERRORS_IMPUTS);
+        $content['dataInput'] = [];
+        $content['errors'] = [];
+        $this->storage->set(self::SESSION_ERRORS_IMPUTS, $content);
     }
 }

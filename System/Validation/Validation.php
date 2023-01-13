@@ -36,6 +36,8 @@ class Validation
             $this->callRules();
 
             if (count(self::$errors) === 0) {
+                //eliminar los errores de la sesion que se hayan guardado
+                session()->deleteErrorsInputs();
                 return true;
             } else {
                 $error = self::$errors;

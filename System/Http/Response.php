@@ -38,6 +38,13 @@ class Response
         return $this->headers[strtolower($key)] ?? null;
     }
 
+    public static function searchHeaders(string $key)
+    {
+        //retornamos la cabecera
+        return headers_list()[strtolower($key)] ?? null;
+    }
+
+
     public function setHeaders(string $header, string $value): self
     {
         //asignamos la cabecera con su valor
@@ -125,6 +132,30 @@ class Response
         return (new self())
             ->setStatusCode(200)
             ->setHeaders("Location", $route);
+    }
+
+    public static function back(): self
+    {
+        $sesionAnterior = session()->get('_cronos_previous_path');
+
+        return (new self())
+            ->setStatusCode(200)
+            ->setHeaders("Location", $sesionAnterior['new']);
+        // ->setHeaders("Location", $_SERVER['HTTP_REFERER']);
+    }
+
+    public function with(string $key, $value, int $statusCode = 400): self
+    {
+        $this->setStatusCode($statusCode);
+        session()->flash($key, $value);
+        return $this;
+    }
+
+    public function withErrors(array|object $dataInput, array|object $errors, int $statusCode = 400): self
+    {
+        $this->setStatusCode($statusCode);
+        session()->setErrorsInputs($dataInput, $errors);
+        return $this;
     }
 
     public static function view(string $viewName, array $params = [], string $layout = null): self
