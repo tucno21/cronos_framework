@@ -28,6 +28,11 @@ class PdoDriver implements DatabaseDriver
         }
     }
 
+    public function lastInsertId()
+    {
+        return $this->pdo->lastInsertId();
+    }
+
     public function close()
     {
         $this->pdo = null;
@@ -38,6 +43,16 @@ class PdoDriver implements DatabaseDriver
         $statement = $this->pdo->prepare($query);
         $statement->execute($bind);
 
-        return $statement->fetchAll(PDO::FETCH_ASSOC);
+        return $statement->fetchAll(PDO::FETCH_OBJ);
+    }
+
+    public function statementC_U_D(string $query, array $bind = []): mixed
+    {
+        $statement = $this->pdo->prepare($query);
+        $statement->execute($bind);
+        $statement->fetchAll(PDO::FETCH_OBJ);
+        $cant = $statement->rowCount();
+
+        return $cant;
     }
 }

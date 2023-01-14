@@ -4,6 +4,7 @@ namespace Cronos;
 
 use Throwable;
 use Cronos\View\View;
+use Cronos\Model\Model;
 use Cronos\Http\Request;
 use Cronos\Http\Response;
 use Cronos\Routing\Router;
@@ -58,7 +59,7 @@ class App
     {
         $this->database = Container::singleton(DatabaseDriver::class, PdoDriver::class);
         $this->database->connect('mysql', 'localhost', 3306, 'test', 'root', 'root');
-
+        Model::setDB($this->database);
         return $this;
     }
 
