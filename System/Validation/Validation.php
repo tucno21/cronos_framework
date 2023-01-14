@@ -466,7 +466,7 @@ class Validation
     private static function getByColumn($model, $column, $value)
     {
         $class = "App\\Models\\" . $model;
-        return $class::where($column, $value)->get();
+        return $class::where($column, $value)->first();
     }
 
     private static function validateNot_unique(string $nameInput, string $rule, $params)
@@ -500,6 +500,11 @@ class Validation
                 $result = self::getByColumn($model, $colum, $email);
 
                 if (!empty($result)) {
+
+                    if (is_array($result) && count($result) === 1) {
+                        $result = $result[0];
+                    }
+
                     $result = (object)$result;
                     if (!password_verify($value, $result->$nameInput)) {
                         self::addError($nameInput, $rule);
