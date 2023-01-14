@@ -10,7 +10,7 @@ class User extends Model
 
     protected string $primaryKey = 'id';
 
-    protected array $fillable = ['name', 'email'];
+    protected array $fillable = ['name', 'email', 'password'];
 
     protected array $hidden = ['password'];
 

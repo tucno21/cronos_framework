@@ -32,6 +32,7 @@ use App\Controllers\HomeController;
 // }
 
 Route::get('/', [HomeController::class, 'index'])->name('home.index');
-Route::get('/user/{user}', [HomeController::class, 'user'])->name('home.user');
-Route::get('/form', [HomeController::class, 'form'])->name('home.form');
-Route::post('/form', [HomeController::class, 'store']);
+Route::get('/login', [HomeController::class, 'login'])->name('home.login');
+Route::post('/login', [HomeController::class, 'store']);
+Route::get('/register', [HomeController::class, 'register'])->name('home.register');
+Route::post('/register', [HomeController::class, 'create']);

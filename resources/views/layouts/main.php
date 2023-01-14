@@ -24,10 +24,10 @@
                         <a class="nav-link active" aria-current="page" href="<?= route('home.index') ?>">Home</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" aria-current="page" href="<?= route('home.form') ?>">Formulario</a>
+                        <a class="nav-link" aria-current="page" href="<?= route('home.login') ?>">Login</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" aria-current="page" href="<?= route('home.user', 21) ?>">Usuario</a>
+                        <a class="nav-link" aria-current="page" href="<?= route('home.register') ?>">Register</a>
                     </li>
                 </ul>
             </div>

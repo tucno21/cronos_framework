@@ -10,7 +10,7 @@ class HomeController extends Controller
 {
     public function index()
     {
-
+        // dd($_SESSION);
         // $user = new User();
         // $user->name = 'Yovana';
         // $user->email = 'yovana@condor.com';
@@ -23,8 +23,8 @@ class HomeController extends Controller
             // 'email' => 'pamela@pamela.com',
         ];
 
-        $result = User::delete($id);
-        dd($result);
+        // $result = User::delete($id);
+        // dd($result);
 
 
 
@@ -142,38 +142,57 @@ class HomeController extends Controller
         //     ->orderBy('id', 'DESC')
         //     ->get();
 
-        $user = User::orderBy('id', 'DESC')
-            ->get();
+        // $user = User::orderBy('id', 'DESC')
+        //     ->get();
 
-        dd($user);
+        // dd($user);
 
-        return json($user);
+        return view('home');
     }
 
-    public function form()
+    public function login()
     {
         // dd($_SESSION);
-        return view('form');
+        return view('login');
     }
 
     public function store(Request $request)
     {
         $valid = $this->validate($request->all(), [
-            'name' => 'required|min:3|max:10',
-            'email' => 'required|email',
+            'email' => 'required|email|not_unique:User,email',
+            'password' => 'required',
         ]);
 
         if ($valid !== true) {
             return back()->withErrors($request->all(), $valid);
         }
 
+        dd($request->all());
+
         return redirect()->route('home.index')->with('message', 'Formulario enviado correctamente 22');
     }
 
-    public function user(string $user)
+    public function register()
     {
-        return json([
-            'message' => "user: $user",
+        // dd($_SESSION);
+        return view('register');
+    }
+
+    public function create(Request $request)
+    {
+        $valid = $this->validate($request->all(), [
+            'name' => 'required|string|min:3|max:15',
+            'email' => 'required|email|unique:User,email',
+            'password' => 'required|min:2|max:10|matches:repetir_password',
+            'repetir_password' => 'required|matches:password',
         ]);
+
+        if ($valid !== true) {
+            return back()->withErrors($request->all(), $valid);
+        }
+
+        dd($request->all());
+
+        return redirect()->route('home.index')->with('message', 'Formulario enviado correctamente 22');
     }
 }
