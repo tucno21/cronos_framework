@@ -25,6 +25,10 @@ class Session
         if (!$this->storage->has(self::SESSION_CRONOS_PREVIOUS_PATH)) {
             $this->storage->set(self::SESSION_CRONOS_PREVIOUS_PATH, ['old' => '', 'new' => '']);
         }
+
+        if (!$this->storage->has(self::SESSION_ERRORS_IMPUTS)) {
+            $this->storage->set(self::SESSION_ERRORS_IMPUTS, ['dataInput' => [], 'errors' => []]);
+        }
     }
 
     public function __destruct()
@@ -146,7 +150,7 @@ class Session
     {
         //eliminar todo menos  ["_flash"]
         foreach ($this->all() as $key => $value) {
-            if ($key !== self::FLASH_KEY) {
+            if ($key !== self::FLASH_KEY && $key !== self::SESSION_CRONOS_PREVIOUS_PATH && $key !== self::SESSION_ERRORS_IMPUTS) {
                 $this->storage->remove($key);
             }
         }
