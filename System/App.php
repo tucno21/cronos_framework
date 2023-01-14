@@ -93,6 +93,11 @@ class App
         if ($this->request->method() == HttpMethod::GET) {
             $this->session->previousPath($this->request->uri());
         }
+
+        $sesion = $_SESSION["_cronos_previous_path"]["old"] == $this->request->uri();
+        if (!$sesion) {
+            session()->deleteErrorsInputs();
+        }
     }
 
     public function run()
