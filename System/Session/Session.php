@@ -173,6 +173,18 @@ class Session
         return $this->storage->get('SESSION_CRONOS');
     }
 
+    public function hasUser()
+    {
+        //verificar si existe la sesion sin clave
+        return $this->storage->has('SESSION_CRONOS');
+    }
+
+    public function logout()
+    {
+        //eliminar la sesion sin clave
+        return $this->storage->remove('SESSION_CRONOS');
+    }
+
     public function previousPath(string $path)
     {
         //funcion que guarda el path anterior para el uso de la funcion back()
