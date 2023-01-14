@@ -4,6 +4,8 @@ namespace App\Controllers;
 
 use App\Models\User;
 use Cronos\Http\Request;
+use Cronos\Crypto\Bcrypt;
+use Cronos\Crypto\Hasher;
 use Cronos\Http\Controller;
 
 class HomeController extends Controller
@@ -160,16 +162,19 @@ class HomeController extends Controller
     {
         $valid = $this->validate($request->all(), [
             'email' => 'required|email|not_unique:User,email',
-            'password' => 'required',
+            'password' => 'required|password_verify:User,email',
         ]);
 
         if ($valid !== true) {
             return back()->withErrors($request->all(), $valid);
         }
 
-        dd($request->all());
+        $user = User::where('email', $request->input('email'))->first();
+        unset($user->password);
 
-        return redirect()->route('home.index')->with('message', 'Formulario enviado correctamente 22');
+        session()->attempt($user);
+
+        return redirect()->route('home.index')->with('message', 'Bienvenido');
     }
 
     public function register()
@@ -178,7 +183,7 @@ class HomeController extends Controller
         return view('register');
     }
 
-    public function create(Request $request)
+    public function create(Request $request, Bcrypt $hasher)
     {
         $valid = $this->validate($request->all(), [
             'name' => 'required|string|min:3|max:15',
@@ -191,8 +196,19 @@ class HomeController extends Controller
             return back()->withErrors($request->all(), $valid);
         }
 
-        dd($request->all());
+        $data = $request->all();
+        $data->password = $hasher->hash($data->password);
+        //eliminar repetir_password
+        unset($data->repetir_password);
 
-        return redirect()->route('home.index')->with('message', 'Formulario enviado correctamente 22');
+        $user = User::create($data);
+
+        return redirect()->route('home.index')->with('message', 'se registro correctamente');
+    }
+
+    public function logout()
+    {
+        session()->logout();
+        return redirect()->route('home.index')->with('message', 'Sesion cerrada');
     }
 }

@@ -36,3 +36,4 @@ Route::get('/login', [HomeController::class, 'login'])->name('home.login');
 Route::post('/login', [HomeController::class, 'store']);
 Route::get('/register', [HomeController::class, 'register'])->name('home.register');
 Route::post('/register', [HomeController::class, 'create']);
+Route::get('/logout', [HomeController::class, 'logout'])->name('home.logout');
