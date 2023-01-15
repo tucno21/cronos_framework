@@ -71,7 +71,14 @@ class App
     protected function setUpDatabaseConnection(): self
     {
         $this->database = Container::singleton(DatabaseDriver::class, PdoDriver::class);
-        $this->database->connect('mysql', 'localhost', 3306, 'test', 'root', 'root');
+        $this->database->connect(
+            configGet("database.connection"),
+            configGet("database.host"),
+            configGet("database.port"),
+            configGet("database.database"),
+            configGet("database.username"),
+            configGet("database.password")
+        );
         Model::setDB($this->database);
         return $this;
     }
