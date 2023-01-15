@@ -126,4 +126,14 @@ class Route
         //almacenamos el nombre de la ruta
         return $this;
     }
+
+    public static function load(string $routesDirectory)
+    {
+        //glob sirve para buscar archivos con una extension especifica
+        //recorre todos los archivos php que esten en la carpeta $routesDirectory
+        foreach (glob("$routesDirectory/*.php") as $routes) {
+            //requiere los archivos php
+            require_once $routes;
+        }
+    }
 }

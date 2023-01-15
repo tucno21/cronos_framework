@@ -8,5 +8,7 @@ return [
         Cronos\Provider\ViewServiceProvider::class,
     ],
 
-    'runtime' => []
+    'runtime' => [
+        App\Providers\RouteServiceProvider::class,
+    ]
 ];

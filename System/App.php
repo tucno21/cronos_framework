@@ -45,7 +45,8 @@ class App
             ->runServiceProvider("boot")
             ->setHttpStartHandlers()
             ->setSessionHandler()
-            ->setUpDatabaseConnection();
+            ->setUpDatabaseConnection()
+            ->runServiceProvider("runtime");
     }
 
     protected function loadConfig(): self
@@ -113,9 +114,6 @@ class App
             configGet("database.password")
         );
         Model::setDB($this->database);
-
-        //obtenemos la ruta del archivo routes/web.php
-        require_once self::$root . "/routes/web.php";
 
         return $this;
     }
