@@ -1,35 +1,9 @@
 <?php
 
-// use Closure;
-use Cronos\Http\Request;
-use Cronos\Http\Response;
 use Cronos\Routing\Route;
-use Cronos\Http\Middleware;
 use App\Controllers\HomeController;
-
-
-class AuthMiddleware implements Middleware
-{
-    public function handle(Request $request, Closure $next): Response
-    {
-        if (!session()->hasUser()) {
-            return redirect()->route('home.login');
-        }
-
-        return $next($request);
-    }
-}
-class LoginMiddleware implements Middleware
-{
-    public function handle(Request $request, Closure $next): Response
-    {
-        if (session()->hasUser()) {
-            return redirect()->route('home.dashboard');
-        }
-
-        return $next($request);
-    }
-}
+use App\Middlewares\AuthMiddleware;
+use App\Middlewares\LoginMiddleware;
 
 Route::get('/', [HomeController::class, 'index'])->name('home.index');
 Route::get('/login', [HomeController::class, 'login'])->name('home.login')->middleware(LoginMiddleware::class);
