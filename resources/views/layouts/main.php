@@ -27,13 +27,16 @@
                         <li class="nav-item">
                             <a class="nav-link" aria-current="page" href="<?= route('home.login') ?>">Login</a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link" aria-current="page" href="<?= route('home.register') ?>">Register</a>
+                        </li>
                     <?php endif ?>
-                    <li class="nav-item">
-                        <a class="nav-link" aria-current="page" href="<?= route('home.register') ?>">Register</a>
-                    </li>
                     <?php if (session()->hasUser()) : ?>
                         <li class="nav-item">
                             <a class="nav-link" aria-current="page" href="<?= route('home.logout') ?>">Cerrar Sesion</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" aria-current="page" href="<?= route('home.dashboard') ?>">Dashboard</a>
                         </li>
                     <?php endif ?>
                 </ul>

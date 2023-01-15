@@ -211,4 +211,9 @@ class HomeController extends Controller
         session()->logout();
         return redirect()->route('home.index')->with('message', 'Sesion cerrada');
     }
+
+    public function dashboard()
+    {
+        return view('dashboard');
+    }
 }
