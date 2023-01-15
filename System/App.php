@@ -4,7 +4,6 @@ namespace Cronos;
 
 use Throwable;
 use Dotenv\Dotenv;
-use Cronos\View\View;
 use Cronos\Model\Model;
 use Cronos\Http\Request;
 use Cronos\Config\Config;
@@ -12,10 +11,9 @@ use Cronos\Http\Response;
 use Cronos\Routing\Router;
 use Cronos\Http\HttpMethod;
 use Cronos\Session\Session;
-use Cronos\View\CronosEngine;
-use Cronos\Database\PdoDriver;
 use Cronos\Container\Container;
 use Cronos\Errors\RouteException;
+use Cronos\Session\SessionStorage;
 use Cronos\Database\DatabaseDriver;
 use Cronos\Errors\HttpNotFoundException;
 
@@ -44,8 +42,9 @@ class App
         //retornamos la instancia de la clase App y ejecutamos el metodo runServiceProvider
         return $app
             ->loadConfig()
-            ->setHttpConnection()
-            ->runServiceProvider("web")
+            ->runServiceProvider("boot")
+            ->setHttpStartHandlers()
+            ->setSessionHandler()
             ->setUpDatabaseConnection();
     }
 
@@ -61,30 +60,19 @@ class App
 
     protected function runServiceProvider(string $type): self
     {
-        //obtenemos la ruta del archivo routes/web.php
-        require_once self::$root . "/routes/$type.php";
+        //si del archivo providers.php se obtiene el valor de la clave $type
+        //$type='boot' ejecutamos todo del array boot
+        //$type='runtime' ejecutamos todo del array runtime
+        foreach (configGet("providers.$type", []) as $provider) {
+            //instanciamos la clase del provider y ejecutamos el metodo registerServices
+            $provider = new $provider();
+            $provider->registerServices();
+        }
 
         return $this;
     }
 
-
-    protected function setUpDatabaseConnection(): self
-    {
-        $this->database = Container::singleton(DatabaseDriver::class, PdoDriver::class);
-        $this->database->connect(
-            configGet("database.connection"),
-            configGet("database.host"),
-            configGet("database.port"),
-            configGet("database.database"),
-            configGet("database.username"),
-            configGet("database.password")
-        );
-        Model::setDB($this->database);
-        return $this;
-    }
-
-
-    protected function setHttpConnection(): self
+    protected function setHttpStartHandlers(): self
     {
         //instanciamos la clase Router y almacenamos en la propiedad router
         $this->router = Container::singleton(Router::class);
@@ -95,14 +83,39 @@ class App
         //instanciamos la clase Response y almacenamos en la propiedad response
         $this->response = Container::singleton(Response::class);
 
-        $this->session = Container::singleton(Session::class);
+        return $this;
+    }
+
+    protected function setSessionHandler(): self
+    {
+        //instanciamos la clase SessionStorage que se instancio desde los providers
+        //SessionStorage es la interface que tiene las bases para PhpNativeSessionStorage el cual titene los 
+        //metodos que usar la clase Session
+        //si alquien quiere cambiar la clase Session por otra debe colocar en su contructor SessionStorage::class
+        $sesionStorage = Container::resolve(SessionStorage::class);
+        $this->session = Container::singleton(Session::class, fn () => new Session($sesionStorage));
 
         $this->uriCurrent();
 
-        Container::singleton(
-            View::class,
-            fn () => new CronosEngine(__DIR__ . '/../resources/views')
+        return $this;
+    }
+
+
+    protected function setUpDatabaseConnection(): self
+    {
+        $this->database = Container::resolve(DatabaseDriver::class);
+        $this->database->connect(
+            configGet("database.connection"),
+            configGet("database.host"),
+            configGet("database.port"),
+            configGet("database.database"),
+            configGet("database.username"),
+            configGet("database.password")
         );
+        Model::setDB($this->database);
+
+        //obtenemos la ruta del archivo routes/web.php
+        require_once self::$root . "/routes/web.php";
 
         return $this;
     }
