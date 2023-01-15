@@ -3,9 +3,11 @@
 namespace Cronos;
 
 use Throwable;
+use Dotenv\Dotenv;
 use Cronos\View\View;
 use Cronos\Model\Model;
 use Cronos\Http\Request;
+use Cronos\Config\Config;
 use Cronos\Http\Response;
 use Cronos\Routing\Router;
 use Cronos\Http\HttpMethod;
@@ -41,9 +43,20 @@ class App
 
         //retornamos la instancia de la clase App y ejecutamos el metodo runServiceProvider
         return $app
+            ->loadConfig()
             ->setHttpConnection()
             ->runServiceProvider("web")
             ->setUpDatabaseConnection();
+    }
+
+    protected function loadConfig(): self
+    {
+        //cargamos el archivo .env
+        Dotenv::createImmutable(self::$root)->load();
+        //cargamos los archivos de configuracion de la carpeta config
+        Config::loadConfig(self::$root . "/config");
+
+        return $this;
     }
 
     protected function runServiceProvider(string $type): self
