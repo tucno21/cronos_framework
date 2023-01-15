@@ -2,7 +2,7 @@
 
 namespace Cronos\Session;
 
-use Cronos\Session\PhpNativeSessionStorage;
+use Cronos\Session\SessionStorage;
 
 class Session
 {
@@ -13,9 +13,9 @@ class Session
 
     public const SESSION_ERRORS_IMPUTS = '_errors_inputs';
 
-    public function __construct()
+    public function __construct(SessionStorage $storage)
     {
-        $this->storage = new PhpNativeSessionStorage();
+        $this->storage = $storage;
         $this->storage->start();
 
         if (!$this->storage->has(self::FLASH_KEY)) {
