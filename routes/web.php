@@ -2,7 +2,6 @@
 
 use Cronos\Routing\Route;
 use App\Controllers\HomeController;
-use App\Middlewares\AuthMiddleware;
 use App\Middlewares\LoginMiddleware;
 use App\Controllers\DashboardController;
 
@@ -12,4 +11,4 @@ Route::post('/login', [HomeController::class, 'store']);
 Route::get('/register', [HomeController::class, 'register'])->name('home.register')->middleware(LoginMiddleware::class);
 Route::post('/register', [HomeController::class, 'create']);
 Route::get('/logout', [HomeController::class, 'logout'])->name('home.logout');
-Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard.index')->middleware(AuthMiddleware::class);
+Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard.index');

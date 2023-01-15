@@ -36,19 +36,25 @@ class Router
         //obtener la accion de la instancia de la clase Route
         $action = $route->action();
 
+        $middlewares = $route->middlewares();
+
         //verificar si la accion es un array
         if (is_array($action)) {
             //instanciar el controlador
             $controller = new $action[0];
             $action[0] = $controller;
+            //obtener los middlewares del controlador y unirlos con los middlewares de la ruta
+            $middlewares = array_merge($middlewares, $controller->middlewares());
         }
 
         //obtener los parametros que se declara en la funcion o metodo de la ruta del framework
         $params = DependencyInjection::resolveParameters($action, $route->parseParameters($request->uri()));
 
+        //primero se ejecutan los middlewares y despues la accion
+        //primero se ejecutan los middlewares de la ruta y luego los del controlador
         //ejecutar la accion sea una funcion o una clase y sus parametros
         // return call_user_func($action, ...$params);
-        return $this->runMiddlewares($request, $route->middlewares(), fn () => call_user_func($action, ...$params));
+        return $this->runMiddlewares($request, $middlewares, fn () => call_user_func($action, ...$params));
     }
 
     public function resolveRoute(Request $request)
