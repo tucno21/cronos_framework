@@ -3,7 +3,9 @@
 namespace Cronos\Container;
 
 use Closure;
+use ReflectionClass;
 use ReflectionMethod;
+use Cronos\Model\Model;
 use ReflectionFunction;
 use Cronos\Container\Container;
 
@@ -21,8 +23,22 @@ class DependencyInjection
         foreach ($methodOrFunction->getParameters() as $param) {
             $resolved = null;
 
-            //verificar si el parametro es de tipo primitivo
-            if ($param->getType()->isBuiltin()) {
+            //is_subclass_of verifica si la clase que viene del parametro del metodo Controller es una subclase de Model
+            if (is_subclass_of($param->getType()->getName(), Model::class)) {
+                //instanciar la clase del parametro
+                $modelClass = new ReflectionClass($param->getType()->getName());
+
+                //separamos la clase por \
+                $arrayClass = explode('\\', $param->getType()->getName());
+                //obtenemos el ultimo elemento del array
+                $nameClass = end($arrayClass);
+                //cambiamo todo a minusculas
+                $keyParam = strtolower($nameClass);
+
+                //buscamos el valor del parametro que viene de la ruta
+                //ejecutamos el metodo find del modelo
+                $resolved = $param->getType()->getName()::find($routeParameters[$keyParam] ?? 0);
+            } else if ($param->getType()->isBuiltin()) { //verificar si el parametro es de tipo primitivo
                 //buscar el parametro en el array de parametros de la ruta
                 $resolved = $routeParameters[$param->getName()] ?? null;
             } else {

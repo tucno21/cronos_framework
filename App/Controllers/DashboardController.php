@@ -20,14 +20,8 @@ class DashboardController extends Controller
         return view('dashboard', ['users' => $users]);
     }
 
-    public function user(string $id)
+    public function user(User $user)
     {
-
-        $user = User::where('id', $id)->first();
-
-        // dd($user);
-
-
         return view('user', ['user' => $user]);
     }
 }

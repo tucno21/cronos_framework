@@ -238,7 +238,7 @@ abstract class Model
     }
 
     //metodo para obtener un registro
-    public static function find($id): object
+    public static function find(int|string $id): ?static
     {
         $model = new static();
 
@@ -252,7 +252,19 @@ abstract class Model
             throw new \Error("No se encontro el registro con el id {$id} en la tabla {$model->table}");
         }
 
-        return (object) $result[0];
+        // return (object) $result[0];
+        return $model->setAttributes($result[0]);
+    }
+
+    protected function setAttributes(array|object $attributes): static
+    {
+        foreach ($attributes as $key => $value) {
+            //agregamos a la clase propiedades dinamicas con si nombre y valor
+            //haciendo uso del metodo magico __set
+            $this->__set($key, $value);
+        }
+
+        return $this;
     }
 
     //metodo para un registro pero con un orden descendente

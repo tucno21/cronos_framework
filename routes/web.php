@@ -12,4 +12,4 @@ Route::get('/register', [HomeController::class, 'register'])->name('home.registe
 Route::post('/register', [HomeController::class, 'create']);
 Route::get('/logout', [HomeController::class, 'logout'])->name('home.logout');
 Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
-Route::get('/user/{id}', [DashboardController::class, 'user'])->name('dashboard.user');
+Route::get('/user/{user}', [DashboardController::class, 'user'])->name('dashboard.user');

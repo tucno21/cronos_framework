@@ -19,9 +19,4 @@ class User extends Model
     protected string $created_at = 'created_at';
 
     protected string $updated_at = 'updated_at';
-
-
-    public function getUsers()
-    {
-    }
 }
