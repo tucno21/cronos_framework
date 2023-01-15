@@ -4,7 +4,6 @@ namespace App\Controllers;
 
 use App\Models\User;
 use Cronos\Http\Request;
-use Cronos\Crypto\Bcrypt;
 use Cronos\Crypto\Hasher;
 use Cronos\Http\Controller;
 
@@ -183,7 +182,7 @@ class HomeController extends Controller
         return view('register');
     }
 
-    public function create(Request $request, Bcrypt $hasher)
+    public function create(Request $request, Hasher $hasher)
     {
         $valid = $this->validate($request->all(), [
             'name' => 'required|string|min:3|max:15',
