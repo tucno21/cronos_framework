@@ -36,7 +36,7 @@
                             <a class="nav-link" aria-current="page" href="<?= route('home.logout') ?>">Cerrar Sesion</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" aria-current="page" href="<?= route('home.dashboard') ?>">Dashboard</a>
+                            <a class="nav-link" aria-current="page" href="<?= route('dashboard.index') ?>">Dashboard</a>
                         </li>
                     <?php endif ?>
                 </ul>

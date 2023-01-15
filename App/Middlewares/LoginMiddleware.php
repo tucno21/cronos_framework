@@ -12,7 +12,7 @@ class LoginMiddleware implements Middleware
     public function handle(Request $request, Closure $next): Response
     {
         if (session()->hasUser()) {
-            return redirect()->route('home.dashboard');
+            return redirect()->route('dashboard.index');
         }
 
         return $next($request);
