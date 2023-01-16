@@ -16,7 +16,7 @@ class User extends Model
 
     protected bool $timestamps = true;
 
-    protected string $created_at = 'created_at';
+    protected string $created = 'created_at';
 
-    protected string $updated_at = 'updated_at';
+    protected string $updated = 'updated_at';
 }

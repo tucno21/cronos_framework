@@ -16,9 +16,9 @@ abstract class Model
 
     protected bool $timestamps = false;
 
-    protected string $created_at = '';
+    protected string $created = '';
 
-    protected string $updated_at = '';
+    protected string $updated = '';
 
     protected array $attributes = [];
 
@@ -40,20 +40,26 @@ abstract class Model
 
     public function __set($name, $value)
     {
+        //agregar los atributos(propiedades) al objeto para poder acceder a ellos y json
+        $this->$name = $value;
         $this->attributes[$name] = $value;
     }
 
     public function __get($name)
     {
-        return $this->attributes[$name] ?? null;
+        return $this->$name ?? null;
     }
 
     //metodo para insertar registros en la base de datos
     public function save(): object
     {
         if ($this->timestamps) {
-            $this->attributes[$this->created_at] = date('Y-m-d H:i:s');
-            $this->attributes[$this->updated_at] = date('Y-m-d H:i:s');
+            $this->attributes[$this->created] = date('Y-m-d H:i:s');
+            $this->attributes[$this->updated] = date('Y-m-d H:i:s');
+
+            //agregar los atributos created y updated al objeto
+            $this->{$this->created} = $this->attributes[$this->created];
+            $this->{$this->updated} = $this->attributes[$this->updated];
         }
 
         //las claves de los atributos forma un string separado por comas
@@ -71,8 +77,10 @@ abstract class Model
 
         //se obtiene el id del ultimo registro insertado
         $this->attributes[$this->primaryKey] = self::$db->lastInsertId();
+        //agregar el atributo id al inicio del objeto
+        $this->{$this->primaryKey} = $this->attributes[$this->primaryKey];
 
-        return (object) $this->attributes;
+        return $this;
     }
 
     //metodo para asignar los atributos
@@ -107,6 +115,7 @@ abstract class Model
 
         foreach ($this->fillable as $key => $value) {
             $this->attributes[$value] = $attributes[$value];
+            $this->{$value} = $attributes[$value];
         }
 
         return $this;
@@ -177,7 +186,7 @@ abstract class Model
         $model->attributesAsign($data);
 
         if ($model->timestamps) {
-            $model->attributes[$model->updated_at] = date('Y-m-d H:i:s');
+            $model->attributes[$model->updated] = date('Y-m-d H:i:s');
         }
 
         $sql = "UPDATE {$model->table} SET ";
@@ -199,7 +208,8 @@ abstract class Model
 
         if ($rows > 0) {
             $model->attributes[$model->primaryKey] = $id;
-            return (object) $model->attributes;
+            //agregar el atributo id al inicio del objeto
+            return $model->setAttributes($model->attributes);
         } else {
             return $rows;
         }
@@ -234,7 +244,18 @@ abstract class Model
 
         $result = self::$db->statement($sql, $param);
 
-        return $result;
+        if (count($result) == 0) {
+            return [];
+        }
+
+        $models = [];
+
+        foreach ($result as $row) {
+            //enviamos la respuesta como un objeto de la clase instanciada
+            $models[] = (new static())->setAttributes($row);
+        }
+
+        return $models;
     }
 
     //metodo para obtener un registro
@@ -268,7 +289,7 @@ abstract class Model
     }
 
     //metodo para un registro pero con un orden descendente
-    public static function last(): object
+    public static function last(): ?static
     {
         $model = new static();
 
@@ -282,7 +303,8 @@ abstract class Model
             throw new \Error("No se encontro el registro en la tabla {$model->table}");
         }
 
-        return (object) $result[0];
+        //enviamos la respuesta como un objeto de la clase instanciada
+        return $model->setAttributes($result[0]);
     }
 
     //metodo para agregar las columnas que se quieren obtener
@@ -395,7 +417,7 @@ abstract class Model
     }
 
     //metodo para obtener los registros despues de la anidacion de metodos
-    public function get(): mixed
+    public function get(): ?static
     {
         $select = self::$select;
         $join = implode(" ", self::$join);
@@ -411,11 +433,16 @@ abstract class Model
 
         $statement = $this->executeResult(self::$query);
 
+        foreach ($statement as $key => $value) {
+            //enviamos la respuesta como un objeto de la clase instanciada
+            $statement[$key] = $this->setAttributes($value);
+        }
+
         return $statement;
     }
 
     //metodo para obtener un solo registro despues de la anidacion de metodos
-    public function first()
+    public function first(): ?static
     {
         $select = self::$select;
         $join = implode(" ", self::$join);
@@ -430,7 +457,9 @@ abstract class Model
 
         $statement = $this->executeResult(self::$query);
 
-        return $statement[0];
+        //enviamos la respuesta como un objeto de la clase instanciada
+        $this->setAttributes($statement[0]);
+        return $this;
     }
 
     //metodo para obtener la valor maximo de una columna con valores numericos despues de la anidacion de metodos
