@@ -28,16 +28,27 @@ class DependencyInjection
                 //instanciar la clase del parametro
                 $modelClass = new ReflectionClass($param->getType()->getName());
 
+
                 //separamos la clase por \
                 $arrayClass = explode('\\', $param->getType()->getName());
                 //obtenemos el ultimo elemento del array
                 $nameClass = end($arrayClass);
-                //cambiamo todo a minusculas
+                //cambiamo todo a minusculas EN NOMBRE DE LA CLASE QUE VIENE DEL PARAMETRO DEL CONTROLADOR
                 $keyParam = strtolower($nameClass);
 
-                //buscamos el valor del parametro que viene de la ruta
-                //ejecutamos el metodo find del modelo
-                $resolved = $param->getType()->getName()::find($routeParameters[$keyParam] ?? 0);
+                if (is_string($routeParameters[$keyParam])) {
+                    $id = $routeParameters[$keyParam];
+                    //buscamos el valor del parametro que viene de la ruta
+                    //ejecutamos el metodo find del modelo
+                    $resolved = $param->getType()->getName()::find($id ?? 0);
+                } else {
+                    //obtener la clave de $routeParameters[$keyParam]
+                    $column = array_key_first($routeParameters[$keyParam]);
+                    //obtener el valor de $routeParameters[$keyParam]
+                    $value = $routeParameters[$keyParam][$column];
+                    //ejecutamos el metodo where del modelo
+                    $resolved = $param->getType()->getName()::where($column, $value)->first();
+                }
             } else if ($param->getType()->isBuiltin()) { //verificar si el parametro es de tipo primitivo
                 //buscar el parametro en el array de parametros de la ruta
                 $resolved = $routeParameters[$param->getName()] ?? null;

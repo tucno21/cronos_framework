@@ -30,12 +30,32 @@ class Route
         //almacenar la accion que viene del framework
         $this->action = $action;
         //preg_replace remplaza los parametros de la uri por expresiones regulares
-        $this->regex = preg_replace('/\{([a-zA-Z]+)\}/', '([a-zA-Z0-9]+)', $uri); // /producto/([a-zA-Z0-9]+)
-        //preg_match_all busca el regex ([a-zA-Z0-9]+) uri y lo almacena en el array $parameters
+        $this->regex = preg_replace('/\{([a-zA-Z]+)(?::([a-zA-Z]+))?\}/', '([a-zA-Z0-9]+)', $uri); // /producto/([a-zA-Z0-9]+)
+
+        //preguntamos si la uri tiene parametros con ":" o sin ":"
         $parameters = [];
-        preg_match_all('/\{([a-zA-Z]+)\}/', $uri, $parameters); // [producto]
-        //almacenamos los parametros de la uri
-        $this->parameters = $parameters[1]; // [producto]
+        if (strpos($uri, ':') !== false) {
+            preg_match_all('/\{([a-zA-Z]+)(?::([a-zA-Z]+))?\}/', $uri, $parameters); // [producto]
+
+            //eliminar el primer elemento del array
+            array_shift($parameters); // [producto, id]
+
+            //como cambiar este arreglo original [[user,contac,blog],[name,number,sglu]] por este [[user,name],[contac,number],[blog,sglu]]
+            $new_array = [];
+            foreach ($parameters as $key => $value) {
+                foreach ($value as $key2 => $value2) {
+                    $new_array[$key2][$key] = $value2;
+                }
+            }
+            // for ($i = 0; $i < count($parameters[0]); $i++) {
+            //     $new_array[] = [$parameters[0][$i], $parameters[1][$i]];
+            // }
+
+            $this->parameters = $new_array;
+        } else {
+            preg_match_all('/\{([a-zA-Z]+)(?::([a-zA-Z]+))?\}/', $uri, $parameters); // [producto]
+            $this->parameters = $parameters[1]; // [producto]
+        }
     }
 
     public function uri()
@@ -63,12 +83,31 @@ class Route
     public function parseParameters(string $uri): array
     {
         preg_match("#^$this->regex$#", $uri, $arguments);
-        //['test', 'user'] del framework
-        //['3', '5'] de la web
-        // devuelve la union
 
-        //['test'=> 3, 'user'=>5]
-        return array_combine($this->parameters, array_slice($arguments, 1));
+        if (isset($this->parameters)) {
+            return array_combine($this->parameters, array_slice($arguments, 1));
+        }
+
+        if (is_string($this->parameters[0])) {
+            //['test', 'user'] del framework
+            //['3', '5'] de la web
+            // devuelve la union
+
+            //array_slice elimina el primer elemento del array
+            return array_combine($this->parameters, array_slice($arguments, 1)); //['test'=> 3]
+        } else {
+            //$this->parameters = [['contact', 'number'], ['user', 'name']] del framework
+            array_shift($arguments);
+            // $arguments = [13215, carlos]
+            //cambiamos a ['contact' => [number => 13215], 'user' => [name => carlos]]
+
+            $new_array = [];
+            foreach ($this->parameters as $key => $value) {
+                $new_array[$value[0]] = [$value[1] => $arguments[$key]];
+            }
+
+            return $new_array;
+        }
     }
 
     public static function get(string $uri, Closure|array $action): Route

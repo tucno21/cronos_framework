@@ -24,4 +24,9 @@ class DashboardController extends Controller
     {
         return view('user', ['user' => $user]);
     }
+
+    public function name(User $user)
+    {
+        return view('user', ['user' => $user]);
+    }
 }

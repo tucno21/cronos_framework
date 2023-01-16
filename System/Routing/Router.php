@@ -143,7 +143,7 @@ class Router
             }
 
             //user/{user}/products/{id}
-            $pre_url = preg_replace('/\{([a-zA-Z]+)\}/', 'cronosXcronos', $this->nameRoute[$nameRoute]);
+            $pre_url = preg_replace('/\{([a-zA-Z]+)(?::([a-zA-Z]+))?\}/', 'cronosXcronos', $this->nameRoute[$nameRoute]);
             //user/cronosXcronos/products/cronosXcronos
 
             if ($params === null) {
