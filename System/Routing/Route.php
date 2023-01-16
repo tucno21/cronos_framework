@@ -30,32 +30,39 @@ class Route
         //almacenar la accion que viene del framework
         $this->action = $action;
         //preg_replace remplaza los parametros de la uri por expresiones regulares
-        $this->regex = preg_replace('/\{([a-zA-Z]+)(?::([a-zA-Z]+))?\}/', '([a-zA-Z0-9]+)', $uri); // /producto/([a-zA-Z0-9]+)
+        $this->regex = preg_replace('/\{([a-zA-Z]+)(?::([a-zA-Z]+))?\}/', '([a-zA-Z0-9-]+)', $uri); // /producto/([a-zA-Z0-9]+)
 
-        //preguntamos si la uri tiene parametros con ":" o sin ":"
-        $parameters = [];
-        if (strpos($uri, ':') !== false) {
-            preg_match_all('/\{([a-zA-Z]+)(?::([a-zA-Z]+))?\}/', $uri, $parameters); // [producto]
 
-            //eliminar el primer elemento del array
-            array_shift($parameters); // [producto, id]
+        preg_match_all('/\{([a-zA-Z]+)(?::([a-zA-Z]+))?\}/', $uri, $parameters);
+        array_shift($parameters); //eliminamos el primer elemento del array
 
-            //como cambiar este arreglo original [[user,contac,blog],[name,number,sglu]] por este [[user,name],[contac,number],[blog,sglu]]
-            $new_array = [];
-            foreach ($parameters as $key => $value) {
-                foreach ($value as $key2 => $value2) {
-                    $new_array[$key2][$key] = $value2;
-                }
+
+
+        $new_array = [];
+        //cambiar este arreglo original [[user,contac,blog],[name,'',sglu]] por este [[user,name],[contac,''],[blog,sglu]]
+        // foreach ($parameters as $key => $value) {
+        //     foreach ($value as $key2 => $value2) {
+        //         $new_array[$key2][$key] = $value2;
+        //     }
+        // }
+
+        //comprobamos que el segundo elemento del array no este vacio [[user,name],[contac,''],[blog,sglu]]
+        // foreach ($new_array as $key => $value) {
+        //     if ($value[1] == '') {
+        //         $new_array[$key] = $value[0];
+        //     }
+        // }
+
+        //cambiar este arreglo original [[user,contac,blog],[name,'',sglu]] por este [[user,name],contac,[blog,sglu]]
+        foreach ($parameters[0] as $key => $value) {
+            if ($parameters[1][$key] === '') {
+                $new_array[] = $value;
+            } else {
+                $new_array[] = [$value, $parameters[1][$key]];
             }
-            // for ($i = 0; $i < count($parameters[0]); $i++) {
-            //     $new_array[] = [$parameters[0][$i], $parameters[1][$i]];
-            // }
-
-            $this->parameters = $new_array;
-        } else {
-            preg_match_all('/\{([a-zA-Z]+)(?::([a-zA-Z]+))?\}/', $uri, $parameters); // [producto]
-            $this->parameters = $parameters[1]; // [producto]
         }
+
+        $this->parameters = $new_array;
     }
 
     public function uri()
@@ -84,30 +91,25 @@ class Route
     {
         preg_match("#^$this->regex$#", $uri, $arguments);
 
-        if (isset($this->parameters)) {
+        if (count($this->parameters) === 0) {
             return array_combine($this->parameters, array_slice($arguments, 1));
         }
 
-        if (is_string($this->parameters[0])) {
-            //['test', 'user'] del framework
-            //['3', '5'] de la web
-            // devuelve la union
+        array_shift($arguments); //eliminamos el primer elemento del array
+        //$arguments = [admin,2]
+        //$this->parameters = [[user,name],contac]
+        //recorremos y convertimos de esta forma [user=>[name=>admin],contac=>2]
 
-            //array_slice elimina el primer elemento del array
-            return array_combine($this->parameters, array_slice($arguments, 1)); //['test'=> 3]
-        } else {
-            //$this->parameters = [['contact', 'number'], ['user', 'name']] del framework
-            array_shift($arguments);
-            // $arguments = [13215, carlos]
-            //cambiamos a ['contact' => [number => 13215], 'user' => [name => carlos]]
-
-            $new_array = [];
-            foreach ($this->parameters as $key => $value) {
+        $new_array = [];
+        foreach ($this->parameters as $key => $value) {
+            if (is_array($value)) {
                 $new_array[$value[0]] = [$value[1] => $arguments[$key]];
+            } else {
+                $new_array[$value] = $arguments[$key];
             }
-
-            return $new_array;
         }
+
+        return $new_array;
     }
 
     public static function get(string $uri, Closure|array $action): Route

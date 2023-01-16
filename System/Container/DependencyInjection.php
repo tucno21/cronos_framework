@@ -8,6 +8,7 @@ use ReflectionMethod;
 use Cronos\Model\Model;
 use ReflectionFunction;
 use Cronos\Container\Container;
+use Cronos\Errors\HttpNotFoundException;
 
 class DependencyInjection
 {
@@ -41,6 +42,9 @@ class DependencyInjection
                     //buscamos el valor del parametro que viene de la ruta
                     //ejecutamos el metodo find del modelo
                     $resolved = $param->getType()->getName()::find($id ?? 0);
+                    if (is_null($resolved)) {
+                        throw new HttpNotFoundException();
+                    }
                 } else {
                     //obtener la clave de $routeParameters[$keyParam]
                     $column = array_key_first($routeParameters[$keyParam]);
@@ -48,6 +52,9 @@ class DependencyInjection
                     $value = $routeParameters[$keyParam][$column];
                     //ejecutamos el metodo where del modelo
                     $resolved = $param->getType()->getName()::where($column, $value)->first();
+                    if (is_null($resolved)) {
+                        throw new HttpNotFoundException();
+                    }
                 }
             } else if ($param->getType()->isBuiltin()) { //verificar si el parametro es de tipo primitivo
                 //buscar el parametro en el array de parametros de la ruta

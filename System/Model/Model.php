@@ -270,7 +270,7 @@ abstract class Model
         $result = self::$db->statement($sql, $param);
 
         if (count($result) == 0) {
-            throw new \Error("No se encontro el registro con el id {$id} en la tabla {$model->table}");
+            return null;
         }
 
         // return (object) $result[0];
@@ -433,6 +433,10 @@ abstract class Model
 
         $statement = $this->executeResult(self::$query);
 
+        if (count($statement) == 0) {
+            return null;
+        }
+
         foreach ($statement as $key => $value) {
             //enviamos la respuesta como un objeto de la clase instanciada
             $statement[$key] = $this->setAttributes($value);
@@ -457,7 +461,10 @@ abstract class Model
 
         $statement = $this->executeResult(self::$query);
 
-        //enviamos la respuesta como un objeto de la clase instanciada
+        if (count($statement) == 0) {
+            return null;
+        }
+
         $this->setAttributes($statement[0]);
         return $this;
     }

@@ -14,3 +14,4 @@ Route::get('/logout', [HomeController::class, 'logout'])->name('home.logout');
 Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
 Route::get('/user/{user}', [DashboardController::class, 'user'])->name('dashboard.user');
 Route::get('/username/{user:name}', [DashboardController::class, 'name'])->name('dashboard.name');
+Route::get('/pruebasparametros/{user:name}/{contac:nombre}', [DashboardController::class, 'pruebas'])->name('dashboard.pruebas');

@@ -3,6 +3,7 @@
 namespace App\Controllers;
 
 use App\Models\User;
+use App\Models\Contac;
 use Cronos\Http\Controller;
 use App\Middlewares\AuthMiddleware;
 
@@ -28,5 +29,13 @@ class DashboardController extends Controller
     public function name(User $user)
     {
         return view('user', ['user' => $user]);
+    }
+
+    public function pruebas(User $user, Contac $contac)
+    {
+        // $user = User::find($user);
+        // $contac = Contac::find($contac);
+
+        dd($contac);
     }
 }
