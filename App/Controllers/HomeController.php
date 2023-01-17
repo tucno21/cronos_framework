@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Models\User;
 use Cronos\Http\Request;
 use Cronos\Crypto\Hasher;
+use Cronos\Storage\Image;
 use Cronos\Http\Controller;
 
 class HomeController extends Controller
@@ -218,6 +219,19 @@ class HomeController extends Controller
 
     public function upload(Request $request)
     {
-        dd($request->hasFile('imzxagen'));
+        // $path = DIR_PUBLIC . '/img';
+
+        // //crear carpeta si no existe
+        // if (!is_dir($path)) {
+        //     mkdir($path, 0777, true);
+        // }
+
+        // $nameImagen =  md5(uniqid(rand(), true)) . '.png';
+
+        $image = Image::make($request->file('imagen'))->resize(200);
+
+        $nombre = $image->save();
+
+        dd($nombre);
     }
 }

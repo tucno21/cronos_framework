@@ -229,7 +229,7 @@ class Request
             return null;
         }
 
-        $nameFolder = is_null($nameFolder) ? env('NAME_FILE_STORAGE', 'storage') : $nameFolder;
+        $nameFolder = is_null($nameFolder) ? env('PATH_FILE_STORAGE', 'storage') : $nameFolder;
 
         $path = DIR_PUBLIC . '/' . $nameFolder;
 
