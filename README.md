@@ -41,6 +41,33 @@
 └───📄 env
 ```
 
+## **Índice**
+
+- [Instalación](#instalacion)
+- [Rutas web](#rutas-web)
+- [Rutas con middlewares](#rutas-con-middelwares)
+- [Crear controlador y modelo desde consola](#crear-controlador-y-modelo-desde-consola)
+- [Constantes generales](#constantes-generales)
+- [Helpers depuracion](#helpers-depuracion)
+- [Uso en los controladores](#uso-en-los-controladores)
+- [HTTP request](#http-request)
+- [Middleware en el controlador](#middelwares-en-el-controlador)
+- [Validacion de datos del formulario](#validacion-de-datos-del-formulario)
+- [HTTP response](#http-response)
+- [Eencriptar el password](#encriptar-el-password)
+- [Uso en los modelos](#uso-en-los-modelos)
+- [Guardar datos](#guardar-datos)
+- [Actualizar datos](#actualizar-datos)
+- [Eliminar datos](#eliminar-datos)
+- [Consultas](#consultas)
+- [Ejemplos de consultas](#ejemplos-de-consultas)
+- [consultas personalizadas de la base de datos](#consultas-personalizadas-de-la-base-de-datos)
+- [Directiva para las vistas](#directiva-para-las-vistas)
+- [helper para la vista](#helper-para-la-vista)
+- [Obtener las rutas](#obtener-las-rutas)
+- [Sessiones](#sessiones)
+- [Tabla de validaiones](#tabla-de-validaciones)
+
 ## Intalacion
 
 - Clonar el repositorio
@@ -48,7 +75,9 @@
 - Crear un archivo `.env` en la raiz del proyecto
 - Configurar el archivo `.env` con los datos de la base de datos
 
-## RUTAS WEB [☝️Inicio](#cronos-framework-php-81)
+## RUTAS WEB
+
+[☝️Inicio](#cronos-framework-php-81)
 
 en la carpeta `routes` se encuentra el archivo `web.php` donde se definen las rutas de la aplicacion
 
@@ -85,14 +114,18 @@ Route::get('/user/{user:colum}/{id}/producto/{product}', [Controller::class, 'us
 public function user(User $user, string $id, Product $product);
 ```
 
-### RUTAS CON MIDDELWARES [☝️Inicio](#cronos-framework-php-81)
+### RUTAS CON MIDDELWARES
+
+[☝️Inicio](#cronos-framework-php-81)
 
 ```php
 //ruta con parametros
 Route::get('/user/{id}', [Controller::class, 'user'])->name('user')->middleware([LoginMiddleware::class]);
 ```
 
-## CREAR CONTROLADOR Y MODELO DESDE CONSOLA [☝️Inicio](#cronos-framework-php-81)
+## CREAR CONTROLADOR Y MODELO DESDE CONSOLA
+
+[☝️Inicio](#cronos-framework-php-81)
 
 ### Generar controlador
 
@@ -121,7 +154,9 @@ los middlewares se encuentran en la carpeta `App/Middlewares` y se pueden crear 
 php cronos make:middleware Name
 ```
 
-## CONSTANTES GENERALES [☝️Inicio](#cronos-framework-php-81)
+## CONSTANTES GENERALES
+
+[☝️Inicio](#cronos-framework-php-81)
 
 ```php
 ROOT //   path...
@@ -131,7 +166,9 @@ DIR_PUBLIC //   path.../public
 DIR_IMG    //    path.../public/PATH_FILE_STORAGE.env
 ```
 
-## HELPERS DEPURACION [☝️Inicio](#cronos-framework-php-81)
+## HELPERS DEPURACION
+
+[☝️Inicio](#cronos-framework-php-81)
 
 ```php
 //detiene la ejecución del script y muestra el contenido de la variable
@@ -142,7 +179,9 @@ d($variable);
 
 # USO EN LOS CONTROLADORES
 
-## HTTP REQUEST [☝️Inicio](#cronos-framework-php-81)
+## HTTP REQUEST
+
+[☝️Inicio](#cronos-framework-php-81)
 
 ```php
 public function user(Request $request);
@@ -187,7 +226,9 @@ no usar el middleware en el controlador y esta en la ruta o viceversa
 }
 ```
 
-## VALIDACIÓN DE FORMULARIOS [☝️Inicio](#cronos-framework-php-81)
+## VALIDACION DE DATOS DEL FORMULARIO
+
+[☝️Inicio](#cronos-framework-php-81)
 
 revise la tabla de validaciones al final de la documentación
 
@@ -220,7 +261,9 @@ public function register(Request $request)
 }
 ```
 
-## HTTP RESPONSE [☝️Inicio](#cronos-framework-php-81)
+## HTTP RESPONSE
+
+[☝️Inicio](#cronos-framework-php-81)
 
 ```php
 //renderizar una vista
@@ -254,9 +297,26 @@ return back()->with('message', 'mensaje de session flash');
 return back()->withErrors($dataInput, $errors, $status = 200);
 ```
 
+## ENCRIPTAR EL PASSWORD
+
+[☝️Inicio](#cronos-framework-php-81)
+
+```php
+public function create(Request $request, Hasher $hasher)
+ {
+    $data = $request->all();
+    $data->password = $hasher->hash($data->password);
+}
+
+//para comparar el password
+$hasher->verify($inputPassword, $request->password);
+```
+
 # USO EN LOS MODELOS
 
-## GUARDAR DATOS [☝️Inicio](#cronos-framework-php-81)
+## GUARDAR DATOS
+
+[☝️Inicio](#cronos-framework-php-81)
 
 ```php
 $user = new User();
@@ -276,7 +336,9 @@ User::create([
 //ambos metodos retornan el objeto que se guardo con el id
 ```
 
-## ACTUALIZAR DATOS [☝️Inicio](#cronos-framework-php-81)
+## ACTUALIZAR DATOS
+
+[☝️Inicio](#cronos-framework-php-81)
 
 ```php
 $id = 1;
@@ -292,7 +354,9 @@ $user = User::update($id, $data);
 //caso contrario retorna un booleano false o "0"
 ```
 
-## ELIMINAR DATOS [☝️Inicio](#cronos-framework-php-81)
+## ELIMINAR DATOS
+
+[☝️Inicio](#cronos-framework-php-81)
 
 ```php
 $user = User::delete($id);
@@ -300,7 +364,9 @@ $user = User::delete($id);
 // retorna un booleano
 ```
 
-## CONSULTAS [☝️Inicio](#cronos-framework-php-81)
+## CONSULTAS
+
+[☝️Inicio](#cronos-framework-php-81)
 
 ```php
 //obtener todos los datos de la tabla no se puede anidar
@@ -373,7 +439,9 @@ User::whereConcat('column1 - column2', 'value')->get();
 User::whereConcat('column1 - column2', 'operador', 'value')->get();
 ```
 
-### EJEMPLOS DE CONSULTAS [☝️Inicio](#cronos-framework-php-81)
+### EJEMPLOS DE CONSULTAS
+
+[☝️Inicio](#cronos-framework-php-81)
 
 ```php
 //obtener todos los datos de la tabla
@@ -421,7 +489,9 @@ public static function getVentasEstado($estado)
 
 ```
 
-# DIRECTIVA PARA LAS VISTAS (resources/views) [☝️Inicio](#cronos-framework-php-81)
+# DIRECTIVA PARA LAS VISTAS
+
+[☝️Inicio](#cronos-framework-php-81)
 
 la vista creada en la carpeta `resources/views` se puede llamar desde el controlador con la directiva `view()` y se le pasa como parametro el nombre de la vista y un array con los datos que se quieren pasar a la vista
 
@@ -444,7 +514,9 @@ la directiva `@include` recibe un parametro el nombre del archivo que se quiere 
 //donde estaria buscando el archivo resources/views/layouts/head.php
 ```
 
-## helper para la vista [☝️Inicio](#cronos-framework-php-81)
+## helper para la vista
+
+[☝️Inicio](#cronos-framework-php-81)
 
 si en el controlado se uso return `back()->withErrors($dataInput, $errors, $status = 200)`
 
@@ -480,7 +552,7 @@ si en el controlado se uso return `back()->withErrors($dataInput, $errors, $stat
 </div>
 ```
 
-### obtener la rutas
+### obtener las rutas
 
 ```html
 //usar la funcion route() como parametro el nombre de la ruta
@@ -490,7 +562,9 @@ si en el controlado se uso return `back()->withErrors($dataInput, $errors, $stat
 <a class="nav-link" aria-current="page" href="<?= route('home.login', ['id' => 1]) ?>">Login</a>
 ```
 
-# SESSIONES [☝️Inicio](#cronos-framework-php-81)
+# SESSIONES
+
+[☝️Inicio](#cronos-framework-php-81)
 
 la session se puede crear desde el controlador con la helper `session()` y anidar los siguientes casos:
 
@@ -537,7 +611,9 @@ session()->user();
 session()->logout();
 ```
 
-## TABLA DE VALIDACIONES [☝️Inicio](#cronos-framework-php-81)
+## TABLA DE VALIDACIONES
+
+[☝️Inicio](#cronos-framework-php-81)
 
 | Validación                   | Descripción                                                        | Ejemplo                      |
 | ---------------------------- | ------------------------------------------------------------------ | ---------------------------- |
@@ -591,7 +667,9 @@ la palabra `model` debe ser exactamente igual al nombre del modelo: `User` y la 
 | maxSize:number | tamaño maximo del archivo en bytes  | `maxSize:1000` |
 | type:param     | tipo de archivo                     | `type:jpg,png` |
 
-## Creditos 📌 [☝️Inicio](#mini-framework-mvc-php-81)
+## Creditos 📌
+
+[☝️Inicio](#cronos-framework-php-81)
 
 _Modelo de framework php_
 
