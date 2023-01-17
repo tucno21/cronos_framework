@@ -575,7 +575,7 @@ abstract class Model
 
 
     //metodo para ejecutar una consulta personalizada y ser usada en el modelo hijo
-    protected function statement(string $query, array $values = []): array|object
+    protected static function statement(string $query, array $values = []): array|object
     {
         $statement = self::$db->statement($query, $values);
 
