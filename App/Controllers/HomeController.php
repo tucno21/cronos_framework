@@ -210,4 +210,14 @@ class HomeController extends Controller
         session()->logout();
         return redirect()->route('home.index')->with('message', 'Sesion cerrada');
     }
+
+    public function archivos()
+    {
+        return view('upload');
+    }
+
+    public function upload(Request $request)
+    {
+        dd($request->hasFile('imzxagen'));
+    }
 }

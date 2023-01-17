@@ -20,6 +20,8 @@ class Request
 
     protected array $headers = [];
 
+    protected array $files = [];
+
     public function __construct()
     {
         $this->uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
@@ -27,6 +29,7 @@ class Request
         $this->data = $this->postPutPatchDelete();
         $this->dataGet =  $this->get();
         $this->headers = getallheaders();
+        $this->files = $this->setFiles();
     }
 
     public function uri(): string
@@ -76,6 +79,9 @@ class Request
         if ($this->method->value === 'POST' && !$isJSON) {
             //si es post y no es json (de tipo form-data)
             $data = $_POST;
+            // if (!empty($_FILES)) {
+            //     $data = array_merge($data, $_FILES);
+            // }
             $this->setPropertiesSelf($data);
             return $data;
         }
@@ -191,5 +197,56 @@ class Request
         $data = (object)$data;
 
         return $data;
+    }
+
+
+    public function file(string $name)
+    {
+        return $this->files[$name] ?? null;
+    }
+
+    public function hasFile(string $name): bool
+    {
+        return isset($this->files[$name]);
+    }
+
+    protected function setFiles(): array
+    {
+        $files = [];
+
+        if (!empty($_FILES)) {
+            return $this->files = $_FILES;
+        }
+
+        return $files;
+    }
+
+    public function store(string $file, string $nameFile = null, string $nameFolder = null)
+    {
+        $file = $this->file($file);
+
+        if (is_null($file)) {
+            return null;
+        }
+
+        $nameFolder = is_null($nameFolder) ? env('NAME_FILE_STORAGE', 'storage') : $nameFolder;
+
+        $path = DIR_PUBLIC . '/' . $nameFolder;
+
+        //crear carpeta si no existe
+        if (!is_dir($path)) {
+            mkdir($path, 0777, true);
+        }
+
+        $nameImagen = is_null($nameFile) ? md5(uniqid(rand(), true)) : $nameFile;
+        $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+
+        $path = $nameFolder . '/' . $nameImagen . '.' . $extension;
+
+        $tmp = $file['tmp_name'];
+
+        move_uploaded_file($tmp, $path);
+
+        return $nameImagen . '.' . $extension;
     }
 }

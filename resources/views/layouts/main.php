@@ -30,6 +30,9 @@
                         <li class="nav-item">
                             <a class="nav-link" aria-current="page" href="<?= route('home.register') ?>">Register</a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link" aria-current="page" href="<?= route('home.archivos') ?>">Archivo</a>
+                        </li>
                     <?php endif ?>
                     <?php if (session()->hasUser()) : ?>
                         <li class="nav-item">

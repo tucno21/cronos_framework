@@ -11,6 +11,10 @@ Route::post('/login', [HomeController::class, 'store']);
 Route::get('/register', [HomeController::class, 'register'])->name('home.register')->middleware(LoginMiddleware::class);
 Route::post('/register', [HomeController::class, 'create']);
 Route::get('/logout', [HomeController::class, 'logout'])->name('home.logout');
+
+Route::get('/archivos', [HomeController::class, 'archivos'])->name('home.archivos');
+Route::post('/archivos', [HomeController::class, 'upload']);
+
 Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
 Route::get('/user/{user}', [DashboardController::class, 'user'])->name('dashboard.user');
 Route::get('/username/{user:name}', [DashboardController::class, 'name'])->name('dashboard.name');
