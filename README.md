@@ -286,7 +286,7 @@ return redirect()->route('login', ['data' => $data]);
 //enviar mensaje de session flash
 return redirect()->route('login')->with('message', 'mensaje de session flash');
 
-//retarnar a la ruta anterior
+//retornar a la ruta anterior
 return back();
 //enviar mensaje de session flash
 return back()->with('message', 'mensaje de session flash');
@@ -518,17 +518,17 @@ la directiva `@include` recibe un parametro el nombre del archivo que se quiere 
 
 [☝️Inicio](#cronos-framework-php-81)
 
-si en el controlado se uso return `back()->withErrors($dataInput, $errors, $status = 200)`
+si en el controlador se uso `return back()->withErrors($dataInput, $errors, $status = 200)`
 
 ```php
-//los $errors puede usar el siguiente helper
+//Para los $errors
 
-//para saber si exite de uno de los imputs
+//para saber si exite error
 (ifError('name'))
-//impriir el error
+//imprimir el error
  <?= error('name') ?>
 
- //para que los datos no se borren al recargar la pagina
+//para que los datos no se borren al recargar la pagina
 <?= old('name') ?>
 ```
 
@@ -555,7 +555,7 @@ si en el controlado se uso return `back()->withErrors($dataInput, $errors, $stat
 ### obtener las rutas
 
 ```html
-//usar la funcion route() como parametro el nombre de la ruta
+//usar la funcion route() como parametro el nombre de la ruta declarada en el archivo routes.php
 <a class="nav-link" aria-current="page" href="<?= route('home.login') ?>">Login</a>
 
 //si declaro la ruta con parametros
@@ -632,10 +632,10 @@ session()->logout();
 | min:number                   | Minimo de caracteres                                               | `min:5`                      |
 | max:number                   | Maximo de caracteres                                               | `max:5`                      |
 | string                       | Solo texto                                                         | `string`                     |
-| confirm                      | compararar dos imputs iguales, agregar la 2da entrada "\_confirm"  | `confirm`                    |
+| confirm                      | comparar dos imputs iguales, agregar la 2da entrada "\_confirm"    | `confirm`                    |
 | slug                         | texto tipo slug **aa-bb-cc**                                       | `slug`                       |
 | text                         | solo texto                                                         | `text`                       |
-| choice:param                 | la valor de ser igual al **param**                                 | `choice:table`               |
+| choice:param                 | la valor debe ser igual al **param**                               | `choice:table`               |
 | between:min,max              | entra minima y maxima de caracteres                                | `between:1,5`                |
 | datetime                     | fecha y hora **Y-m-d H:i:s**                                       | `datetime`                   |
 | time                         | hora **H:i:s**                                                     | `time`                       |
