@@ -16,7 +16,7 @@ class CronosEngine implements View
         $this->viewDirectory = $viewsDirectory;
     }
 
-    public function render(string $view, array $params = [], string $layout = null): string
+    public function render(string $view, array $params = []): string
     {
         $viewContent = $this->renderView($view, $params);
 
