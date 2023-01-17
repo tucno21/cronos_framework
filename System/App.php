@@ -46,7 +46,8 @@ class App
             ->setHttpStartHandlers()
             ->setSessionHandler()
             ->setUpDatabaseConnection()
-            ->runServiceProvider("runtime");
+            ->runServiceProvider("runtime")
+            ->variableGlobal();
     }
 
     protected function loadConfig(): self
@@ -55,6 +56,8 @@ class App
         Dotenv::createImmutable(self::$root)->load();
         //cargamos los archivos de configuracion de la carpeta config
         Config::loadConfig(self::$root . "/config");
+
+        date_default_timezone_set(env('TIME_ZONE', 'GMT'));
 
         return $this;
     }
@@ -115,6 +118,14 @@ class App
         );
         Model::setDB($this->database);
 
+        return $this;
+    }
+
+    protected function variableGlobal(): self
+    {
+        $root = self::$root;
+        //$root agreagar System/Helpers/variable.php
+        require_once $root . "/System/Helpers/variable.php";
         return $this;
     }
 
