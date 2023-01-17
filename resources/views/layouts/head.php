@@ -48,8 +48,3 @@
     </nav>
 
     <main class="container">
-        @content
-    </main>
-</body>
-
-</html>

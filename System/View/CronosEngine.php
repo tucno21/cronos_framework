@@ -8,13 +8,7 @@ class CronosEngine implements View
 {
 
     //almacenamos la ruta de las vistas
-    protected string $viewDirectory;
-
-    //almacenamos el layout por defecto
-    protected string $defaultLayout = 'main';
-
-    //almacenamos la etiqueta de contenido que sera reemplazada por la vista
-    protected string $contenTag = '@content';
+    protected string $viewDirectory; //\laragon\www\cronos_framework/resources/views
 
     //inicializamos la ruta de las vistas
     public function __construct(string $viewsDirectory)
@@ -25,10 +19,44 @@ class CronosEngine implements View
     public function render(string $view, array $params = [], string $layout = null): string
     {
         $viewContent = $this->renderView($view, $params);
-        $layoutContent = $this->renderLayout($layout ?? $this->defaultLayout, $params);
 
-        //str_replace reemplaza todas las apariciones de la cadena de búsqueda con la cadena de reemplazo
-        return str_replace($this->contenTag, $viewContent, $layoutContent);
+        //obtener todos los @include('cccc') de $viewContent
+        preg_match_all('/@include\((.*?)\)/', $viewContent, $matches);
+        $directivaInclude = []; //['@include('layouts.head')', '@include('layouts.footer')']
+        $contentInclude = [];
+
+        if (count($matches[1]) > 0) {
+            // enviar todos los @include('layouts.footer') a $directivaInclude
+            foreach ($matches[0] as $key => $value) {
+                //almacenamo solo el value en $directivaInclude
+                array_push($directivaInclude, $value);
+            }
+            foreach ($matches[1] as $key => $value) {
+                //realizamos limpiaza de los valores de '' y ""
+                $value = trim($value, "'");
+                $value = trim($value, '"');
+                //cambiar el punto por /
+                $value = str_replace('.', '/', $value);
+                //agreagar la extension .php
+                $value = $value . '.php';
+                //preguntar si existe el los archivos 
+                if (!file_exists($this->viewDirectory . '/' . $value)) {
+                    throw new \Error("No existe el archivo {$value}");
+                }
+                //obtenemos la ruta del archivo
+                $patchInclude = $this->viewDirectory . '/' . $value;
+                //renderizamos el archivo
+                $layoutContent = $this->renderLayout($patchInclude, $params);
+                //almacenamos el contenido de $layoutContent en $contentInclude
+                array_push($contentInclude, $layoutContent);
+            }
+        }
+
+        //reemplazar las $directivaInclude por $contentInclude en $viewContent
+        $viewContent = str_replace($directivaInclude, $contentInclude, $viewContent);
+
+        //retornamos el contenido de $viewContent
+        return $viewContent;
     }
 
     protected function renderView(string $view, array $params = []): string
@@ -38,7 +66,7 @@ class CronosEngine implements View
 
     protected function renderLayout(string $layout, array $params = []): string
     {
-        return $this->phpFileOutput("{$this->viewDirectory}/layouts/{$layout}.php", $params);
+        return $this->phpFileOutput($layout, $params);
     }
 
     protected function phpFileOutput(string $phpFile, array $params = []): string

@@ -1,3 +1,4 @@
+@include('layouts.head')
 <div class="container mt-4">
     <h1>Dashboard</h1>
 
@@ -29,3 +30,4 @@
         </div>
     </div>
 </div>
+@include('layouts.footer')

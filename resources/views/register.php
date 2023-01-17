@@ -1,3 +1,4 @@
+@include('layouts.head')
 <h1>Registrarce</h1>
 <form method="post">
   <div class="mb-3">
@@ -42,3 +43,4 @@
 
   <button type="submit" class="btn btn-primary">Registrar</button>
 </form>
+@include('layouts.footer')

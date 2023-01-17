@@ -1,3 +1,4 @@
+@include('layouts.head')
 <h1>Enviar Imagen</h1>
 <form method="post" enctype="multipart/form-data">
 
@@ -23,3 +24,4 @@
 
   <button type="submit" class="btn btn-primary">Login</button>
 </form>
+@include('layouts.footer')

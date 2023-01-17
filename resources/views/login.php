@@ -1,3 +1,4 @@
+@include('layouts.head')
 <h1>Iniciar Sesión</h1>
 <form method="post">
 
@@ -25,3 +26,4 @@
 
   <button type="submit" class="btn btn-primary">Login</button>
 </form>
+@include('layouts.footer')
