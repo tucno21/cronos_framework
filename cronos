@@ -1,0 +1,19 @@
+<?php
+
+
+
+if (strpos(PHP_SAPI, 'cgi') === 0) {
+    exit("La herramienta cli no es compatible cuando se ejecuta php-cgi. ¡Necesita php-cli para funcionar!\n\n");
+}
+
+error_reporting(-1);
+ini_set('display_errors', '1');
+
+require_once "./vendor/autoload.php";
+
+use Cronos\ConsoleCLI\ConsoleCLI;
+
+$data = $_SERVER['argv'];
+$console = new ConsoleCLI($data);
+
+$console->run();
