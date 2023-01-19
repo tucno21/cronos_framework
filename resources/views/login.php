@@ -1,29 +1,47 @@
 @include('layouts.head')
-<h1>Iniciar Sesión</h1>
-<form method="post">
+@include('layouts.headhome')
 
-  <div class="mb-3">
-    <label class="form-label">Correo</label>
-    <input name="email" type="text" class="form-control <?= ifError('email') ? 'is-invalid' : '' ?>" value="<?= old('email') ?>">
-    <?php if (ifError('email')) : ?>
-      <div class="invalid-feedback">
-        <?= error('email') ?>
-      </div>
+
+<div class="container">
+    <?php if (session()->has('message')) : ?>
+        <div class="alert alert-success" role="alert">
+            <p><?= session()->get('message') ?></p>
+        </div>
     <?php endif; ?>
-  </div>
+    <div class="mt-4 d-flex justify-content-center align-items-center">
+        <div class="col-md-4 px-5 py-3 shadow-lg border rounded-3">
+            <h2 class="text-center mb-3">Iniciar Sesión</h2>
+            <form method="post">
+                <div class="mb-3">
+                    <label for="email" class="form-label">Email</label>
+                    <input type="email" name="email" class="form-control <?= ifError('email') ? 'is-invalid' : 'border-primary' ?>" id="email" value="<?= old('email') ?>">
+                    <?php if (ifError('email')) : ?>
+                        <div class="invalid-feedback">
+                            <?= error('email') ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
+                <div class="mb-3">
+                    <label for="password" class="form-label">Password</label>
+                    <input type="password" name="password" class="form-control <?= ifError('password') ? 'is-invalid' : 'border-primary' ?>" id="password" value="<?= old('password') ?>">
+                    <?php if (ifError('password')) : ?>
+                        <div class="invalid-feedback">
+                            <?= error('password') ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
 
-  <div class="mb-3">
-    <label class="form-label">Password</label>
-    <input name="password" type="text" class="form-control <?= ifError('password') ? 'is-invalid' : '' ?>" value="<?= old('password') ?>">
-    <?php if (ifError('password')) : ?>
-      <div class="invalid-feedback">
-        <?= error('password') ?>
-      </div>
-    <?php endif; ?>
-  </div>
+                <div class="d-grid">
+                    <button class="btn btn-primary" type="submit">Iniciar</button>
+                </div>
+            </form>
+            <div class="mt-3">
+                <p class="mb-0  text-center">No tiene una cuenta? <a href="<?= route('register.index') ?>" class="text-primary fw-bold">Registrace</a></p>
+            </div>
+        </div>
+    </div>
+</div>
+</main>
 
 
-
-  <button type="submit" class="btn btn-primary">Login</button>
-</form>
 @include('layouts.footer')

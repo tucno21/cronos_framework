@@ -7,7 +7,7 @@ use Cronos\Http\Request;
 use Cronos\Http\Response;
 use Cronos\Http\Middleware;
 
-class LoginMiddleware implements Middleware
+class DahboardMiddleware implements Middleware
 {
     public function handle(Request $request, Closure $next): Response
     {
