@@ -41,6 +41,6 @@ class LoginController extends Controller
     public function logout()
     {
         session()->logout();
-        return redirect()->route('home.index')->with('message', 'Sesion cerrada');
+        return redirect()->route('home.index');
     }
 }

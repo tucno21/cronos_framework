@@ -11,7 +11,7 @@ Route::get('/', [HomeController::class, 'index'])->name('home.index')->middlewar
 
 Route::get('/login', [LoginController::class, 'index'])->name('login.index')->middleware(DahboardMiddleware::class);
 Route::post('/login', [LoginController::class, 'store']);
-Route::get('/logout', [LoginController::class, 'logout'])->name('login.logout')->middleware(DahboardMiddleware::class);
+Route::get('/logout', [LoginController::class, 'logout'])->name('login.logout');
 
 Route::get('/register', [RegisterController::class, 'index'])->name('register.index')->middleware(DahboardMiddleware::class);
 Route::post('/register', [RegisterController::class, 'create']);
