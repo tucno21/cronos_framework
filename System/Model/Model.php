@@ -417,7 +417,7 @@ abstract class Model
     }
 
     //metodo para obtener los registros despues de la anidacion de metodos
-    public function get(): ?static
+    public function get(): ?array
     {
         $select = self::$select;
         $join = implode(" ", self::$join);
@@ -430,19 +430,19 @@ abstract class Model
         } else {
             self::$query = "SELECT $select FROM {$this->table} $join $orderby $limit";
         }
-
+        // dd(self::$query);
         $statement = $this->executeResult(self::$query);
-
         if (count($statement) == 0) {
             return null;
         }
 
-        foreach ($statement as $key => $value) {
+        $models = [];
+        foreach ($statement as $row) {
             //enviamos la respuesta como un objeto de la clase instanciada
-            $statement[$key] = $this->setAttributes($value);
+            $models[] = (new static())->setAttributes($row);
         }
 
-        return $statement;
+        return $models;
     }
 
     //metodo para obtener un solo registro despues de la anidacion de metodos
