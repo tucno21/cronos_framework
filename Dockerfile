@@ -1,5 +1,3 @@
-FROM php:8.1-fpm
-
 # Copiar el contenido de su proyecto en el contenedor
 COPY . /var/www/html
 
@@ -15,7 +13,4 @@ COPY .docker/default.conf /etc/nginx/conf.d/default.conf
 
 # Expose the port
 EXPOSE 80
-
-# Start PHP
-CMD ["php-fpm"]
 
