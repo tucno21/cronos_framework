@@ -4,6 +4,3 @@ RUN composer install
 RUN mv .env.example .env
 COPY .docker/default.conf /etc/nginx/conf.d/default.conf
 
-# Expose the port
-EXPOSE 80
-
