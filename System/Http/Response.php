@@ -58,6 +58,40 @@ class Response
         unset($this->headers[strtolower($header)]);
     }
 
+    public function setCookie(string $name, string $value, int $expire = 0, array $options = []): self
+    {
+        //array de opciones predeterminadas de la cookie
+        $defaults = [
+            "path" => "/", //ruta de la cookie
+            "domain" => "", //dominio de la cookie
+            "secure" => false, //si la cookie solo se transmite a través de una conexión segura HTTPS
+            "httponly" => false, //si la cookie solo se puede acceder a través del protocolo HTTP
+            "samesite" => "none", //si la cookie solo se puede enviar con solicitudes de origen cruzado
+        ];
+
+        //unimos las opciones predeterminadas con las opciones que se pasan
+        $options = array_merge($defaults, $options);
+
+        //asignamos la cookie
+        $this->setHeaders(
+            "Set-Cookie",
+            sprintf(
+                "%s=%s; expires=%s; path=%s; domain=%s; secure=%s; httponly=%s; samesite=%s",
+                $name,
+                $value,
+                $expire > 0 ? gmdate("D, d M Y H:i:s T", $expire) : "Thu, 01 Jan 1970 00:00:00 GMT",
+                $options["path"],
+                $options["domain"],
+                $options["secure"] ? "true" : "false",
+                $options["httponly"] ? "true" : "false",
+                $options["samesite"]
+            )
+        );
+
+
+        return $this;
+    }
+
     public function setContentType(string $value): self
     {
         //asignamos el tipo de contenido
@@ -170,15 +204,19 @@ class Response
     //ejectuamos la respuestas que hemos preparado
     public function sendResponse(Response $response)
     {
+
         header("Content-Type: None"); //cabiamos la cabecera por a defecto none
         header_remove("Content-Type"); //eliminamos la cabecera por defecto
 
         $response->prepare();
         http_response_code($response->statusCode());
 
+
         foreach ($response->headers() as $header => $value) {
             header("{$header}: {$value}");
         }
+        // dd(headers_list());
+        // dd($response->content());
 
         print($response->content());
     }
