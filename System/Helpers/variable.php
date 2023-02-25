@@ -13,7 +13,7 @@ define('ROOT', App::$root);
 //obtener la ruta de la carpeta public "\laragon\www\cronos_framework\public
 define('DIR_PUBLIC',  ROOT . '/public');
 
-define('DIR_IMG', DIR_PUBLIC . '/' . env('FILE_STORAGE', 'public') . '/');
+define('DIR_IMG', DIR_PUBLIC . '/' . env('PATH_FILE_STORAGE', 'public') . '/');
 
 /**
  * obtener la ruta web de la aplicacion sin "/"
