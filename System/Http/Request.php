@@ -24,36 +24,72 @@ class Request
 
     public function __construct()
     {
+        //inicializar los headers Origins que se aceptan
+        $allowed_origins = configGet('cors.allowed_origins');
+        if ($allowed_origins !== null && $allowed_origins !== []) {
+            //['*']
+            $origins = implode(', ', $allowed_origins);
+            header("Access-Control-Allow-Origin: $origins");
+        }
+
+        //inicializar los headers Methods que se aceptan
+        $allowed_methods = configGet('cors.allowed_methods');
+        if ($allowed_methods !== null && $allowed_methods !== []) {
+            //['GET', 'POST', 'PUT',  'DELETE']
+            $metodos = implode(', ', $allowed_methods);
+            header("Access-Control-Allow-Methods: $metodos");
+        }
+
+        $allowed_headers = configGet('cors.allowed_headers');
+        if ($allowed_headers !== null && $allowed_headers !== []) {
+            //['*']
+            $headers = implode(', ', $allowed_headers);
+            header("Access-Control-Allow-Headers: $headers");
+        }
+
+        //capturar la uri que se esta solicitando y lo convierte en un array
         $this->uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+        //capturar el metodo que se esta solicitando (get, post, put, patch, delete)
         $this->method = HttpMethod::from($_SERVER['REQUEST_METHOD']);
+        //capturar los datos que se envian por post, put, patch, delete
         $this->data = $this->postPutPatchDelete();
+        //capturar los datos que se envian por get
         $this->dataGet =  $this->get();
+        //getallheaders() obtiene todos los headers de la peticion
         $this->headers = getallheaders();
-        $this->files = $this->setFiles();
+        // //capturar los archivos que se envian por post, put, patch, delete
+        // $this->files = $this->setFiles();
     }
+
 
     public function uri(): string
     {
+        //retorna la uri que se esta solicitando
         return $this->uri;
     }
 
     public function patch(): string
     {
+        //retorna la uri que se esta solicitando
         return $this->uri;
     }
 
     public function method(): HttpMethod
     {
+        //retorna el metodo que se esta solicitando
         return $this->method;
     }
 
     public function getHeaders(): array
     {
+        //retorna los headers que se estan enviando
         return $this->headers;
     }
 
+
     public function setHeaders(array $headers): self
     {
+        //setea los headers que se estan enviando
         foreach ($headers as $header => $value) {
             $this->headers[$header] = $value;
         }
@@ -62,6 +98,7 @@ class Request
 
     public function headers(string $key = null): array|string|null
     {
+        //retorna los headers que se estan enviando
         if (is_null($key)) {
             return $this->headers;
         }
@@ -71,32 +108,141 @@ class Request
 
     protected function postPutPatchDelete(): array
     {
-        //obtener los headers cabezera
+        // Obtener los headers de la solicitud
         $headers = getallheaders();
-        //verificar si el header es de tipo json
+
+        // Verificar si la solicitud es JSON
         $isJSON = isset($headers['Content-Type']) && $headers['Content-Type'] === 'application/json';
 
-        if ($this->method->value === 'POST' && !$isJSON) {
-            //si es post y no es json (de tipo form-data)
-            $data = $_POST;
-            // if (!empty($_FILES)) {
-            //     $data = array_merge($data, $_FILES);
-            // }
-            $this->setPropertiesSelf($data);
-            return $data;
-        }
 
         if ($isJSON) {
-            //si es post, put, patch, delete y es json (de tipo application/json)
+            // Si la solicitud es JSON, decodificar el cuerpo de la solicitud
             $data = json_decode(file_get_contents('php://input'), true);
-            $this->setPropertiesSelf($data);
         } else {
-            //parse_str convierte los datos de tipo string a un array
-            parse_str(file_get_contents('php://input'), $data);
+            // Si la solicitud no es JSON, verificar si hay archivos
+            if ($this->method->value === 'PUT') {
+                $dataInPutsText = []; //ejemplo: ['title' => 'miweb', 'url' => 'www.google.com','description' => 'hola jorge']
+                $files = []; //ejemplo: ['image' => ['name'=>'bb.png','full_path'=>'bb.jpg','type'=>'image/png','tmp_name'=>'C:\Users\Carlos\AppData\Local\Temp\php26F4.tmp','error'=>0,'size'=>181777]]
+                // Leer la carga útil de la solicitud
+                $inputs = file_get_contents("php://input");
+
+                // Si la carga útil no está vacía, procesar los datos y los archivos
+                if (!empty($inputs)) {
+                    // Separar la carga útil en múltiples partes, utilizando el delimitador de multipart
+                    $delimiter = substr($inputs, 0, strpos($inputs, "\r\n")); //string(40) "------WebKitFormBoundarynuxHwAERZNdXgb46"
+
+                    // Separar los datos y los archivos en partes separadas
+                    $inputsArray = array_slice(explode($delimiter, $inputs), 1); //cada input es un string dentro de un array
+                    //eliminar el ultimo elemento del array
+                    array_pop($inputsArray);
+
+                    // Recorrer cada parte de la carga útil
+                    foreach ($inputsArray as $input) {
+                        // Si la parte no está vacía, procesarla
+                        if ($input !== "--\r \n") {
+                            // Obtener el nombre del campo
+                            preg_match('/name="([^"]+)"/', $input, $match); //array(2) { [0]=> string(12) "name="title"" [1]=> string(5) "title" }
+                            $fieldName = $match[1];
+
+                            // Obtener el tipo de contenido
+                            if (preg_match('/Content-Type: (.*)/', $input, $match) === 1) {
+                                preg_match('/Content-Type: (.*)/', $input, $match); //array(2) { [0]=> string(24) "Content-Type: image/png" [1]=> string(9) "image/png" }
+                                $contentType = $match[1];
+                                //limpiar espacios en blanco
+                                $contentType = trim($contentType);
+                            } else {
+                                $contentType = null;
+                            }
+
+                            // Obtener el valor del campo
+                            // $value = substr($input, strpos($input, "\r\n\r\n") + 4, -2); //string(5) "hola " o el contenido de la imagen
+                            $pos = strpos($input, "\r\n\r\n");
+                            if ($pos !== false) {
+                                $value = substr($input, $pos + 4, -2);
+                            } else {
+                                $value = "";
+                            }
+
+                            // Si el tipo de contenido es un archivo, procesarlo
+                            if (isset($contentType)) {
+                                // Obtener el nombre del archivo
+                                // preg_match('/filename="([^"]+)"/', $input, $match); //array(2) { [0]=> string(19) "filename="bb.png"" [1]=> string(6) "bb.png" }
+                                preg_match('/filename="([^"]*)"/', $input, $match); //array(2) { [0]=> string(19) "filename="bb.png"" [1]=> string(6) "bb.png" }
+                                $filename = $match[1];
+
+                                if ($filename == '' || $filename == null) {
+                                    $file = [
+                                        'name' => '',
+                                        'full_path' => '',
+                                        'type' => '',
+                                        'tmp_name' => '',
+                                        'error' => 4,
+                                        'size' => 0,
+                                    ];
+
+                                    // Agregar el archivo al array de archivos
+                                    $files[$fieldName] = $file;
+                                } else {
+                                    // Obtener el contenido del archivo
+                                    $fileContent = substr($input, strpos($input, "\r\n\r\n") + 4, -2); //string(181777) "GIF89a..."
+
+                                    // Obtener la ruta temporal del archivo
+                                    $tmpName = tempnam(sys_get_temp_dir(), 'php'); //string(36) "C:\Users\Carlos\AppData\Local\Temp\php26F4.tmp"
+
+                                    // Escribir el contenido del archivo en la ruta temporal
+                                    file_put_contents($tmpName, $fileContent);
+
+                                    // Obtener el tamaño del archivo
+                                    $size = filesize($tmpName);
+
+                                    // Obtener el código de error del archivo
+                                    $error = ($size > 0) ? 0 : 1;
+
+                                    // Crear un array con los datos del archivo
+                                    $file = [
+                                        'name' => $filename,
+                                        'full_path' => $tmpName,
+                                        'type' => $contentType,
+                                        'tmp_name' => $tmpName,
+                                        'error' => $error,
+                                        'size' => $size,
+                                    ];
+
+                                    // Agregar el archivo al array de archivos
+                                    $files[$fieldName] = $file;
+                                }
+                            } else {
+                                // Si el tipo de contenido no es un archivo, agregarlo al array de datos
+                                $dataInPutsText[$fieldName] = $value;
+                            }
+                        }
+                    }
+                }
+
+                if (!empty($files)) {
+                    $this->files = $files;
+                }
+
+                $data = $dataInPutsText;
+            } else {
+                // Capturar archivos en solicitudes POST
+                if (!empty($_FILES)) {
+                    $this->files = $_FILES;
+                }
+                $data = $_POST;
+            }
+
+            // // Si hay archivos, eliminarlos de los datos
+            // foreach ($this->files as $key => $value) {
+            //     unset($data[$key]);
+            // }
         }
 
+        // Almacenar los datos en las propiedades de la clase y retornarlos
+        $this->setPropertiesSelf($data);
         return $data;
     }
+
 
     protected function get(): array
     {
@@ -208,17 +354,6 @@ class Request
     public function hasFile(string $name): bool
     {
         return isset($this->files[$name]);
-    }
-
-    protected function setFiles(): array
-    {
-        $files = [];
-
-        if (!empty($_FILES)) {
-            return $this->files = $_FILES;
-        }
-
-        return $files;
     }
 
     public function store(string $file, string $nameFile = null, string $nameFolder = null)
