@@ -6,6 +6,7 @@ use Cronos\Database\DatabaseDriver;
 
 abstract class Model
 {
+
     protected string $table = '';
 
     protected string $primaryKey = 'id';
@@ -38,28 +39,41 @@ abstract class Model
         self::$db = $db;
     }
 
-    public function __set($name, $value)
+    //metodo magico para obtener los atributos de la clase
+    public function __get(string $attribute)
     {
-        //agregar los atributos(propiedades) al objeto para poder acceder a ellos y json
-        $this->$name = $value;
-        $this->attributes[$name] = $value;
+        return in_array($attribute, $this->hidden) ? null : $this->attributes[$attribute] ?? null;
     }
 
-    public function __get($name)
+    //metodo magico para asignar los atributos de la clase
+    public function __set(string $attribute, $value)
     {
-        return $this->$name ?? null;
+        //in_array — Comprueba si un valor existe en un array
+        if (in_array($attribute, $this->fillable) || $attribute == $this->primaryKey) {
+            $this->$attribute = $this->attributes[$attribute] = $value;
+        } elseif ($this->timestamps && ($attribute === $this->created || $attribute === $this->updated)) {
+            $this->$attribute = $this->attributes[$attribute] = $value;
+        } else {
+            throw new \Error('El atributo "' . $attribute . '" no es asignable en el modelo ' . static::class);
+        }
     }
 
-    //metodo para insertar registros en la base de datos
-    public function save(): object
+    //metodo para pasar los atributos a la propiedad attributes
+    protected function setAttribute(string $attribute, mixed $value): void
+    {
+        if (in_array($attribute, $this->fillable)) {
+            $this->attributes[$attribute] = $value;
+        } else {
+            throw new \Error('El atributo "' . $attribute . '" no es asignable en el modelo ' . static::class);
+        }
+    }
+
+    //metodo para guardar los datos en la base de datos
+    public function save(): ?self
     {
         if ($this->timestamps) {
-            $this->attributes[$this->created] = date('Y-m-d H:i:s');
-            $this->attributes[$this->updated] = date('Y-m-d H:i:s');
-
-            //agregar los atributos created y updated al objeto
-            $this->{$this->created} = $this->attributes[$this->created];
-            $this->{$this->updated} = $this->attributes[$this->updated];
+            //agregar los campos created_at y updated_at proiedad atributos
+            $this->attributes[$this->created] = $this->attributes[$this->updated] = date('Y-m-d H:i:s');
         }
 
         //las claves de los atributos forma un string separado por comas
@@ -72,127 +86,71 @@ abstract class Model
         //los valores de los atributos se convierten en un array
         $param = array_values($this->attributes);
 
-        //se ejecuta la consulta
-        self::$db->statementC_U_D($sql, $param);
+        $responseInt = self::$db->statementC_U_D($sql, $param);
+        if ($responseInt > 0) {
+            //se obtiene el id del ultimo registro insertado
+            $this->attributes[$this->primaryKey] = self::$db->lastInsertId();
 
-        //se obtiene el id del ultimo registro insertado
-        $this->attributes[$this->primaryKey] = self::$db->lastInsertId();
-        //agregar el atributo id al inicio del objeto
-        $this->{$this->primaryKey} = $this->attributes[$this->primaryKey];
-
-        return $this;
-    }
-
-    //metodo para asignar los atributos
-    protected function attributesAsignCreate(array $attributes): static
-    {
-        if (count($this->fillable) == 0) {
-            throw new \Error("Model " . static::class . " No tiene atributos asignables");
-        }
-
-        //extraer las claves del array $attributes
-        $attributesKey = array_keys($attributes);
-
-        if (count($this->fillable) != count($attributesKey)) {
-            throw new \Error("Los datos enviados No tiene el mismo numero de atributos asignables al Model " . static::class);
-        }
-
-        //comparar el array $attributesKey con array $fillable y devolver booleano
-        $bool = false;
-        foreach ($this->fillable as $value) {
-            //todos los valores de $fillable deben estar en $attributesKey
-            if (in_array($value, $attributesKey)) {
-                $bool = true;
-            } else {
-                $bool = false;
-                break;
+            // como retornar como propiedades del la clase hija los datos de la propiedad $this->attributes
+            foreach ($this->attributes as $key => $value) {
+                // ocultar los atributos que estan en la propiedad $this->hidden
+                if (!in_array($key, $this->hidden)) {
+                    $this->{$key} = $value;
+                }
             }
-        }
 
-        if (!$bool) {
-            throw new \Error("Los datos enviados No tiene los mismos atributos(campos) al Model " . static::class);
+            return $this;
         }
-
-        foreach ($this->fillable as $key => $value) {
-            $this->attributes[$value] = $attributes[$value];
-            $this->{$value} = $attributes[$value];
-        }
-
-        return $this;
     }
 
-    //metodo estatico para crear un nuevo registro
-    public static function create(array|object $data): object
+    //metodo estico para guardar los datos en la base de datos
+    public static function create(array|object $data): ?self
     {
         if (is_object($data)) {
             $data = (array) $data;
         }
 
         $model = new static();
-
-        $model->attributesAsignCreate($data);
-
+        foreach ($data as $key => $value) {
+            // Ocultar los atributos que están en la propiedad $model->hidden
+            if (!in_array($key, $model->hidden)) {
+                $model->{$key} = $value;
+            } else {
+                // Guardar el campo eliminado de la propiedad $model->hidden
+                $model->setAttribute($key, $value);
+            }
+        }
         return $model->save();
     }
 
-    //metodo para comprobar si existe dentro $fillable los atributos que se quieren actualizar
-    protected function checkFillable(array $attributes): bool
-    {
-        if (count($this->fillable) == 0) {
-            throw new \Error("Model " . static::class . " No tiene atributos asignables");
-        }
-
-        //extraer las claves del array $attributes
-        $attributesKey = array_keys($attributes);
-
-        //comparar el array $attributesKey con array $fillable y devolver booleano
-        $bool = false;
-        foreach ($attributesKey as $value) {
-            //comprobar que  $value este dentro de $fillable y si no esta devolver false
-            if (in_array($value, $this->fillable)) {
-                $bool = true;
-            } else {
-                $bool = false;
-                break;
-            }
-        }
-
-        if (!$bool) {
-            throw new \Error("Los datos enviados no tiene los mismos atributos(campos) del Model " . static::class);
-        }
-
-        return $bool;
-    }
-
-    //metodo para asignar los atributos
-    protected function attributesAsign(array $data)
-    {
-        foreach ($data as $key => $value) {
-            $this->attributes[$key] = $value;
-        }
-    }
-
-    //metodo para actualizar registros
-    public static function update($id, array|object $data): object|int
+    //metodo para actualizar los datos en la base de datos
+    public static function update(int|string $id, array|object $data): ?self
     {
         if (is_object($data)) {
             $data = (array) $data;
         }
 
+        //instancia de la clase hija
         $model = new static();
 
-        $model->checkFillable($data);
-
-        $model->attributesAsign($data);
-
+        //si timestamps es true se agrega el campo updated_at
         if ($model->timestamps) {
             $model->attributes[$model->updated] = date('Y-m-d H:i:s');
+        }
+
+        foreach ($data as $key => $value) {
+            // creamos propiedades con los nombres de los campos de la base de datos ocultando los campos que estan en la propiedad $model->hidden
+            if (!in_array($key, $model->hidden)) {
+                $model->{$key} = $value;
+            } else {
+                // Guardar el campo eliminado de la propiedad $model->hidden
+                $model->setAttribute($key, $value);
+            }
         }
 
         $sql = "UPDATE {$model->table} SET ";
 
         $param = [];
-
         foreach ($model->attributes as $key => $value) {
             $sql .= "{$key} = ?, ";
             $param[] = $value;
@@ -208,32 +166,58 @@ abstract class Model
 
         if ($rows > 0) {
             $model->attributes[$model->primaryKey] = $id;
-            //agregar el atributo id al inicio del objeto
-            return $model->setAttributes($model->attributes);
+
+            foreach ($model->attributes as $key => $value) {
+                // ocultar los atributos que estan en la propiedad $this->hidden
+                if (!in_array($key, $model->hidden)) {
+                    $model->{$key} = $value;
+                }
+            }
+
+            return $model;
         } else {
-            return $rows;
+            return null;
         }
     }
 
-    //metodo para eliminar registros
-    public static function delete($id): bool
+    //metodo para eliminar los datos en la base de datos
+    public static function delete(int|string $id): bool
+    {
+        $model = new static();
+        $sql = "DELETE FROM {$model->table} WHERE {$model->primaryKey} = ?";
+        $param = [$id];
+        $rows = self::$db->statementC_U_D($sql, $param);
+        return $rows > 0;
+    }
+
+    //metodo statico para crear modelos a partir de los resultados de la consulta
+    private static function createModelsFromResults(array $results): array
+    {
+        $models = [];
+
+        foreach ($results as $row) {
+            $models[] = self::createModelFromResult($row);
+        }
+
+        return $models;
+    }
+
+    //metodo statico para crear un modelo a partir de un resultado de la consulta
+    private static function createModelFromResult(object $result): self
     {
         $model = new static();
 
-        $sql = "DELETE FROM {$model->table} WHERE {$model->primaryKey} = ?";
-
-        $param = [$id];
-
-        $rows = self::$db->statementC_U_D($sql, $param);
-
-        if ($rows > 0) {
-            return true;
-        } else {
-            return false;
+        foreach ($result as $key => $value) {
+            // ocultar los atributos que estan en la propiedad $this->hidden
+            if (!in_array($key, $model->hidden)) {
+                $model->{$key} = $value;
+            }
         }
+
+        return $model;
     }
 
-    //metodo para obtener todos los registros
+    //metodo estatico para obtener todos los registros de la tabla
     public static function all(): array
     {
         $model = new static();
@@ -250,16 +234,11 @@ abstract class Model
 
         $models = [];
 
-        foreach ($result as $row) {
-            //enviamos la respuesta como un objeto de la clase instanciada
-            $models[] = (new static())->setAttributes($row);
-        }
-
-        return $models;
+        return self::createModelsFromResults($result);
     }
 
-    //metodo para obtener un registro
-    public static function find(int|string $id): ?static
+    //metodo estatico para obtener un registro de la tabla
+    public static function find(int|string $id): ?self
     {
         $model = new static();
 
@@ -273,23 +252,11 @@ abstract class Model
             return null;
         }
 
-        // return (object) $result[0];
-        return $model->setAttributes($result[0]);
+        return self::createModelFromResult($result[0]);
     }
 
-    protected function setAttributes(array|object $attributes): static
-    {
-        foreach ($attributes as $key => $value) {
-            //agregamos a la clase propiedades dinamicas con si nombre y valor
-            //haciendo uso del metodo magico __set
-            $this->__set($key, $value);
-        }
-
-        return $this;
-    }
-
-    //metodo para un registro pero con un orden descendente
-    public static function last(): ?static
+    //metodo estatico para obtener el ultimo registro de la tabla
+    public static function last(): ?self
     {
         $model = new static();
 
@@ -300,14 +267,13 @@ abstract class Model
         $result = self::$db->statement($sql, $param);
 
         if (count($result) == 0) {
-            throw new \Error("No se encontro el registro en la tabla {$model->table}");
+            return null;
         }
 
-        //enviamos la respuesta como un objeto de la clase instanciada
-        return $model->setAttributes($result[0]);
+        return self::createModelFromResult($result[0]);
     }
 
-    //metodo para agregar las columnas que se quieren obtener
+    //metodo para agregar las columnas a la consulta
     public static function select(string ...$select): self
     {
         //unir los elementos del array $select con una coma
@@ -317,7 +283,7 @@ abstract class Model
         return new static;
     }
 
-    //metodo para agregar condiciones a la consulta
+    //metodo para agregar condicione where a la consulta
     public static function where(string $columna, string|int $operadorOvalor, string|int $valor = null): self
     {
         self::$existWhere = true;
@@ -333,7 +299,7 @@ abstract class Model
         return new static;
     }
 
-    //metodo para agregar condiciones a la consulta mediante dos valores
+    //metodo para agregar condicione where BETWEEN a la consulta
     public static function whereBetween(string $columna, string|int $valor1, string|int $valor2): self
     {
         self::$existWhere = true;
@@ -344,7 +310,7 @@ abstract class Model
         return new static;
     }
 
-    //metodo para agregar condiciones mediante concatenacion de columnas
+    //metodo para agregar condicione where CONCAT a la consulta
     public static function whereConcat(string $columna, string|int $operadorOvalor, string|int $valor = null): self
     {
         if (is_null($valor)) {
@@ -357,7 +323,7 @@ abstract class Model
         return new static;
     }
 
-    //metodo para agregar condiciones AND desde el metodo where
+    //metodo para agregar condicione where AND a la consulta   
     public static function andWhere(string $columna, string|int $operadorOvalor, string|int $valor = null): self
     {
         if (is_null($valor)) {
@@ -391,6 +357,7 @@ abstract class Model
         return new static;
     }
 
+
     //metodo para ordenar los registros
     public static function orderBy(string $columna, string $orden): self
     {
@@ -416,149 +383,6 @@ abstract class Model
         return new static;
     }
 
-    //metodo para obtener los registros despues de la anidacion de metodos
-    public function get(): ?array
-    {
-        $select = self::$select;
-        $join = implode(" ", self::$join);
-        $where = implode(" ", self::$where);
-        $orderby = self::$orderby;
-        $limit = self::$limit;
-
-        if (self::$existWhere) {
-            self::$query = "SELECT $select FROM {$this->table} $join WHERE $where $orderby $limit";
-        } else {
-            self::$query = "SELECT $select FROM {$this->table} $join $orderby $limit";
-        }
-        // dd(self::$query);
-        $statement = $this->executeResult(self::$query);
-        if (count($statement) == 0) {
-            return null;
-        }
-
-        $models = [];
-        foreach ($statement as $row) {
-            //enviamos la respuesta como un objeto de la clase instanciada
-            $models[] = (new static())->setAttributes($row);
-        }
-
-        return $models;
-    }
-
-    //metodo para obtener un solo registro despues de la anidacion de metodos
-    public function first(): ?static
-    {
-        $select = self::$select;
-        $join = implode(" ", self::$join);
-        $where = implode(" ", self::$where);
-        $orderby = self::$orderby;
-
-        if (self::$existWhere) {
-            self::$query = "SELECT $select FROM {$this->table} $join WHERE $where $orderby LIMIT 1";
-        } else {
-            self::$query = "SELECT $select FROM {$this->table} $join $orderby LIMIT 1";
-        }
-
-        $statement = $this->executeResult(self::$query);
-
-        if (count($statement) == 0) {
-            return null;
-        }
-
-        $this->setAttributes($statement[0]);
-        return $this;
-    }
-
-    //metodo para obtener la valor maximo de una columna con valores numericos despues de la anidacion de metodos
-    public function max(): int
-    {
-
-        $select = self::$select;
-        $join = implode(" ", self::$join);
-        $where = implode(" ", self::$where);
-        $orderby = self::$orderby;
-
-        if (self::$existWhere) {
-            self::$query = "SELECT MAX($select) FROM {$this->table} $join WHERE $where $orderby";
-        } else {
-            self::$query = "SELECT MAX($select) FROM {$this->table} $join $orderby";
-        }
-
-        $statement = $this->executeResult(self::$query);
-
-        //obejto a array
-        $statement = (array) $statement[0];
-
-        return $statement["MAX($select)"];
-    }
-
-    //metodo para obtener la valor minimo de una columna con valores numericos despues de la anidacion de metodos
-    public function min(): int
-    {
-
-        $select = self::$select;
-        $join = implode(" ", self::$join);
-        $where = implode(" ", self::$where);
-        $orderby = self::$orderby;
-
-        if (self::$existWhere) {
-            self::$query = "SELECT MIN($select) FROM {$this->table} $join WHERE $where $orderby";
-        } else {
-            self::$query = "SELECT MIN($select) FROM {$this->table} $join $orderby";
-        }
-
-        $statement = $this->executeResult(self::$query);
-
-        //obejto a array
-        $statement = (array) $statement[0];
-
-        return $statement["MIN($select)"];
-    }
-
-    //metodo para obtener la valor de la suma de una columna con valores numericos despues de la anidacion de metodos
-    public function sum(): int
-    {
-        $select = self::$select;
-        $join = implode(" ", self::$join);
-        $where = implode(" ", self::$where);
-        $orderby = self::$orderby;
-
-        if (self::$existWhere) {
-            self::$query = "SELECT SUM($select) FROM {$this->table} $join WHERE $where $orderby";
-        } else {
-            self::$query = "SELECT SUM($select) FROM {$this->table} $join $orderby";
-        }
-
-        $statement = $this->executeResult(self::$query);
-
-        //obejto a array
-        $statement = (array) $statement[0];
-
-        return $statement["SUM($select)"];
-    }
-
-    //metodo para obtener la valor promedio de una columna con valores numericos despues de la anidacion de metodos
-    public function avg(): int
-    {
-        $select = self::$select;
-        $join = implode(" ", self::$join);
-        $where = implode(" ", self::$where);
-        $orderby = self::$orderby;
-
-        if (self::$existWhere) {
-            self::$query = "SELECT AVG($select) FROM {$this->table} $join WHERE $where $orderby";
-        } else {
-            self::$query = "SELECT AVG($select) FROM {$this->table} $join $orderby";
-        }
-
-        $statement = $this->executeResult(self::$query);
-
-        //obejto a array
-        $statement = (array) $statement[0];
-
-        return $statement["AVG($select)"];
-    }
-
     //metodo para obtener la cantidad de registros despues de la anidacion de metodos
     private function executeResult(string $query): array|object
     {
@@ -573,6 +397,182 @@ abstract class Model
         return $statement;
     }
 
+    public function firstNotHidden(): ?self
+    {
+        $select = self::$select;
+        $join = implode(" ", self::$join);
+        $where = implode(" ", self::$where);
+        $orderby = self::$orderby;
+
+        if (self::$existWhere) {
+            self::$query = "SELECT $select FROM {$this->table} $join WHERE $where $orderby LIMIT 1";
+        } else {
+            self::$query = "SELECT $select FROM {$this->table} $join $orderby LIMIT 1";
+        }
+
+        $result = $this->executeResult(self::$query);
+
+        if (count($result) == 0) {
+            return null;
+        }
+
+        $model = new static();
+
+        foreach ($result[0] as $key => $value) {
+            // ocultar los atributos que estan en la propiedad $this->hidden
+            $model->{$key} = $value;
+        }
+
+        return $model;
+    }
+
+
+    //metodo para obtener el primer registro despues de la anidacion de metodos
+    public function first(): ?self
+    {
+        $select = self::$select;
+        $join = implode(" ", self::$join);
+        $where = implode(" ", self::$where);
+        $orderby = self::$orderby;
+
+        if (self::$existWhere) {
+            self::$query = "SELECT $select FROM {$this->table} $join WHERE $where $orderby LIMIT 1";
+        } else {
+            self::$query = "SELECT $select FROM {$this->table} $join $orderby LIMIT 1";
+        }
+
+        $result = $this->executeResult(self::$query);
+
+        if (count($result) == 0) {
+            return null;
+        }
+
+        return self::createModelFromResult($result[0]);
+    }
+
+    //metodo para obtener todos los registros despues de la anidacion de metodos
+    public function get(): ?array
+    {
+        $select = self::$select;
+        $join = implode(" ", self::$join);
+        $where = implode(" ", self::$where);
+        $orderby = self::$orderby;
+        $limit = self::$limit;
+
+        if (self::$existWhere) {
+            self::$query = "SELECT $select FROM {$this->table} $join WHERE $where $orderby $limit";
+        } else {
+            self::$query = "SELECT $select FROM {$this->table} $join $orderby $limit";
+        }
+
+        $result = $this->executeResult(self::$query);
+
+        if (count($result) == 0) {
+            return null;
+        }
+
+        return self::createModelsFromResults($result);
+    }
+
+    //metodo para obtener la valor maximo de una columna con valores numericos despues de la anidacion de metodos
+    public function max(): int|float|string
+    {
+        $select = self::$select;
+        if ($select == '*') {
+            throw new \Error("no agrego ninguna columna para obtener el valor maximo Model::select('columna')->max()");
+        }
+
+        $join = implode(" ", self::$join);
+        $where = implode(" ", self::$where);
+        $orderby = self::$orderby;
+
+        if (self::$existWhere) {
+            self::$query = "SELECT MAX($select) FROM {$this->table} $join WHERE $where $orderby";
+        } else {
+            self::$query = "SELECT MAX($select) FROM {$this->table} $join $orderby";
+        }
+
+        $result = $this->executeResult(self::$query);
+
+        $result = (array) $result[0];
+
+        return $result["MAX($select)"];
+    }
+
+    //metodo para obtener la valor minimo de una columna con valores numericos despues de la anidacion de metodos
+    public function min(): int|float|string
+    {
+        $select = self::$select;
+        if ($select == '*') {
+            throw new \Error("no agrego ninguna columna para obtener el valor minimo Model::select('columna')->min()");
+        }
+
+        $join = implode(" ", self::$join);
+        $where = implode(" ", self::$where);
+        $orderby = self::$orderby;
+
+        if (self::$existWhere) {
+            self::$query = "SELECT MIN($select) FROM {$this->table} $join WHERE $where $orderby";
+        } else {
+            self::$query = "SELECT MIN($select) FROM {$this->table} $join $orderby";
+        }
+
+        $result = $this->executeResult(self::$query);
+
+        $result = (array) $result[0];
+
+        return $result["MIN($select)"];
+    }
+
+    //metodo para obtener la valor de la suma de una columna con valores numericos despues de la anidacion de metodos
+    public function sum(): int|float|string
+    {
+        $select = self::$select;
+        if ($select == '*') {
+            throw new \Error("no agrego ninguna columna para obtener la suma Model::select('columna')->sum()");
+        }
+
+        $join = implode(" ", self::$join);
+        $where = implode(" ", self::$where);
+        $orderby = self::$orderby;
+
+        if (self::$existWhere) {
+            self::$query = "SELECT SUM($select) FROM {$this->table} $join WHERE $where $orderby";
+        } else {
+            self::$query = "SELECT SUM($select) FROM {$this->table} $join $orderby";
+        }
+
+        $result = $this->executeResult(self::$query);
+
+        $result = (array) $result[0];
+
+        return $result["SUM($select)"];
+    }
+
+    //metodo para obtener la valor promedio de una columna con valores numericos despues de la anidacion de metodos
+    public function avg(): int|float|string
+    {
+        $select = self::$select;
+        if ($select == '*') {
+            throw new \Error("no agrego ninguna columna para obtener el promedio Model::select('columna')->avg()");
+        }
+
+        $join = implode(" ", self::$join);
+        $where = implode(" ", self::$where);
+        $orderby = self::$orderby;
+
+        if (self::$existWhere) {
+            self::$query = "SELECT AVG($select) FROM {$this->table} $join WHERE $where $orderby";
+        } else {
+            self::$query = "SELECT AVG($select) FROM {$this->table} $join $orderby";
+        }
+
+        $result = $this->executeResult(self::$query);
+
+        $result = (array) $result[0];
+
+        return $result["AVG($select)"];
+    }
 
     //metodo para ejecutar una consulta personalizada y ser usada en el modelo hijo
     protected static function statement(string $query, array $values = []): array|object
