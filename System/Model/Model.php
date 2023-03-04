@@ -48,13 +48,28 @@ abstract class Model
     //metodo magico para asignar los atributos de la clase
     public function __set(string $attribute, $value)
     {
-        //in_array — Comprueba si un valor existe en un array
-        if (in_array($attribute, $this->fillable) || $attribute == $this->primaryKey) {
-            $this->$attribute = $this->attributes[$attribute] = $value;
-        } elseif ($this->timestamps && ($attribute === $this->created || $attribute === $this->updated)) {
-            $this->$attribute = $this->attributes[$attribute] = $value;
-        } else {
-            throw new \Error('El atributo "' . $attribute . '" no es asignable en el modelo ' . static::class);
+        $this->$attribute = $this->attributes[$attribute] = $value;
+    }
+
+    protected function comprobarAtributos(): void
+    {
+        if (empty($this->table)) {
+            throw new \Error('La propiedad $table no puede estar vacia en el modelo ' . static::class);
+        }
+
+        if (empty($this->primaryKey)) {
+            throw new \Error('La propiedad $primaryKey no puede estar vacia en el modelo ' . static::class);
+        }
+
+        if (empty($this->fillable)) {
+            throw new \Error('La propiedad $fillable no puede estar vacia en el modelo ' . static::class);
+        }
+
+        foreach ($this->attributes as $attribute => $value) {
+            // in_array — Comprueba si un valor existe en un array
+            if (!in_array($attribute, $this->fillable)) {
+                throw new \Error('El atributo "' . $attribute . '" no es asignable en el modelo ' . static::class);
+            }
         }
     }
 
@@ -71,6 +86,8 @@ abstract class Model
     //metodo para guardar los datos en la base de datos
     public function save(): ?self
     {
+        $this->comprobarAtributos();
+
         if ($this->timestamps) {
             //agregar los campos created_at y updated_at proiedad atributos
             $this->attributes[$this->created] = $this->attributes[$this->updated] = date('Y-m-d H:i:s');
@@ -133,10 +150,6 @@ abstract class Model
         //instancia de la clase hija
         $model = new static();
 
-        //si timestamps es true se agrega el campo updated_at
-        if ($model->timestamps) {
-            $model->attributes[$model->updated] = date('Y-m-d H:i:s');
-        }
 
         foreach ($data as $key => $value) {
             // creamos propiedades con los nombres de los campos de la base de datos ocultando los campos que estan en la propiedad $model->hidden
@@ -146,6 +159,13 @@ abstract class Model
                 // Guardar el campo eliminado de la propiedad $model->hidden
                 $model->setAttribute($key, $value);
             }
+        }
+
+        $model->comprobarAtributos();
+
+        //si timestamps es true se agrega el campo updated_at
+        if ($model->timestamps) {
+            $model->attributes[$model->updated] = date('Y-m-d H:i:s');
         }
 
         $sql = "UPDATE {$model->table} SET ";

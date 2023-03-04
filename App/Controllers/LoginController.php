@@ -21,17 +21,18 @@ class LoginController extends Controller
 
     public function store(Request $request)
     {
+
         $valid = $this->validate($request->all(), [
             'email' => 'required|email|not_unique:User,email',
             'password' => 'required|password_verify:User,email',
         ]);
 
+
         if ($valid !== true) {
             return back()->withErrors($request->all(), $valid);
         }
 
-        $user = User::where('email', $request->input('email'))->first();
-        unset($user->password);
+        $user = User::where('email', $request->email)->first();
 
         session()->attempt($user);
 
