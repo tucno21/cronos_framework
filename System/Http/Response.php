@@ -7,65 +7,58 @@ use Cronos\Container\Container;
 
 class Response
 {
-    //iniciamos con el codigo de respuesta 200
     protected int $statusCode = 200;
-
-    //almacenamos la cabecera
     protected array $headers = [];
-
-    //almacenamos el contenido de la respuesta
+    protected array $cookies = [];
     protected ?string $content = null;
 
     public function statusCode(): int
     {
-        //retornamos es codigo de respuesta
         return $this->statusCode;
     }
 
     public function setStatusCode(int $statusCode): self
     {
-        //asignamos el codigo de respuesta
         $this->statusCode = $statusCode;
         return $this;
     }
 
     public function headers(string $key = null): array|string|null
     {
-        //retornamos la cabecera
         if (is_null($key)) {
             return $this->headers;
         }
         return $this->headers[strtolower($key)] ?? null;
     }
 
-    public static function searchHeaders(string $key)
+    public function setHeader(string $name, string $value): self
     {
-        //retornamos la cabecera
-        return headers_list()[strtolower($key)] ?? null;
-    }
-
-
-    public function setHeaders(string $header, string $value): self
-    {
-        //asignamos la cabecera con su valor
-        $this->headers[strtolower($header)] = $value;
+        $this->headers[$name] = $value;
         return $this;
     }
 
     public function removeHeader(string $header): void
     {
-        //eliminamos la cabecera
-        unset($this->headers[strtolower($header)]);
+        unset($this->headers[$header]);
     }
 
-    public function setCookie(string $name, string $value, int $expire = 0, array $options = []): self
+    public function cookies(string $key = null): array|string|null
+    {
+        if (is_null($key)) {
+            return $this->cookies;
+        }
+        return $this->cookies[strtolower($key)] ?? null;
+    }
+
+    public function setCookies(string $name, string $value, array $options = []): self
     {
         //array de opciones predeterminadas de la cookie
         $defaults = [
+            "expires" => 0, //tiempo de expiración de la cookie en segundos
             "path" => "/", //ruta de la cookie
             "domain" => "", //dominio de la cookie
-            "secure" => false, //si la cookie solo se transmite a través de una conexión segura HTTPS
-            "httponly" => false, //si la cookie solo se puede acceder a través del protocolo HTTP
+            "secure" => true, //si la cookie solo se transmite a través de una conexión segura HTTPS
+            "httponly" => true, //si la cookie solo se puede acceder a través del protocolo HTTP
             "samesite" => "none", //si la cookie solo se puede enviar con solicitudes de origen cruzado
         ];
 
@@ -73,56 +66,33 @@ class Response
         $options = array_merge($defaults, $options);
 
         //asignamos la cookie
-        $this->setHeaders(
-            "Set-Cookie",
-            sprintf(
-                "%s=%s; expires=%s; path=%s; domain=%s; secure=%s; httponly=%s; samesite=%s",
-                $name,
-                $value,
-                $expire > 0 ? gmdate("D, d M Y H:i:s T", $expire) : "Thu, 01 Jan 1970 00:00:00 GMT",
-                $options["path"],
-                $options["domain"],
-                $options["secure"] ? "true" : "false",
-                $options["httponly"] ? "true" : "false",
-                $options["samesite"]
-            )
-        );
-
-
-        return $this;
-    }
-
-    public function setContentType(string $value): self
-    {
-        //asignamos el tipo de contenido
-        $this->setHeaders("Content-Type", $value);
+        $this->cookies[$name] = [
+            'value' => $value,
+            'expires' => $options['expires'],
+            'path' => $options['path'],
+            'domain' => $options['domain'],
+            'secure' => $options['secure'],
+            'httponly' => $options['httponly'],
+            'samesite' => $options['samesite'],
+        ];
         return $this;
     }
 
     public function content(): ?string
     {
-        //retornamos el contenido
         return $this->content;
     }
 
-    public function setContent(?string $content): self
+    public function setContent(string $content): self
     {
-        //asignamos el contenido
         $this->content = $content;
         return $this;
     }
 
-    public function prepare(): void
+    public function setContentType(string $value): self
     {
-        //preparamos la respuesta
-        if (is_null($this->content)) {
-            //si no hay contenido eliminamos la cabecera
-            $this->removeHeader("Content-Type");
-            $this->removeHeader("Content-Length");
-        } else {
-            //si hay contenido asignamos la cabecera
-            $this->setHeaders("Content-Length", (string) strlen($this->content));
-        }
+        $this->setHeader("Content-Type", $value);
+        return $this;
     }
 
     public static function json(array|object $data, int $statusCode = 200): self
@@ -147,7 +117,7 @@ class Response
         } else {
             return (new self())
                 ->setStatusCode($statusCode)
-                ->setHeaders("Location", $url);
+                ->setHeader("Location", $url);
         }
     }
 
@@ -161,11 +131,9 @@ class Response
         // // eliminar el host
         // $route = preg_replace('/^' . $host . '/', '', $route);
 
-        // // dd($route);
-
         return (new self())
             ->setStatusCode(200)
-            ->setHeaders("Location", $route);
+            ->setHeader("Location", $route);
     }
 
     public static function back(): self
@@ -174,8 +142,8 @@ class Response
 
         return (new self())
             ->setStatusCode(200)
-            ->setHeaders("Location", $sesionAnterior['new']);
-        // ->setHeaders("Location", $_SERVER['HTTP_REFERER']);
+            ->setHeader("Location", $sesionAnterior['new']);
+        // ->setHeader("Location", $_SERVER['HTTP_REFERER']);
     }
 
     public function with(string $key, $value, int $statusCode = 400): self
@@ -201,23 +169,72 @@ class Response
             ->setContent($content);
     }
 
+    public function prepare(): void
+    {
+        if (is_null($this->content)) {
+            $this->removeHeader("Content-Type");
+            $this->removeHeader("Content-Length");
+        } else {
+            $this->setHeader("Content-Length", (string) strlen($this->content));
+        }
+    }
+
     //ejectuamos la respuestas que hemos preparado
     public function sendResponse(Response $response)
     {
+        if (!configGet('cors.supports_credentials')) {
+            header('Access-Control-Allow-Origin: *');
+        } else {
+            //obtener dominio del origen de la solicitud
+            $origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '';
+            //comprobar si el dominio del origen de la solicitud está en la lista de dominios permitidos
+            if (in_array($origin, configGet('cors.allowed_origins_patterns'))) {
+                header("Access-Control-Allow-Origin: $origin");
+                header("Access-Control-Allow-Credentials: true");
+            } else {
+                header('HTTP/1.1 403 Forbidden');
+                exit();
+            }
+        }
 
-        header("Content-Type: None"); //cabiamos la cabecera por a defecto none
-        header_remove("Content-Type"); //eliminamos la cabecera por defecto
+        //establecer cors que encabezados se pueden exponer para javascript en el cliente
+        $exposed_headers = configGet('cors.exposed_headers');
+        if ($exposed_headers !== null && $exposed_headers !== []) {
+            //['*']
+            $origins = implode(', ', $exposed_headers);
+            header("Access-Control-Expose-Headers: $origins");
+        }
 
+        // header("Content-Type: None"); //cabiamos la cabecera por a defecto none
+        // header_remove("Content-Type"); //eliminamos la cabecera por defecto
+
+
+        //enviamos las cabeceras
         $response->prepare();
+
+        //establecemos el codigo de estado
         http_response_code($response->statusCode());
 
-
-        foreach ($response->headers() as $header => $value) {
-            header("{$header}: {$value}");
+        //establecemos las cabeceras
+        foreach ($response->headers() as $name => $value) {
+            header("{$name}: {$value}");
         }
-        // dd(headers_list());
-        // dd($response->content());
 
+        //establecemos las cookies
+        foreach ($response->cookies() as $name => $cookie) {
+            $options = [
+                'expires' => $cookie['expires'],
+                'path' => $cookie['path'],
+                'domain' => $cookie['domain'],
+                'secure' => $cookie['secure'],
+                'httponly' => $cookie['httponly'],
+                'samesite' => $cookie['samesite'],
+            ];
+
+            setcookie($name, $cookie['value'], $options);
+        }
+
+        //enviamos el contenido
         print($response->content());
     }
 }
