@@ -12,13 +12,14 @@ class Request
     //el metodo que se esta solicitando de la web
     protected HttpMethod $method;
 
-    //los datos que se envian por post, put, patch, delete
-    protected array $data;
-
-    //los datos que se envian por get
-    protected array|object $dataGet;
-
+    //las cabeceras que se envian en la peticion
     protected array $headers = [];
+
+    //los cookies que se envian en la peticion
+    protected array $cookies = [];
+
+    //los datos que se envian por get, post, put, patch, delete
+    protected array $data = [];
 
     protected array $files = [];
 
@@ -40,6 +41,7 @@ class Request
             header("Access-Control-Allow-Methods: $metodos");
         }
 
+        //inicializar los headers Headers que se aceptan
         $allowed_headers = configGet('cors.allowed_headers');
         if ($allowed_headers !== null && $allowed_headers !== []) {
             //['*']
@@ -51,16 +53,30 @@ class Request
         $this->uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
         //capturar el metodo que se esta solicitando (get, post, put, patch, delete)
         $this->method = HttpMethod::from($_SERVER['REQUEST_METHOD']);
-        //capturar los datos que se envian por post, put, patch, delete
-        $this->data = $this->postPutPatchDelete();
-        //capturar los datos que se envian por get
-        $this->dataGet =  $this->get();
-        //getallheaders() obtiene todos los headers de la peticion
+        //las cabeceras que se envian en la peticion
         $this->headers = getallheaders();
-        // //capturar los archivos que se envian por post, put, patch, delete
-        // $this->files = $this->setFiles();
+        //los cookies que se envian en la peticion
+        $this->cookies = $_COOKIE;
+        //capturar los datos que se envian por get, post, put, patch, delete
+        $this->data = $this->setData();
     }
 
+    // Obtener la propiedad dinámica
+    public function __get(string $name)
+    {
+        // Si la propiedad existe en los datos recibidos, devolver su valor
+        if (array_key_exists($name, $this->data)) {
+            return $this->data[$name];
+        }
+    }
+
+    // Establecer la propiedad dinámica
+    public function __set(string $name, $value)
+    {
+        // Agregar la propiedad y su valor a los datos recibidos
+        // $this->data[$name] = $value;
+        $this->{$name} = $value;
+    }
 
     public function uri(): string
     {
@@ -80,237 +96,204 @@ class Request
         return $this->method;
     }
 
-    public function getHeaders(): array
-    {
-        //retorna los headers que se estan enviando
-        return $this->headers;
-    }
-
-
-    public function setHeaders(array $headers): self
-    {
-        //setea los headers que se estan enviando
-        foreach ($headers as $header => $value) {
-            $this->headers[$header] = $value;
-        }
-        return $this;
-    }
-
-    public function headers(string $key = null): array|string|null
+    public function headers(string $key = null): object|string|null
     {
         //retorna los headers que se estan enviando
         if (is_null($key)) {
-            return $this->headers;
+            $headers = $this->headers;
+            return (object)$headers;
         }
 
         return $this->headers[$key] ?? null;
     }
 
-    protected function postPutPatchDelete(): array
+    public function cookies(string $key = null): object|string|null
     {
+        //retorna los cookies que se estan enviando
+        if (is_null($key)) {
+            $cookies = $this->cookies;
+            return (object)$cookies;
+        }
+
+        return $this->cookies[$key] ?? null;
+    }
+
+    //metodo para almacenar los datos que se envian por get, post, put, patch, delete y crear las propiedades dinamicas
+    private function setData()
+    {
+        //capturar los datos que se envian por get, post, put, patch, delete
+        $data = [];
+
         // Obtener los headers de la solicitud
         $headers = getallheaders();
 
         // Verificar si la solicitud es JSON
         $isJSON = isset($headers['Content-Type']) && $headers['Content-Type'] === 'application/json';
 
-
+        // Obtener los datos de la solicitud
         if ($isJSON) {
             // Si la solicitud es JSON, decodificar el cuerpo de la solicitud
             $data = json_decode(file_get_contents('php://input'), true);
         } else {
-            // Si la solicitud no es JSON, verificar si hay archivos
+            // Si la solicitud no es JSON, obtener los datos de la solicitud
+
+            //si el metodo es PUT
             if ($this->method->value === 'PUT') {
-                $dataInPutsText = []; //ejemplo: ['title' => 'miweb', 'url' => 'www.google.com','description' => 'hola jorge']
-                $files = []; //ejemplo: ['image' => ['name'=>'bb.png','full_path'=>'bb.jpg','type'=>'image/png','tmp_name'=>'C:\Users\Carlos\AppData\Local\Temp\php26F4.tmp','error'=>0,'size'=>181777]]
-                // Leer la carga útil de la solicitud
-                $inputs = file_get_contents("php://input");
-
-                // Si la carga útil no está vacía, procesar los datos y los archivos
-                if (!empty($inputs)) {
-                    // Separar la carga útil en múltiples partes, utilizando el delimitador de multipart
-                    $delimiter = substr($inputs, 0, strpos($inputs, "\r\n")); //string(40) "------WebKitFormBoundarynuxHwAERZNdXgb46"
-
-                    // Separar los datos y los archivos en partes separadas
-                    $inputsArray = array_slice(explode($delimiter, $inputs), 1); //cada input es un string dentro de un array
-                    //eliminar el ultimo elemento del array
-                    array_pop($inputsArray);
-
-                    // Recorrer cada parte de la carga útil
-                    foreach ($inputsArray as $input) {
-                        // Si la parte no está vacía, procesarla
-                        if ($input !== "--\r \n") {
-                            // Obtener el nombre del campo
-                            preg_match('/name="([^"]+)"/', $input, $match); //array(2) { [0]=> string(12) "name="title"" [1]=> string(5) "title" }
-                            $fieldName = $match[1];
-
-                            // Obtener el tipo de contenido
-                            if (preg_match('/Content-Type: (.*)/', $input, $match) === 1) {
-                                preg_match('/Content-Type: (.*)/', $input, $match); //array(2) { [0]=> string(24) "Content-Type: image/png" [1]=> string(9) "image/png" }
-                                $contentType = $match[1];
-                                //limpiar espacios en blanco
-                                $contentType = trim($contentType);
-                            } else {
-                                $contentType = null;
-                            }
-
-                            // Obtener el valor del campo
-                            // $value = substr($input, strpos($input, "\r\n\r\n") + 4, -2); //string(5) "hola " o el contenido de la imagen
-                            $pos = strpos($input, "\r\n\r\n");
-                            if ($pos !== false) {
-                                $value = substr($input, $pos + 4, -2);
-                            } else {
-                                $value = "";
-                            }
-
-                            // Si el tipo de contenido es un archivo, procesarlo
-                            if (isset($contentType)) {
-                                // Obtener el nombre del archivo
-                                // preg_match('/filename="([^"]+)"/', $input, $match); //array(2) { [0]=> string(19) "filename="bb.png"" [1]=> string(6) "bb.png" }
-                                preg_match('/filename="([^"]*)"/', $input, $match); //array(2) { [0]=> string(19) "filename="bb.png"" [1]=> string(6) "bb.png" }
-                                $filename = $match[1];
-
-                                if ($filename == '' || $filename == null) {
-                                    $file = [
-                                        'name' => '',
-                                        'full_path' => '',
-                                        'type' => '',
-                                        'tmp_name' => '',
-                                        'error' => 4,
-                                        'size' => 0,
-                                    ];
-
-                                    // Agregar el archivo al array de archivos
-                                    $files[$fieldName] = $file;
-                                } else {
-                                    // Obtener el contenido del archivo
-                                    $fileContent = substr($input, strpos($input, "\r\n\r\n") + 4, -2); //string(181777) "GIF89a..."
-
-                                    // Obtener la ruta temporal del archivo
-                                    $tmpName = tempnam(sys_get_temp_dir(), 'php'); //string(36) "C:\Users\Carlos\AppData\Local\Temp\php26F4.tmp"
-
-                                    // Escribir el contenido del archivo en la ruta temporal
-                                    file_put_contents($tmpName, $fileContent);
-
-                                    // Obtener el tamaño del archivo
-                                    $size = filesize($tmpName);
-
-                                    // Obtener el código de error del archivo
-                                    $error = ($size > 0) ? 0 : 1;
-
-                                    // Crear un array con los datos del archivo
-                                    $file = [
-                                        'name' => $filename,
-                                        'full_path' => $tmpName,
-                                        'type' => $contentType,
-                                        'tmp_name' => $tmpName,
-                                        'error' => $error,
-                                        'size' => $size,
-                                    ];
-
-                                    // Agregar el archivo al array de archivos
-                                    $files[$fieldName] = $file;
-                                }
-                            } else {
-                                // Si el tipo de contenido no es un archivo, agregarlo al array de datos
-                                $dataInPutsText[$fieldName] = $value;
-                            }
-                        }
-                    }
-                }
-
-                if (!empty($files)) {
-                    $this->files = $files;
-                }
-
-                $data = $dataInPutsText;
+                //obtener los datos de la solicitud PUT
+                $data = $this->setPUT();
+            } else if ($this->method->value === 'GET') {
+                //obtener los datos de la solicitud GET
+                $data = $_GET;
             } else {
                 // Capturar archivos en solicitudes POST
                 if (!empty($_FILES)) {
                     $this->files = $_FILES;
                 }
+                //agregar al ultimo los datos de la solicitud POST
                 $data = $_POST;
             }
-
-            // // Si hay archivos, eliminarlos de los datos
-            // foreach ($this->files as $key => $value) {
-            //     unset($data[$key]);
-            // }
         }
 
-        // Almacenar los datos en las propiedades de la clase y retornarlos
-        $this->setPropertiesSelf($data);
-        return $data;
-    }
-
-
-    protected function get(): array
-    {
-        $data = $_GET;
-        //serializamos los datos para que se puedan convertir en propiedades de esta clase
-        if (!empty($data)) {
-            $this->setPropertiesSelf($data);
-        }
-
-        return $data;
-    }
-
-    //convertit en propiedades de esta clase
-    protected function setPropertiesSelf($data): self
-    {
-        //convertimos los datos en propiedades de esta clase
+        // Crear las propiedades dinámicas
         foreach ($data as $key => $value) {
-            if (!property_exists($this, $key)) {
-                $this->$key = $value;
+            $this->__set($key, $value);
+        }
+
+        return $data;
+    }
+
+    //metodo para obtener los datos de la solicitud PUT
+    private function setPUT()
+    {
+        $dataInPutsText = []; //ejemplo: ['title' => 'miweb', 'url' => 'www.google.com','description' => 'hola jorge']
+        $files = []; //ejemplo: ['image' => ['name'=>'bb.png','full_path'=>'bb.jpg','type'=>'image/png','tmp_name'=>'C:\Users\Carlos\AppData\Local\Temp\php26F4.tmp','error'=>0,'size'=>181777]]
+        // Leer la carga útil de la solicitud
+        $inputs = file_get_contents("php://input");
+
+        // Si la carga útil no está vacía, procesar los datos y los archivos
+        if (!empty($inputs)) {
+            // Separar la carga útil en múltiples partes, utilizando el delimitador de multipart
+            $delimiter = substr($inputs, 0, strpos($inputs, "\r\n")); //string(40) "------WebKitFormBoundarynuxHwAERZNdXgb46"
+
+            // Separar los datos y los archivos en partes separadas
+            $inputsArray = array_slice(explode($delimiter, $inputs), 1); //cada input es un string dentro de un array
+            //eliminar el ultimo elemento del array
+            array_pop($inputsArray);
+
+            // Recorrer cada parte de la carga útil
+            foreach ($inputsArray as $input) {
+                // Si la parte no está vacía, procesarla
+                if ($input !== "--\r \n") {
+                    // Obtener el nombre del campo
+                    preg_match('/name="([^"]+)"/', $input, $match); //array(2) { [0]=> string(12) "name="title"" [1]=> string(5) "title" }
+                    $fieldName = $match[1];
+
+                    // Obtener el tipo de contenido
+                    if (preg_match('/Content-Type: (.*)/', $input, $match) === 1) {
+                        preg_match('/Content-Type: (.*)/', $input, $match); //array(2) { [0]=> string(24) "Content-Type: image/png" [1]=> string(9) "image/png" }
+                        $contentType = $match[1];
+                        //limpiar espacios en blanco
+                        $contentType = trim($contentType);
+                    } else {
+                        $contentType = null;
+                    }
+
+                    // Obtener el valor del campo
+                    // $value = substr($input, strpos($input, "\r\n\r\n") + 4, -2); //string(5) "hola " o el contenido de la imagen
+                    $pos = strpos($input, "\r\n\r\n");
+                    if ($pos !== false) {
+                        $value = substr($input, $pos + 4, -2);
+                    } else {
+                        $value = "";
+                    }
+
+                    // Si el tipo de contenido es un archivo, procesarlo
+                    if (isset($contentType)) {
+                        // Obtener el nombre del archivo
+                        // preg_match('/filename="([^"]+)"/', $input, $match); //array(2) { [0]=> string(19) "filename="bb.png"" [1]=> string(6) "bb.png" }
+                        preg_match('/filename="([^"]*)"/', $input, $match); //array(2) { [0]=> string(19) "filename="bb.png"" [1]=> string(6) "bb.png" }
+                        $filename = $match[1];
+
+                        if ($filename == '' || $filename == null) {
+                            $file = [
+                                'name' => '',
+                                'full_path' => '',
+                                'type' => '',
+                                'tmp_name' => '',
+                                'error' => 4,
+                                'size' => 0,
+                            ];
+
+                            // Agregar el archivo al array de archivos
+                            $files[$fieldName] = $file;
+                        } else {
+                            // Obtener el contenido del archivo
+                            $fileContent = substr($input, strpos($input, "\r\n\r\n") + 4, -2); //string(181777) "GIF89a..."
+
+                            // Obtener la ruta temporal del archivo
+                            $tmpName = tempnam(sys_get_temp_dir(), 'php'); //string(36) "C:\Users\Carlos\AppData\Local\Temp\php26F4.tmp"
+
+                            // Escribir el contenido del archivo en la ruta temporal
+                            file_put_contents($tmpName, $fileContent);
+
+                            // Obtener el tamaño del archivo
+                            $size = filesize($tmpName);
+
+                            // Obtener el código de error del archivo
+                            $error = ($size > 0) ? 0 : 1;
+
+                            // Crear un array con los datos del archivo
+                            $file = [
+                                'name' => $filename,
+                                'full_path' => $tmpName,
+                                'type' => $contentType,
+                                'tmp_name' => $tmpName,
+                                'error' => $error,
+                                'size' => $size,
+                            ];
+
+                            // Agregar el archivo al array de archivos
+                            $files[$fieldName] = $file;
+                        }
+                    } else {
+                        // Si el tipo de contenido no es un archivo, agregarlo al array de datos
+                        $dataInPutsText[$fieldName] = $value;
+                    }
+                }
             }
         }
 
-        return $this;
+        if (!empty($files)) {
+            $this->files = $files;
+        }
+
+        $data = $dataInPutsText;
+
+        return $data;
     }
 
+    //metodo para enviar todos los datos de la solicitud
     public function all(): object
     {
-
-        //envia todos los datos en un objeto
-        if ($this->method->value === 'GET') {
-            $dataGet = $this->dataGet;
-            $dataGet = (object)$dataGet;
-            return $dataGet;
-        } else {
-            $data = $this->data;
-            $data = (object)$data;
-            return $data;
-        }
+        return (object) $this->data;
     }
 
+    //metodo para enviar el valor de un campo
     public function input(string $key): string
     {
-        //envia un dato en especifico
-        if ($this->method->value === 'GET') {
-            return $this->dataGet[$key];
-        } else {
-            return $this->data[$key];
-        }
+        return $this->data[$key];
     }
 
+    //metodo para enviar el valor booleano de un campo
     public function has(string $key): bool
     {
-        //verifica si existe un dato en especifico
-        if ($this->method->value === 'GET') {
-            return isset($this->dataGet[$key]);
-        } else {
-            return isset($this->data[$key]);
-        }
+        return isset($this->data[$key]);
     }
 
+    //metodo para eliminar un campo y enviar los datos restantes
     public function except(string|array $keys): object
     {
-        //elimina un dato o datos en especifico
-        if ($this->method->value === 'GET') {
-            $data = $this->dataGet;
-        } else {
-            $data = $this->data;
-        }
+        $data = $this->data;
 
         if (is_string($keys)) {
             $keys = [$keys];
@@ -320,19 +303,13 @@ class Request
             unset($data[$key]);
         }
 
-        $data = (object)$data;
-
-        return $data;
+        return (object) $data;
     }
 
+    //metodo para enviar solo los campos que se le indiquen
     public function only(string|array $keys): object
     {
-        //envia un dato o datos en especifico
-        if ($this->method->value === 'GET') {
-            $data = $this->dataGet;
-        } else {
-            $data = $this->data;
-        }
+        $data = $this->data;
 
         if (is_string($keys)) {
             $keys = [$keys];
@@ -340,22 +317,22 @@ class Request
 
         $data = array_intersect_key($data, array_flip($keys));
 
-        $data = (object)$data;
-
-        return $data;
+        return (object) $data;
     }
 
-
-    public function file(string $name)
+    //metodo para enviar los archivos
+    public function file(string $name): array
     {
-        return $this->files[$name] ?? null;
+        return $this->files[$name] ?? [];
     }
 
+    //metodo para comprobar si existe un archivo
     public function hasFile(string $name): bool
     {
         return isset($this->files[$name]);
     }
 
+    //metodo para guardar un archivo
     public function store(string $file, string $nameFile = null, string $nameFolder = null)
     {
         $file = $this->file($file);
