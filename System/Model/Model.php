@@ -108,6 +108,11 @@ abstract class Model
             //se obtiene el id del ultimo registro insertado
             $this->attributes[$this->primaryKey] = self::$db->lastInsertId();
 
+            //eliminar las propiedades de clase usando $this->hidden
+            foreach ($this->hidden as $hidden) {
+                unset($this->{$hidden});
+            }
+
             // como retornar como propiedades del la clase hija los datos de la propiedad $this->attributes
             foreach ($this->attributes as $key => $value) {
                 // ocultar los atributos que estan en la propiedad $this->hidden
