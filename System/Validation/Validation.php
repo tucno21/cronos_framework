@@ -466,7 +466,7 @@ class Validation
     private static function getByColumn($model, $column, $value)
     {
         $class = "App\\Models\\" . $model;
-        return $class::where($column, $value)->first();
+        return $class::where($column, $value)->firstNotHidden();
     }
 
     private static function validateNot_unique(string $nameInput, string $rule, $params)
