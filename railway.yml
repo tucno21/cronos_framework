@@ -1,0 +1,12 @@
+version: "1.0"
+environments:
+ production:
+  # build:
+  #   # Aquí agregas los comandos necesarios para construir tu proyecto.
+  #   # Por ejemplo, si utilizas Composer para manejar las dependencias de PHP,
+  #   # puedes agregar el comando `composer install`.
+  #   - composer install
+  run:
+   # Aquí agregas los comandos necesarios para ejecutar tu proyecto.
+   # Por ejemplo, si usas Laravel, puedes agregar el comando `php artisan serve`.
+   - mv .env.example .env
