@@ -17,7 +17,7 @@ class RegisterController extends Controller
 
     public function index()
     {
-        return view('register');
+        return view('home/register');
     }
 
     public function create(Request $request, Hasher $hasher)

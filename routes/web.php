@@ -17,9 +17,10 @@ Route::get('/register', [RegisterController::class, 'index'])->name('register.in
 Route::post('/register', [RegisterController::class, 'create']);
 
 Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
-Route::get('/dashboard/create', [DashboardController::class, 'create'])->name('dashboard.create');
+Route::get('/dashboard/blogs', [DashboardController::class, 'blogs']);
+Route::get('/dashboard/{blog:slug}', [DashboardController::class, 'show']);
+//api
 Route::post('/dashboard/create', [DashboardController::class, 'store']);
-Route::get('/dashboard/{blog:slug}', [DashboardController::class, 'show'])->name('dashboard.show');
-Route::get('/dashboard/{blog}/edit', [DashboardController::class, 'edit'])->name('dashboard.edit');
-Route::post('/dashboard/{blog}/edit', [DashboardController::class, 'update']);
-Route::get('/dashboard/{blog}/delete', [DashboardController::class, 'destroy'])->name('dashboard.destroy');
+Route::get('/dashboard/{blog}/edit', [DashboardController::class, 'edit']);
+Route::put('/dashboard/{blog}/edit', [DashboardController::class, 'update']);
+Route::delete('/dashboard/{blog}/delete', [DashboardController::class, 'destroy']);

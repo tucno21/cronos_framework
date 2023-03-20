@@ -17,15 +17,18 @@ class DashboardController extends Controller
 
     public function index()
     {
+        return view('dashboard/index', [
+            'pageTitle' => 'Dashboard'
+        ]);
+    }
 
+    public function blogs()
+    {
         $blogs = Blog::select('blogs.*', 'users.name')
             ->join('users', 'users.id', '=', 'blogs.user_id')
             ->get();
 
-        return view('dashboard/index', [
-            'blogs' => $blogs,
-            'pageTitle' => 'Dashboard'
-        ]);
+        return json($blogs);
     }
 
     public function create()
@@ -45,13 +48,25 @@ class DashboardController extends Controller
         ]);
 
         if ($valid !== true) {
-            return back()->withErrors($request->all(), $valid);
+            $data = [
+                'status' => 'error',
+                'message' => $valid
+            ];
+            return json($data);
         }
+
         $data = $request->all();
         $data->user_id = session()->user()->id;
-        Blog::create($data);
 
-        return redirect()->route('dashboard.index');
+        $blog = Blog::create($data);
+
+        $data = [
+            'status' => 'success',
+            'message' => 'Blog created successfully',
+            'blog' => $blog
+        ];
+
+        return json($data);
     }
 
     public function show(Blog $blog)
@@ -68,10 +83,7 @@ class DashboardController extends Controller
 
     public function edit(Blog $blog)
     {
-        return view('dashboard/edit', [
-            'blog' => $blog,
-            'pageTitle' => 'Edit Blog'
-        ]);
+        return json($blog);
     }
 
     public function update(Request $request, Blog $blog)
@@ -83,19 +95,35 @@ class DashboardController extends Controller
         ]);
 
         if ($valid !== true) {
-            return back()->withErrors($request->all(), $valid);
+            $data = [
+                'status' => 'error',
+                'message' => $valid
+            ];
+            return json($data);
         }
         $data = $request->all();
 
-        Blog::update($blog->id, $data);
+        $blog = Blog::update($blog->id, $data);
 
-        return redirect()->route('dashboard.index');
+        $data = [
+            'status' => 'success',
+            'message' => 'Blog update successfully',
+            'blog' => $blog
+        ];
+
+        return json($data);
     }
 
     public function destroy(Blog $blog)
     {
-        Blog::delete($blog->id);
+        $blog = Blog::delete($blog->id);
 
-        return redirect()->route('dashboard.index');
+        $data = [
+            'status' => 'success',
+            'message' => 'Blog deleted successfully',
+            'blog' => $blog
+        ];
+
+        return json($data);
     }
 }
