@@ -73,9 +73,9 @@ function registrarBlog() {
 			toastPersonalizado("success", dataResponse.message);
 			renderTable();
 		} else {
-			mensajeErrorInput(textContent, dataResponse.message.title);
+			mensajeErrorInput(textTitle, dataResponse.message.title);
 			mensajeErrorInput(textSlug, dataResponse.message.slug);
-			mensajeErrorInput(textTitle, dataResponse.message.content);
+			mensajeErrorInput(textContent, dataResponse.message.content);
 		}
 	});
 }
@@ -130,9 +130,9 @@ async function editarBlog(id) {
 			toastPersonalizado("success", dataResponse.message);
 			renderTable();
 		} else {
-			mensajeErrorInput(textContent, dataResponse.message.title);
+			mensajeErrorInput(textTitle, dataResponse.message.title);
 			mensajeErrorInput(textSlug, dataResponse.message.slug);
-			mensajeErrorInput(textTitle, dataResponse.message.content);
+			mensajeErrorInput(textContent, dataResponse.message.content);
 		}
 	});
 }
