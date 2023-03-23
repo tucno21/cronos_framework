@@ -493,25 +493,84 @@ public static function getVentasEstado($estado)
 
 [☝️Inicio](#cronos-framework-php-81)
 
-la vista creada en la carpeta `resources/views` se puede llamar desde el controlador con la directiva `view()` y se le pasa como parametro el nombre de la vista y un array con los datos que se quieren pasar a la vista
+las vistas debe ser creadas en la carpeta `resources/views` se puede llamar desde el controlador con la función `view()` el cual acepta dos parametros:
 
-por ejemplo `home.php` es la vista que se quiere llamar desde el controlador
+- primero el archivo de la vista que se quiere llamar (sin la extensión `.php`) ejemplo `home` y si esta en una carpeta se debe especificar la carpeta y el archivo `carpeta/archivo`
+- segundo los datos array que se quieren pasar a la vista
+
+### directivas que se puede usar en las vistas
+
+se tiene la siguiente carpeta `resources/views/home`:
+dentro de la carpeta `home` se tiene el archivo `index.php`, el archivo `layout.php` y navegacion.php
+
+la directiva `@extends` sirve para extender una vista
 
 ```php
-@include('layouts.head')
-<h1>hola mundo</h1>
-@include('layouts.footer')
+@extends('home.layout')
 ```
 
-la directiva `@include` sirve para incluir un archivo de la carpeta `resources/views` en la vista que se esta llamando
+la directiva `@section` y `@yield` sirve para crear una sección en la vista
 
 ```php
-la directiva `@include` recibe un parametro el nombre del archivo que se quiere incluir
+//en el archivo home/layout.php
+@yield('content')
 
-//ejemplo
-@include('layouts.head')
+//en el archivo home/index.php
+@section('content')
+    <h1>hola mundo</h1>
+@endsection
+```
 
-//donde estaria buscando el archivo resources/views/layouts/head.php
+la directiva `@include` sirve para incluir una porción de código en la vista
+
+```php
+//en el archivo home/layout.php
+@include('home.navegacion')
+```
+
+. Ejemplo de referencia
+
+```php
+//en el archivo home/layout.php
+<body>
+    @include('home.header')
+    <main>
+        <section>
+            @yield('content1')
+        </section>
+
+        <section>
+            @yield('content2')
+        </section>
+    </main>
+    <footer>
+        <p>Derechos reservados &copy; 2023</p>
+    </footer>
+</body>
+
+//en el archivo home/index.php
+@extends('home.layout')
+
+@section('content1')
+<h1>Título de la sección</h1>
+<p>Contenido de la sección</p>
+@endsection
+
+@section('content2')
+<h1>Título de otra sección</h1>
+<p>Contenido de la otra sección</p>
+@endsection
+
+//en el archivo home/header.php
+<header>
+    <nav>
+        <ul>
+            <li><a href="#">Inicio</a></li>
+            <li><a href="#">Acerca de</a></li>
+            <li><a href="#">Contacto</a></li>
+        </ul>
+    </nav>
+</header>
 ```
 
 ## helper para la vista
