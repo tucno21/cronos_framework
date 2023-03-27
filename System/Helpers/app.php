@@ -24,6 +24,11 @@ function resourcesDirectory()
     return App::$root . '/resources';
 }
 
+function cacheDirectory()
+{
+    return App::$root . '/storage/cache';
+}
+
 function env(string $variable, $default = null)
 {
     //obtener el valor de una variable de entorno del archivo .env

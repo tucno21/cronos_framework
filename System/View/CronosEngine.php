@@ -4,151 +4,290 @@ namespace Cronos\View;
 
 use Cronos\View\View;
 
+
 class CronosEngine implements View
 {
-    //almacenamos la ruta de carpetas de las vistas
-    protected string $viewDirectory; //\laragon\www\cronos_framework/resources/views
+    protected string $viewDirectory;
+    protected string $cacheDirectory;
+    protected array $sections;
 
-    //inicializamos la ruta de las vistas
-    public function __construct(string $viewsDirectory)
+    public function __construct(string $viewsDirectory, string $cacheDirectory)
     {
         $this->viewDirectory = $viewsDirectory;
+        $this->cacheDirectory = $cacheDirectory;
     }
 
     public function render(string $view, array $params = []): string
     {
-        $viewContent = $this->renderView($view, $params);
+        $viewFile = $this->viewDirectory . DIRECTORY_SEPARATOR . str_replace('.', DIRECTORY_SEPARATOR, $view) . '.php';
 
-        // Agregamos soporte para la directiva @extends
-        preg_match_all('/@extends\((.*?)\)/', $viewContent, $matches);
-        $directivaExtends = []; // nueva directiva 
-        $contentExtends = []; // nuevo contenido
-        if (count($matches[1]) > 0) {
-            foreach ($matches[0] as $key => $value) {
-                array_push($directivaExtends, $value);
-            }
-            foreach ($matches[1] as $key => $value) {
-                $value = trim($value, "'");
-                $value = trim($value, '"');
-                $value = str_replace('.', '/', $value);
-                $value = $value . '.php';
-                if (!file_exists($this->viewDirectory . '/' . $value)) {
-                    throw new \Error("No existe el archivo {$value}");
-                }
-                $patchExtends = $this->viewDirectory . '/' . $value;
-                $extendsContent = $this->renderLayout($patchExtends, $params);
-                array_push($contentExtends, $extendsContent);
-            }
-        }
-        $viewContent = str_replace($directivaExtends, $contentExtends, $viewContent);
-
-        // Agregamos soporte para la directiva @include
-        preg_match_all('/@include\((.*?)\)/', $viewContent, $matches);
-        $directivaInclude = []; //['@include('layouts.head')', '@include('layouts.footer')']
-        $contentInclude = [];
-
-        if (count($matches[1]) > 0) {
-            // enviar todos los @include('layouts.footer') a $directivaInclude
-            foreach ($matches[0] as $key => $value) {
-                array_push($directivaInclude, $value);
-            }
-            foreach ($matches[1] as $key => $value) {
-                $value = trim($value, "'");
-                $value = trim($value, '"');
-                //cambiar el punto por /
-                $value = str_replace('.', '/', $value);
-                $value = $value . '.php';
-                //preguntar si existe el los archivos de la vista
-                if (!file_exists($this->viewDirectory . '/' . $value)) {
-                    throw new \Error("No existe el archivo {$value}");
-                }
-                //obtenemos la ruta del archivo de la vista
-                $patchInclude = $this->viewDirectory . '/' . $value;
-                //renderizamos el archivo de la vista
-                $layoutContent = $this->renderLayout($patchInclude, $params);
-                //almacenamos el contenido de $layoutContent en $contentInclude
-                array_push($contentInclude, $layoutContent);
-            }
-        }
-        //reemplazar las $directivaInclude por $contentInclude en $viewContent
-        $viewContent = str_replace($directivaInclude, $contentInclude, $viewContent);
-
-        // Agregamos soporte para la directiva @section
-        // preg_match_all('/@section\(\'(.*?)\'\)/', $viewContent, $matches); //solo comillas simples
-        preg_match_all('/@section\((.*?)\)/', $viewContent, $matches);
-        $directivaSection = [];
-        $sectionContent = [];
-        $sectionName = null;
-
-        if (count($matches[1]) > 0) {
-            foreach ($matches[0] as $key => $value) {
-                array_push($directivaSection, $value);
-            }
-            foreach ($matches[1] as $key => $value) {
-                $value = trim($value, "'");
-                $value = trim($value, '"');
-                $sectionName = $value;
-                // Buscamos la sección en el contenido del archivo de la vista
-                $sectionContent[$sectionName] = $this->getSectionContent($sectionName, $viewContent);
-            }
-        }
-        // Reemplazamos las directivas de sección por su contenido
-        if (count($sectionContent) > 0) {
-            foreach ($sectionContent as $name => $content) {
-                $viewContent = str_replace("@yield('{$name}')", $content, $viewContent);
-            }
-            //eliminamos las @yield de la vista que no tienen contenido
-            $viewContent = preg_replace('/@yield\((.*?)\)/', '', $viewContent);
-        } else {
-            //eliminamos las directivas de @yield del contenido de la vista
-            $viewContent = preg_replace('/@yield\((.*?)\)/', '', $viewContent);
+        if (!file_exists($viewFile)) {
+            throw new \Error("No existe el archivo: $viewFile");
         }
 
-        return $viewContent;
-    }
+        $cacheFile = $this->cacheDirectory . DIRECTORY_SEPARATOR . md5($view) . '.php';
+        $cacheKey = md5($viewFile . json_encode($this->getIncludeFiles($viewFile)));
 
-    protected function renderView(string $view, array $params = []): string
-    {
-        return $this->phpFileOutput("{$this->viewDirectory}/{$view}.php", $params);
-    }
+        // if (!file_exists($cacheFile) || filemtime($cacheFile) < filemtime($viewFile)) {
+        if (!file_exists($cacheFile) || filemtime($cacheFile) < filemtime($viewFile) || file_get_contents($cacheFile) !== $this->getCacheContent($cacheKey)) {
 
-    protected function renderLayout(string $layout, array $params = []): string
-    {
+            //extraer el contenido del archivo de la vista
+            $content = file_get_contents($viewFile);
 
+            // Agregar la directiva @extends
+            $content = $this->compileExtends($content);
 
-        return $this->phpFileOutput($layout, $params);
-    }
+            // Agregar la directiva @include
+            $content = $this->compileIncludes($content);
 
-    protected function phpFileOutput(string $phpFile, array $params = []): string
-    {
-        foreach ($params as $key => $value) {
-            $$key = $value;
+            // Agregar la directiva @section
+            $content = $this->compileSections($content);
+
+            // Agregar la directiva @yield
+            $content = $this->compileYields($content);
+
+            // Agregar la directiva @foreach
+            $content = $this->compileForeach($content);
+
+            // Agregar la directiva @if
+            $content = $this->compileIf($content);
+
+            // Agregar la directiva @for
+            $content = $this->compileFor($content);
+
+            // Agregar la directiva @while
+            $content = $this->compileWhile($content);
+
+            // Agregar la directiva @switch
+            $content = $this->compileSwitch($content);
+
+            // Agregar la directiva @empty
+            $content = $this->compileEmpty($content);
+
+            // Agregar la directiva @isset
+            $content = $this->compileIsset($content);
+
+            // Agregar la directiva {{ }}
+            $content = $this->compileVariables($content);
+
+            //todo el contenido de la vista se guarda en el archivo de cache
+            file_put_contents($cacheFile, $content);
         }
 
-        //ob_start() inicia el almacenamiento en búfer de la salida
         ob_start();
-
-        //include_once incluye y evalúa el archivo especificado durante la ejecución del script
-        include_once $phpFile;
-
-        //ob_get_clean() devuelve el contenido del búfer de salida actual y lo elimina del mismo
+        extract($params);
+        include $cacheFile;
         return ob_get_clean();
     }
 
-    protected function getSectionContent(string $sectionName, string &$viewContent): string
+    protected function getCacheContent(string $cacheKey)
     {
-        $sectionContent = '';
-        $sectionStart = "@section('$sectionName')";
-        $sectionEnd = "@endsection";
+        $cacheFile = $this->cacheDirectory . DIRECTORY_SEPARATOR . $cacheKey . '.php';
+        if (!file_exists($cacheFile)) {
+            return '';
+        }
+        return file_get_contents($cacheFile);
+    }
 
-        $sectionStartPos = strpos($viewContent, $sectionStart);
-        $sectionEndPos = strpos($viewContent, $sectionEnd, $sectionStartPos);
+    protected function getIncludeFiles(string $viewFile): array
+    {
+        $content = file_get_contents($viewFile);
 
-        if ($sectionStartPos !== false && $sectionEndPos !== false) {
-            $sectionContent = substr($viewContent, $sectionStartPos + strlen($sectionStart), $sectionEndPos - $sectionStartPos - strlen($sectionStart));
-            $viewContent = substr_replace($viewContent, '', $sectionStartPos, $sectionEndPos - $sectionStartPos + strlen($sectionEnd));
+        $files = [];
+
+        preg_match_all('/@extends\((.*)\)/', $content, $matches);
+
+        foreach ($matches[1] as $parentView) {
+            $parentFile = $this->viewDirectory . DIRECTORY_SEPARATOR . str_replace('.', DIRECTORY_SEPARATOR, trim($parentView, "'\"")) . '.php';
+            $files[] = $parentFile;
         }
 
-        return $sectionContent;
+        preg_match_all('/@include\((.*)\)/', $content, $matches);
+
+        foreach ($matches[1] as $includeView) {
+            $includeFile = $this->viewDirectory . DIRECTORY_SEPARATOR . str_replace('.', DIRECTORY_SEPARATOR, trim($includeView, "'\"")) . '.php';
+            $files[] = $includeFile;
+        }
+
+        return $files;
+    }
+
+
+    protected function compileExtends(string $content): string
+    {
+        return preg_replace_callback('/@extends\((.*)\)/', function ($matches) {
+            $parentView = trim($matches[1], "'\"");
+            $parentFile = $this->viewDirectory . DIRECTORY_SEPARATOR . str_replace('.', DIRECTORY_SEPARATOR, $parentView) . '.php';
+            if (!file_exists($parentFile)) {
+                throw new \Error("No existe el archivo: $parentFile");
+            }
+            return file_get_contents($parentFile);
+        }, $content);
+    }
+
+    protected function compileIncludes(string $content): string
+    {
+        // $contents = preg_replace_callback('/@include\((.*?)\)/', function ($match) {
+        //     $filename = trim($match[1], '\'"');
+
+        //     $filepath = $this->viewDirectory . '/' . str_replace('.', '/', $filename) . '.php';
+
+        //     if (!file_exists($filepath)) {
+        //         throw new \Error("No existe el archivo {$filepath}");
+        //     }
+
+        //     return file_get_contents($filepath);
+        // }, $contents);
+
+        // return $contents;
+
+        return preg_replace_callback('/@include\((.*)\)/', function ($matches) {
+            $includeView = trim($matches[1], "'\"");
+            $includeFile = $this->viewDirectory . DIRECTORY_SEPARATOR . str_replace('.', DIRECTORY_SEPARATOR, $includeView) . '.php';
+            if (!file_exists($includeFile)) {
+                throw new \Error("No existe el archivo: $includeFile");
+            }
+            return file_get_contents($includeFile);
+        }, $content);
+    }
+
+    protected function compileSections(string $content): string
+    {
+        $content = preg_replace_callback('/@section\((.*?)\)(.*?)@endsection/s', function ($match) {
+            $sectionName = trim($match[1], '\'"');
+            $sectionContent = trim($match[2]);
+            // dd($sectionName);
+
+            $this->sections[$sectionName] = $sectionContent;
+
+            return '';
+        }, $content);
+
+        return $content;
+    }
+    protected function compileYields(string $content): string
+    {
+        $content = preg_replace_callback('/@yield\((.*?)\)/', function ($match) {
+            $sectionName = trim($match[1], '\'"');
+
+            return $this->sections[$sectionName] ?? '';
+        }, $content);
+
+        return $content;
+    }
+
+    protected function compileForeach(string $content): string
+    {
+        $contents = preg_replace_callback('/@foreach\((.*?)\)(.*?)@endforeach/s', function ($match) {
+            $foreach = trim($match[1]);
+            $foreachContent = trim($match[2]);
+
+            return "<?php foreach ($foreach): ?> $foreachContent <?php endforeach; ?>";
+        }, $content);
+
+        return $contents;
+    }
+
+    protected function compileIf(string $content): string
+    {
+        // $contents = preg_replace_callback('/@if\((.*?)\)(.*?)@endif/s', function ($match) {
+        //     $if = trim($match[1]);
+        //     $ifContent = trim($match[2]);
+
+        //     return "<?php if ($if): ?/> $ifContent </?php endif; ?/>";
+        // }, $content);
+
+        // return $contents;
+
+        // Agregar la directiva @if
+        $content = preg_replace_callback('/@if\((.*?)\)/', function ($match) {
+            $condition = trim($match[1], '\'"');
+            // dd($condition);
+
+            return "<?php if ({$condition}): ?>";
+        }, $content);
+
+        // Agregar la directiva @elseif
+        $content = preg_replace_callback('/@elseif\((.*?)\)/', function ($match) {
+            $condition = trim($match[1], '\'"');
+            // dd($condition);
+
+            return "<?php elseif ({$condition}): ?>";
+        }, $content);
+
+        // Agregar la directiva @else
+        $content = preg_replace('/@else/', '<?php else: ?>', $content);
+
+        // Agregar la directiva @endif
+        $content = preg_replace('/@endif/', '<?php endif; ?>', $content);
+
+        return $content;
+    }
+
+    protected function compileFor(string $content): string
+    {
+        $contents = preg_replace_callback('/@for\((.*?)\)(.*?)@endfor/s', function ($match) {
+            $for = trim($match[1]);
+            $forContent = trim($match[2]);
+
+            return "<?php for ($for): ?> $forContent <?php endfor; ?>";
+        }, $content);
+
+        return $contents;
+    }
+
+    protected function compileWhile(string $content): string
+    {
+        $contents = preg_replace_callback('/@while\((.*?)\)(.*?)@endwhile/s', function ($match) {
+            $while = trim($match[1]);
+            $whileContent = trim($match[2]);
+
+            return "<?php while ($while): ?> $whileContent <?php endwhile; ?>";
+        }, $content);
+
+        return $contents;
+    }
+
+    protected function compileSwitch(string $content): string
+    {
+        $contents = preg_replace_callback('/@switch\((.*?)\)(.*?)@endswitch/s', function ($match) {
+            $switch = trim($match[1]);
+            $switchContent = trim($match[2]);
+
+            return "<?php switch ($switch): ?> $switchContent <?php endswitch; ?>";
+        }, $content);
+
+        return $contents;
+    }
+
+    protected function compileEmpty(string $content): string
+    {
+        $contents = preg_replace_callback('/@empty\((.*?)\)(.*?)@endempty/s', function ($match) {
+            $empty = trim($match[1]);
+            $emptyContent = trim($match[2]);
+
+            return "<?php if(empty($empty)): ?> $emptyContent <?php endif; ?>";
+        }, $content);
+
+        return $contents;
+    }
+
+    protected function compileIsset(string $content): string
+    {
+        $contents = preg_replace_callback('/@isset\((.*?)\)(.*?)@endisset/s', function ($match) {
+            $isset = trim($match[1]);
+            $issetContent = trim($match[2]);
+
+            return "<?php if(isset($isset)): ?> $issetContent <?php endif; ?>";
+        }, $content);
+
+        return $contents;
+    }
+
+    protected function compileVariables(string $content): string
+    {
+        $contents = preg_replace('/\{\{\s*(.*?)\s*\}\}/', "<?= htmlspecialchars($1, ENT_QUOTES) ?>", $content);
+
+        return $contents;
     }
 }

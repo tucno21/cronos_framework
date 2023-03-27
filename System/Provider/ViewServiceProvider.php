@@ -16,7 +16,7 @@ class ViewServiceProvider implements ServiceProvider
             //ejecutamos CronosEngine de nuestro sistema
             'cronos' => singleton(
                 View::class,
-                fn () => new CronosEngine(configGet('view.path'))
+                fn () => new CronosEngine(configGet('view.path'), configGet('view.cache'))
             ),
         };
     }
