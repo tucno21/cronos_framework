@@ -43,7 +43,7 @@ class PdoDriver implements DatabaseDriver
         $statement = $this->pdo->prepare($query);
         $statement->execute($bind);
 
-        return $statement->fetchAll(PDO::FETCH_OBJ);
+        return $statement->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function statementC_U_D(string $query, array $bind = []): mixed

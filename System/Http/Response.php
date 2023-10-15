@@ -95,12 +95,14 @@ class Response
         return $this;
     }
 
-    public static function json(array|object $data, int $statusCode = 200): self
+    public static function json(mixed $data, int $statusCode = 200): self
     {
+        $json = new JsonResponse($data);
+
         return (new self())
             ->setContentType("application/json")
             ->setStatusCode($statusCode)
-            ->setContent(json_encode($data));
+            ->setContent(json_encode($json->getData()));
     }
 
     public static function text(string $text): self

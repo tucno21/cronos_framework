@@ -74,8 +74,8 @@ class Request
     public function __set(string $name, $value)
     {
         // Agregar la propiedad y su valor a los datos recibidos
-        // $this->data[$name] = $value;
-        $this->{$name} = $value;
+        $this->data[$name] = $value;
+        // $this->{$name} = $value;
     }
 
     public function uri(): string
