@@ -319,13 +319,6 @@ $hasher->verify($inputPassword, $request->password);
 [☝️Inicio](#cronos-framework-php-81)
 
 ```php
-$user = new User();
-$user->name = 'name';
-$user->email = 'email';
-$user->password = 'password';
-$user->save();
-
-
 //guardar datos con el metodo create
 User::create([
     'name' => 'name',
@@ -476,6 +469,24 @@ User::select('name', 'email')->join('roles', 'users.id', '=', 'roles.user_id')->
 User::select('name', 'email', 'roles.name')->join('roles', 'users.id', '=', 'roles.user_id')->where('roles.id', 1)->andWhere('users.id', 1)->orderBy('id', 'asc')->limit(10)->get();
 ```
 
+### visualizar datos de create, update, y consultas
+```php
+$data = User::all();
+
+//ver por propiedades
+$data->name;
+
+//ver en forma de array
+$data->toArray();
+
+//ver en forma de objeto
+$data->toObject();
+
+
+//para generar json
+return json($data);
+```
+
 ### consultas personalizadas de la base de datos
 
 ```php
@@ -486,7 +497,6 @@ public static function getVentasEstado($estado)
     $sql = "SELECT * FROM ventas WHERE estado = ?";
     return self::statement($sql, [$estado]);
 }
-
 ```
 
 # DIRECTIVA PARA LAS VISTAS
