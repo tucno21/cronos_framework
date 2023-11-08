@@ -103,8 +103,14 @@ class Request
             $headers = $this->headers;
             return (object)$headers;
         }
+        //convirtiendo la cabezeras en minuscula
+        $lowercaseHeaders = array_change_key_case($this->headers, CASE_LOWER);
+        // Convierte la clave a minúsculas
+        $lowercaseKey = strtolower($key);
+        // Busca la cabecera en minúsculas
+        $value = $lowercaseHeaders[$lowercaseKey] ?? null;
 
-        return $this->headers[$key] ?? null;
+        return $value;
     }
 
     public function cookies(string $key = null): object|string|null
