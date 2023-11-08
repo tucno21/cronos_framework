@@ -659,10 +659,15 @@ abstract class Model
         return self::createModelFromResult($result[0]);
     }
 
-    public function firstNotHidden()
+    public function firstNotHidden(): self|null
     {
         $sql = $this->createQuery('first');
         $result = $this->executeQuery($sql);
-        return $result[0];
+        if (count($result) == 0) {
+            return null;
+        }
+        $model = new static();
+        $model->resetProperties();
+        return self::createModelFromResult($result[0]);
     }
 }
