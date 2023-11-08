@@ -513,6 +513,16 @@ abstract class Model
         return $statement;
     }
 
+    protected static function customQuery(string $query, array|object $data = []): array|object
+    {
+        if (is_object($data)) {
+            $data = (array) $data;
+        }
+
+        $statement = self::$db->statement($query, $data);
+        return $statement;
+    }
+
     public function get(): ModelCollection|null
     {
         $sql = $this->createQuery('get');
