@@ -97,12 +97,32 @@ class Response
 
     public static function json(mixed $data, int $statusCode = 200): self
     {
+        // Asegúrate de que los datos están en UTF-8
+        $data = self::utf8ize($data);
+
         $json = new JsonResponse($data);
 
         return (new self())
             ->setContentType("application/json")
             ->setStatusCode($statusCode)
             ->setContent(json_encode($json->getData()));
+    }
+
+    public static function utf8ize($mixed)
+    {
+        if (is_array($mixed)) {
+            foreach ($mixed as $key => $value) {
+                $mixed[$key] = self::utf8ize($value);
+            }
+        } elseif (is_object($mixed)) {
+            foreach ($mixed as $key => $value) {
+                $mixed->$key = self::utf8ize($value);
+            }
+        } elseif (is_string($mixed)) {
+            return mb_convert_encoding($mixed, 'UTF-8', mb_detect_encoding($mixed, 'UTF-8, ISO-8859-1', true));
+        }
+
+        return $mixed;
     }
 
     public static function text(string $text): self
