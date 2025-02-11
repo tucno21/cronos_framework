@@ -54,9 +54,7 @@ class PdoDriver implements DatabaseDriver
     {
         $statement = $this->pdo->prepare($query);
         $statement->execute($bind);
-        $statement->fetchAll(PDO::FETCH_OBJ);
-        $cant = $statement->rowCount();
-
-        return $cant;
+        // $statement->fetchAll(PDO::FETCH_OBJ);
+        return $statement->rowCount();
     }
 }

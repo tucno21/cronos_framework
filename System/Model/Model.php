@@ -121,25 +121,6 @@ abstract class Model
         }
     }
 
-    // private function hiddenAttibutes(array $data): array
-    // {
-    //     //almacenar los campos ocultos
-    //     $hidden = $this->hidden;
-    //     if (self::$selects !== '*') {
-    //         //convertir los campos de selects en un array
-    //         $selectsArray = explode(", ", self::$selects);
-    //         //eliminar los campos de selects que están en $selectsArray
-    //         $hidden = array_diff($hidden, $selectsArray);
-    //     }
-
-    //     //eliminar de $data los campos que esta en $hidden
-    //     foreach ($hidden as $value) {
-    //         unset($data[$value]);
-    //     }
-
-    //     return $data;
-    // }
-
     public function toArray(): array
     {
         $this->hiddenAttibutes();
@@ -260,8 +241,8 @@ abstract class Model
             throw new \Error('Debe proveer las condiciones para el join');
         }
 
-        // Sanitizar nombre de tabla
-        $table = // sanitizar 
+        // Sanitizar nombre de tabla y columnas
+        $table =
 
             // Armar join
             $join = "JOIN $table ON $first $operator $second";
@@ -633,6 +614,35 @@ abstract class Model
         return $result["AVG($selects)"];
     }
 
+    // Agregar este método en la clase Model
+    public static function dd(): array
+    {
+        $model = new static();
+        $sql = $model->createQuery('get');
+        $bindings = self::$values;
+
+        // Formatear SQL con bindings aplicados
+        $debugSql = $sql;
+        foreach ($bindings as $value) {
+            $value = is_string($value)
+                ? "'" . addslashes($value) . "'"
+                : (is_null($value) ? 'NULL' : $value);
+            $debugSql = preg_replace('/\?/', $value, $debugSql, 1);
+        }
+
+        $data = [
+            'sql_raw' => $sql,
+            'sql_debug' => $debugSql,
+            'bindings' => $bindings,
+            'model' => static::class
+        ];
+
+        // ¡Resetear propiedades después de construir la consulta!
+        $model->resetProperties();
+
+        return $data;
+    }
+
     private static function createModelFromResult(array $result): self
     {
         $model = new static();
@@ -659,7 +669,7 @@ abstract class Model
     {
         self::$values = [$id];
         $model = new static();
-        $sql = "SELECT * FROM {$model->table} WHERE id = ?";
+        $sql = "SELECT * FROM {$model->table} WHERE {$model->primaryKey} = ?";
         $result = $model->executeQuery($sql);
         if (count($result) == 0) {
             return null;
