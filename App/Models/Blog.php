@@ -24,4 +24,9 @@ class Blog extends Model
     protected string $created = 'created_at';
 
     protected string $updated = 'updated_at';
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 }

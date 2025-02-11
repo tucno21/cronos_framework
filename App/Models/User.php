@@ -19,4 +19,9 @@ class User extends Model
     protected string $created = 'created_at';
 
     protected string $updated = 'updated_at';
+
+    public function blogs()
+    {
+        return $this->hasMany(Blog::class, 'user_id');
+    }
 }
