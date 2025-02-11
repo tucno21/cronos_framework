@@ -690,4 +690,125 @@ abstract class Model
         $model->resetProperties();
         return self::createModelFromResult($result[0]);
     }
+
+
+    public function hasOne($related, $foreignKey = null, $localKey = 'id')
+    {
+        $instance = new $related;
+        $foreignKey = $foreignKey ?: $this->table . '_id';
+        return new HasOne($instance, $this, $foreignKey, $localKey);
+    }
+
+    public function hasMany(string $related, string $foreignKey = null, string $localKey = 'id'): HasMany
+    {
+        $foreignKey = $foreignKey ?: $this->table . '_id';
+        return new HasMany(new $related(), $this, $foreignKey, $localKey);
+    }
+
+    public function belongsTo(string $related, string $foreignKey = null, string $ownerKey = 'id'): BelongsTo
+    {
+        $foreignKey = $foreignKey ?: (new $related)->primaryKey;
+        return new BelongsTo(new $related(), $this, $foreignKey, $ownerKey);
+    }
+
+    public function belongsToMany(string $related, string $pivotTable, string $foreignPivotKey, string $relatedPivotKey): BelongsToMany
+    {
+        return new BelongsToMany(new $related(), $this, $pivotTable, $foreignPivotKey, $relatedPivotKey);
+    }
+}
+
+class HasOne
+{
+    protected $related;
+    protected $parent;
+    protected $foreignKey;
+    protected $localKey;
+
+    public function __construct($related, $parent, $foreignKey, $localKey)
+    {
+        $this->related = $related;
+        $this->parent = $parent;
+        $this->foreignKey = $foreignKey;
+        $this->localKey = $localKey;
+    }
+
+    public function get()
+    {
+        return $this->related->where($this->foreignKey, $this->parent->{$this->localKey})->first();
+    }
+}
+
+class HasMany
+{
+    protected Model $related;
+    protected Model $parent;
+    protected string $foreignKey;
+    protected string $localKey;
+
+    public function __construct(Model $related, Model $parent, string $foreignKey, string $localKey)
+    {
+        $this->related = $related;
+        $this->parent = $parent;
+        $this->foreignKey = $foreignKey;
+        $this->localKey = $localKey;
+    }
+
+    public function get(): ?\Cronos\Model\ModelCollection
+    {
+        return $this->related->where($this->foreignKey, $this->parent->{$this->localKey})->get();
+    }
+}
+
+class BelongsTo
+{
+    protected Model $related;
+    protected Model $parent;
+    protected string $foreignKey;
+    protected string $ownerKey;
+
+    public function __construct(Model $related, Model $parent, string $foreignKey, string $ownerKey)
+    {
+        $this->related = $related;
+        $this->parent = $parent;
+        $this->foreignKey = $foreignKey;
+        $this->ownerKey = $ownerKey;
+    }
+
+    public function get(): ?Model
+    {
+        return $this->related->where($this->ownerKey, $this->parent->{$this->foreignKey})->first();
+    }
+}
+
+class BelongsToMany
+{
+    protected Model $related;
+    protected Model $parent;
+    protected string $pivotTable;
+    protected string $foreignPivotKey;
+    protected string $relatedPivotKey;
+
+    public function __construct(Model $related, Model $parent, string $pivotTable, string $foreignPivotKey, string $relatedPivotKey)
+    {
+        $this->related = $related;
+        $this->parent = $parent;
+        $this->pivotTable = $pivotTable;
+        $this->foreignPivotKey = $foreignPivotKey;
+        $this->relatedPivotKey = $relatedPivotKey;
+    }
+
+    public function get(): ?\Cronos\Model\ModelCollection
+    {
+        $this->related->join(
+            $this->pivotTable,
+            $this->related->table . '.' . $this->related->primaryKey,
+            '=',
+            $this->pivotTable . '.' . $this->relatedPivotKey
+        )->where(
+            $this->pivotTable . '.' . $this->foreignPivotKey,
+            $this->parent->{$this->parent->primaryKey}
+        );
+
+        return $this->related->get();
+    }
 }

@@ -14,6 +14,16 @@ class ModelCollection
         return $this;
     }
 
+    public function map(callable $callback): self
+    {
+        return new static(array_map($callback, $this->items));
+    }
+
+    public function filter(callable $callback): self
+    {
+        return new static(array_filter($this->items, $callback));
+    }
+
     public function toArray(): array
     {
         $data = [];
@@ -40,5 +50,25 @@ class ModelCollection
     public function count(): int
     {
         return count($this->items);
+    }
+
+    public function first()
+    {
+        return reset($this->items);
+    }
+
+    public function last()
+    {
+        return end($this->items);
+    }
+
+    public function toJson(): string
+    {
+        return json_encode($this->items);
+    }
+
+    public function pluck(string $key): array
+    {
+        return array_column($this->items, $key);
     }
 }
