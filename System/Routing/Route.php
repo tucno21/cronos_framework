@@ -156,7 +156,7 @@ class Route
 
         //array_map crea un nuevo array con los resultados de la funcion
         //almacenamos los middlewares en el array $middlewares
-        $this->middlewares = array_map(fn ($middleware) => new $middleware, $middlewares);
+        $this->middlewares = array_map(fn($middleware) => new $middleware, $middlewares);
 
         return $this;
     }
@@ -170,11 +170,23 @@ class Route
 
     public static function load(string $routesDirectory)
     {
-        //glob sirve para buscar archivos con una extension especifica
-        //recorre todos los archivos php que esten en la carpeta $routesDirectory
-        foreach (glob("$routesDirectory/*.php") as $routes) {
-            //requiere los archivos php
-            require_once $routes;
+        // Recorre todos los archivos PHP en la carpeta $routesDirectory
+        foreach (glob("$routesDirectory/*.php") as $routesFile) {
+            // Verifica si el archivo es api.php
+            $isApiFile = basename($routesFile) === 'api.php';
+
+            // Si es api.php, establece un prefijo global temporal
+            if ($isApiFile) {
+                Container::resolve(App::class)->router->setPrefix('/api');
+            }
+
+            // Carga el archivo de rutas
+            require_once $routesFile;
+
+            // Limpia el prefijo después de cargar el archivo api.php
+            if ($isApiFile) {
+                Container::resolve(App::class)->router->clearPrefix();
+            }
         }
     }
 }

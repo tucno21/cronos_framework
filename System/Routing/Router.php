@@ -20,12 +20,29 @@ class Router
     public array $nameUrl = [];
     public array $nameRoute = [];
 
+    protected string $prefix = '';
+
     public function __construct()
     {
         //agregar los metodos http a la propiedad routes
         foreach (HttpMethod::cases() as $method) {
             $this->routes[$method->value] = [];
         }
+    }
+
+    public function setPrefix(string $prefix): void
+    {
+        $this->prefix = $prefix;
+    }
+
+    public function clearPrefix(): void
+    {
+        $this->prefix = '';
+    }
+
+    protected function applyPrefix(string $uri): string
+    {
+        return $this->prefix . $uri;
     }
 
     public function resolve(Request $request): mixed
@@ -54,7 +71,7 @@ class Router
         //primero se ejecutan los middlewares de la ruta y luego los del controlador
         //ejecutar la accion sea una funcion o una clase y sus parametros
         // return call_user_func($action, ...$params);
-        return $this->runMiddlewares($request, $middlewares, fn () => call_user_func($action, ...$params));
+        return $this->runMiddlewares($request, $middlewares, fn() => call_user_func($action, ...$params));
     }
 
     public function resolveRoute(Request $request)
@@ -81,16 +98,21 @@ class Router
         }
 
         //ejecutamos el primer middleware y le pasamos el request y la funcion que se ejecutara  que esta en el objeto Route declarado en la linea web.php
-        return $middlewares[0]->handle($request, fn ($request) => $this->runMiddlewares($request, array_slice($middlewares, 1), $target));
+        return $middlewares[0]->handle($request, fn($request) => $this->runMiddlewares($request, array_slice($middlewares, 1), $target));
     }
 
     protected function registerRoute(HttpMethod $method, string $uri, Closure|array $action): Route
     {
-        //instanciar route y se lo asignamos a la propiedad routes
-        $route = new Route($uri, $action);
-        //almacenamos la instancia de la clase Route en la propiedad routes
+        // Aplica el prefijo a la URI antes de registrar la ruta
+        $prefixedUri = $this->applyPrefix($uri);
+
+        // Instancia la ruta con la URI prefijada
+        $route = new Route($prefixedUri, $action);
+
+        // Almacena la instancia de la clase Route en la propiedad routes
         $this->routes[$method->value][] = $route;
-        //retornar la route
+
+        // Retorna la ruta
         return $route;
     }
 
