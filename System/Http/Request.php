@@ -23,13 +23,21 @@ class Request
 
     protected array $files = [];
 
+    protected ?string $rawBody = null;
+
     public function __construct()
     {
         $this->setupCorsHeaders();
-        $this->uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-        $this->method = HttpMethod::from($_SERVER['REQUEST_METHOD']);
-        $this->headers = getallheaders();
-        $this->cookies = $_COOKIE;
+        $this->initializeRequest();
+    }
+
+    private function initializeRequest(): void
+    {
+        $this->uri = $this->sanitizeUri($_SERVER['REQUEST_URI'] ?? '/');
+        $this->method = $this->determineMethod();
+        $this->headers = $this->getHeaders();
+        $this->cookies = $this->sanitizeInput($_COOKIE);
+        $this->rawBody = $this->getRawBody();
         $this->data = $this->setData();
     }
 
@@ -47,6 +55,83 @@ class Request
                 header("$header: " . implode(', ', $allowed));
             }
         }
+    }
+
+    private function sanitizeUri(string $uri): string
+    {
+        $path = parse_url($uri, PHP_URL_PATH);
+        // Eliminar caracteres no permitidos y múltiples slashes
+        $sanitized = preg_replace(['/[^a-zA-Z0-9\-\_\/\.]/', '/\/+/'], ['', '/'], $path);
+        return $sanitized ?: '/';
+    }
+
+    private function determineMethod(): HttpMethod
+    {
+        $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+        // Soporte para method override via header o POST param
+        if ($method === 'POST') {
+            $override = $_SERVER['HTTP_X_HTTP_METHOD_OVERRIDE']
+                ?? $_POST['_method']
+                ?? $method;
+            $method = strtoupper($override);
+        }
+        try {
+            return HttpMethod::from($method);
+        } catch (\ValueError $e) {
+            return HttpMethod::GET;
+        }
+    }
+
+    private function getHeaders(): array
+    {
+        if (function_exists('getallheaders')) {
+            return getallheaders();
+        }
+
+        $headers = [];
+        foreach ($_SERVER as $key => $value) {
+            if (strpos($key, 'HTTP_') === 0) {
+                $header = str_replace(' ', '-', ucwords(str_replace('_', ' ', strtolower(substr($key, 5)))));
+                $headers[$header] = $value;
+            }
+        }
+        return $headers;
+    }
+
+    private function getRawBody(): ?string
+    {
+        if ($this->method === HttpMethod::GET) {
+            return null;
+        }
+        return file_get_contents('php://input') ?: null;
+    }
+
+    private function sanitizeInput(array $data): array
+    {
+        $sanitized = [];
+        foreach ($data as $key => $value) {
+            $sanitizedKey = $this->sanitizeKey($key);
+            $sanitized[$sanitizedKey] = is_array($value)
+                ? $this->sanitizeInput($value)
+                : $this->sanitizeValue($value);
+        }
+        return $sanitized;
+    }
+
+    private function sanitizeKey(string $key): string
+    {
+        return preg_replace('/[^a-zA-Z0-9\-\_\[\]]/', '', $key);
+    }
+
+    private function sanitizeValue($value)
+    {
+        if (is_string($value)) {
+            // Eliminar caracteres nullbyte y otros caracteres peligrosos
+            $value = str_replace(chr(0), '', $value);
+            // Convertir caracteres especiales en entidades HTML
+            return htmlspecialchars($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        }
+        return $value;
     }
 
     private function normalizeArrayKey(string $key): string
@@ -288,9 +373,7 @@ class Request
         // Convierte la clave a minúsculas
         $lowercaseKey = strtolower($key);
         // Busca la cabecera en minúsculas
-        $value = $lowercaseHeaders[$lowercaseKey] ?? null;
-
-        return $value;
+        return $lowercaseHeaders[$lowercaseKey] ?? null;
     }
 
     public function cookies(string $key = null): object|string|null
@@ -311,9 +394,9 @@ class Request
     }
 
     //metodo para enviar el valor de un campo
-    public function input(string $key): string
+    public function input(string $key): mixed
     {
-        return $this->data[$key];
+        return $this->data[$key] ?? null;
     }
 
     //metodo para enviar el valor booleano de un campo
@@ -353,9 +436,9 @@ class Request
     }
 
     //metodo para enviar los archivos
-    public function file(string $name): array
+    public function file(string $name): ?array
     {
-        return $this->files[$name] ?? [];
+        return $this->files[$name] ?? null;
     }
 
     //metodo para comprobar si existe un archivo
@@ -392,5 +475,75 @@ class Request
         move_uploaded_file($tmp, $path);
 
         return $nameImagen . '.' . $extension;
+    }
+
+    public function isSecure(): bool
+    {
+        return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || $_SERVER['SERVER_PORT'] == 443
+            || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] == 'https')
+            || (!empty($_SERVER['HTTP_X_FORWARDED_SSL']) && $_SERVER['HTTP_X_FORWARDED_SSL'] == 'on');
+    }
+
+    public function ip(): string
+    {
+        $headers = [
+            'HTTP_CLIENT_IP',
+            'HTTP_X_FORWARDED_FOR',
+            'HTTP_X_FORWARDED',
+            'HTTP_X_CLUSTER_CLIENT_IP',
+            'HTTP_FORWARDED_FOR',
+            'HTTP_FORWARDED',
+            'REMOTE_ADDR'
+        ];
+
+        foreach ($headers as $header) {
+            if (!empty($_SERVER[$header])) {
+                $ips = explode(',', $_SERVER[$header]);
+                $ip = trim($ips[0]);
+                if (filter_var($ip, FILTER_VALIDATE_IP)) {
+                    return $ip;
+                }
+            }
+        }
+
+        return '0.0.0.0';
+    }
+
+    public function userAgent(): string
+    {
+        return $this->headers('User-Agent') ?? '';
+    }
+
+    public function accepts(string $contentType): bool
+    {
+        $accepts = $this->headers('Accept') ?? '*/*';
+        return str_contains($accepts, $contentType) || str_contains($accepts, '*/*');
+    }
+
+    public function wantsJson(): bool
+    {
+        return $this->accepts('application/json');
+    }
+
+    public function expectsJson(): bool
+    {
+        return $this->wantsJson() ||
+            $this->ajax() ||
+            str_contains($this->headers('Content-Type') ?? '', 'application/json');
+    }
+
+    public function ajax(): bool
+    {
+        return $this->headers('X-Requested-With') === 'XMLHttpRequest';
+    }
+
+    public function bearerToken(): ?string
+    {
+        $header = $this->headers('Authorization') ?? '';
+        if (str_starts_with($header, 'Bearer ')) {
+            return substr($header, 7);
+        }
+        return null;
     }
 }
