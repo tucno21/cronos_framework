@@ -126,6 +126,20 @@ public function user(User $user, string $id, Product $product);
 Route::get('/user/{id}', [Controller::class, 'user'])->name('user')->middleware([LoginMiddleware::class]);
 ```
 
+#### soporte de agrupacion de rutas
+```php
+// si esta en la carpeta api.php esta agrega la palabra /api/
+Route::group(['prefix' => '/dashboard'], function () {
+    Route::get('/users', [ApiController::class, 'grupos']);
+    Route::post('/users', [ApiController::class, 'gruposStore']);
+});
+
+Route::group(['prefix' => '/panel-control', 'middleware' => [AuthApiMiddleware::class]], function () {
+    Route::get('/users', [ApiController::class, 'grupos']);
+    Route::post('/users', [ApiController::class, 'gruposStore']);
+});
+```
+
 ## CREAR CONTROLADOR Y MODELO DESDE CONSOLA
 
 [☝️Inicio](#cronos-framework-php-82)

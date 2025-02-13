@@ -21,7 +21,7 @@ Route::group(['prefix' => '/dashboard'], function () {
     Route::post('/users', [ApiController::class, 'gruposStore']);
 });
 
-Route::group(['prefix' => '/panel-control', 'middleware' => AuthApiMiddleware::class], function () {
+Route::group(['prefix' => '/panel-control', 'middleware' => [AuthApiMiddleware::class]], function () {
     Route::get('/users', [ApiController::class, 'grupos']);
     Route::post('/users', [ApiController::class, 'gruposStore']);
 });
