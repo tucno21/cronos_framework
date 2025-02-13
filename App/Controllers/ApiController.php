@@ -137,4 +137,21 @@ class ApiController extends Controller
 
         return json($data);
     }
+
+    public function grupos()
+    {
+        $users = User::all();
+        $data = [
+            'status' => 'success',
+            'users' => $users
+        ];
+
+        return json($data);
+    }
+
+    public function gruposStore(Request $request)
+    {
+        $data = $request->all();
+        dd($data);
+    }
 }
