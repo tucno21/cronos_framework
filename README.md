@@ -1,8 +1,8 @@
-# CRONOS FRAMEWORK PHP 8.1
+# CRONOS FRAMEWORK PHP 8.2
 
 ## Requirimientos
 
-- PHP >= 8.1
+- PHP >= 8.2
 - COMPOSER
 
 ### Directorio de carpetas:
@@ -31,6 +31,7 @@
 │       └───📁 layouts/
 ├───📁 routes/
 │   └───📄 web.php
+│   └───📄 api.php
 ├───📁 System/
 │   └───📁 .../
 │   └───📄 App.php
@@ -77,7 +78,9 @@
 
 ## RUTAS WEB
 
-[☝️Inicio](#cronos-framework-php-81)
+[☝️Inicio](#cronos-framework-php-82)
+
+en la carpeta `routes` se encuentra el archivo `api.php` donde se definen las rutas de la aplicacion, no es necesario apregar la palabra "/api/" el sistema lo realiza automaticamente
 
 en la carpeta `routes` se encuentra el archivo `web.php` donde se definen las rutas de la aplicacion
 
@@ -116,7 +119,7 @@ public function user(User $user, string $id, Product $product);
 
 ### RUTAS CON MIDDELWARES
 
-[☝️Inicio](#cronos-framework-php-81)
+[☝️Inicio](#cronos-framework-php-82)
 
 ```php
 //ruta con parametros
@@ -125,7 +128,7 @@ Route::get('/user/{id}', [Controller::class, 'user'])->name('user')->middleware(
 
 ## CREAR CONTROLADOR Y MODELO DESDE CONSOLA
 
-[☝️Inicio](#cronos-framework-php-81)
+[☝️Inicio](#cronos-framework-php-82)
 
 ### Generar controlador
 
@@ -156,7 +159,7 @@ php cronos make:middleware Name
 
 ## CONSTANTES GENERALES
 
-[☝️Inicio](#cronos-framework-php-81)
+[☝️Inicio](#cronos-framework-php-82)
 
 ```php
 ROOT //   path...
@@ -168,7 +171,7 @@ DIR_IMG    //    path.../public/PATH_FILE_STORAGE.env
 
 ## HELPERS DEPURACION
 
-[☝️Inicio](#cronos-framework-php-81)
+[☝️Inicio](#cronos-framework-php-82)
 
 ```php
 //detiene la ejecución del script y muestra el contenido de la variable
@@ -181,13 +184,16 @@ d($variable);
 
 ## HTTP REQUEST
 
-[☝️Inicio](#cronos-framework-php-81)
+[☝️Inicio](#cronos-framework-php-82)
 
 ```php
 public function user(Request $request);
 
 //obtener todos los datos del request
 $request->all();
+
+//obtener ek nombre mismo si metodo
+$request->name;
 
 //obtener un dato del request
 $request->input('name');
@@ -206,6 +212,32 @@ $request->file('name');
 
 //consultar si existe un archivo en el request
 $request->hasFile('name');
+
+//consultar la ip
+$request->ip();
+
+//obtener el metodo
+$request->method();
+
+//obtener el headers o header
+$request->headers();
+$request->headers('x-token');
+
+//obtener la cokies
+$request->cookies();
+$request->cookies('aaa');
+
+//obtener si la consulta es segura
+$request->isSecure();
+
+//obtener el User-Agent
+$request->userAgent();
+
+//consultar si es ajax
+$request->ajax();
+
+//obtener el token si es beaser
+$request->bearerToken();
 
 //guardar el archivo en el storage
 //el primer parametro: es el archivo
@@ -228,7 +260,7 @@ no usar el middleware en el controlador y esta en la ruta o viceversa
 
 ## VALIDACION DE DATOS DEL FORMULARIO
 
-[☝️Inicio](#cronos-framework-php-81)
+[☝️Inicio](#cronos-framework-php-82)
 
 revise la tabla de validaciones al final de la documentación
 
@@ -263,7 +295,7 @@ public function register(Request $request)
 
 ## HTTP RESPONSE
 
-[☝️Inicio](#cronos-framework-php-81)
+[☝️Inicio](#cronos-framework-php-82)
 
 ```php
 //renderizar una vista
@@ -299,7 +331,7 @@ return back()->withErrors($dataInput, $errors, $status = 200);
 
 ## ENCRIPTAR EL PASSWORD
 
-[☝️Inicio](#cronos-framework-php-81)
+[☝️Inicio](#cronos-framework-php-82)
 
 ```php
 public function create(Request $request, Hasher $hasher)
@@ -316,7 +348,7 @@ $hasher->verify($inputPassword, $request->password);
 
 ## GUARDAR DATOS
 
-[☝️Inicio](#cronos-framework-php-81)
+[☝️Inicio](#cronos-framework-php-82)
 
 ```php
 //guardar datos con el metodo create
@@ -331,7 +363,7 @@ User::create([
 
 ## ACTUALIZAR DATOS
 
-[☝️Inicio](#cronos-framework-php-81)
+[☝️Inicio](#cronos-framework-php-82)
 
 ```php
 $id = 1;
@@ -349,7 +381,7 @@ $user = User::update($id, $data);
 
 ## ELIMINAR DATOS
 
-[☝️Inicio](#cronos-framework-php-81)
+[☝️Inicio](#cronos-framework-php-82)
 
 ```php
 $user = User::delete($id);
@@ -359,7 +391,7 @@ $user = User::delete($id);
 
 ## CONSULTAS
 
-[☝️Inicio](#cronos-framework-php-81)
+[☝️Inicio](#cronos-framework-php-82)
 
 ```php
 //obtener todos los datos de la tabla no se puede anidar
@@ -434,7 +466,7 @@ User::whereConcat('column1 - column2', 'operador', 'value')->get();
 
 ### EJEMPLOS DE CONSULTAS
 
-[☝️Inicio](#cronos-framework-php-81)
+[☝️Inicio](#cronos-framework-php-82)
 
 ```php
 //obtener todos los datos de la tabla
@@ -467,6 +499,29 @@ User::select('name', 'email')->join('roles', 'users.id', '=', 'roles.user_id')->
 
 //obtener todos los datos de la tabla ordenados por id de forma ascendente  y obtener solo los datos de la columna name y email y unir la tabla roles y obtener solo los datos de la columna name de la tabla roles y obtener solo los datos de la tabla roles donde el id sea igual a 1 y el id de la tabla users sea igual a 1
 User::select('name', 'email', 'roles.name')->join('roles', 'users.id', '=', 'roles.user_id')->where('roles.id', 1)->andWhere('users.id', 1)->orderBy('id', 'asc')->limit(10)->get();
+
+// Obtener todos los blogs de un usuario con user.id específico
+$blogs = Blog::select('blogs.*', 'users.name as author')
+            ->join('users', 'blogs.user_id', '=', 'users.id')
+            ->where('users.id', '1')
+            ->orderBy('blogs.created_at', 'DESC')
+            ->get();
+
+// Obtener un blog específico con su autor
+ $blog = Blog::select('blogs.title', 'blogs.content', 'users.name as author')
+            ->join('users', 'blogs.user_id', '=', 'users.id')
+            ->where('blogs.slug', 'hola-peru')
+            ->dd();
+```
+
+### depuracio de la sentencia que se forma sql y los datos
+```php
+//no realiza la consulta, pero se visualiza la sentencia sql
+$posts = Blog::select('blogs.title', 'users.email')
+            ->join('users', 'blogs.user_id', '=', 'users.id')
+            ->where('blogs.content', 'LIKE', '%esta%')
+            ->limit(5)
+            ->dd();
 ```
 
 ### visualizar datos de create, update, y consultas
@@ -499,9 +554,62 @@ public static function getVentasEstado($estado)
 }
 ```
 
+# HELPERS DE APOYO
+[☝️Inicio](#cronos-framework-php-82)
+
+## OBTENER LA URL DE ARCHIVOS O IMAGEN
+```php
+$blog->imagen = LInkFile::setName($blog->imagen);
+
+//si guardo e una carpera dentr0 de la carpeta de PATH_FILE_STORAGE
+
+$blog->documento = LInkFile::setName($blog->docuemnto, 'archivos');
+```
+
+## ALMECENAR IMAGEN
+Almacenar imagen en el nombre de la carpeta de PATH_FILE_STORAGE .env
+
+para esto se usa la libreria "intervention/image"
+```php
+$nameFoto = MoveFileImagen::setImage($request->file('image'))
+            ->size(400, 100) //width, height
+            ->delete('nombreimagen.png') //eliminar la imagen del store
+            ->format(ImageFormat::WEBP) //por defecto ImageFormat::WEBP, se tiene tambien ImageFormat::JPG, ImageFormat::PNG
+            ->quality(90) //por defecto 90
+            ->maintainAspectRatio(true) //por defecto false si se enviar tañamos no proporcionales a la imagen, este corta la imagen
+            ->save();
+
+// no es necesario todos los metodos los basico
+$nameFoto = MoveFileImagen::setImage($request->file('image'))
+            ->size(400)
+            ->save();
+
+// te retorna el nombre de la imagen almacenda
+```
+
+## ALMECENAR ARCHIVOS
+los archivos se almacener en una carperta "archivos" que esta dentro de la carpeta de PATH_FILE_STORAGE .env, pero puede gardar con otro nombre tambien.
+```php
+//guardar un solo archivo
+//retorna el nombre del archivo
+$nameArchivo = MoveFile::storeSingle($request->file('archivo'))->originalName()->save();
+//amacenar varios archivos que estan dentro de un array
+//retorna los nombres de los archivos en un  array
+$nameArchivos = MoveFile::storeMultiple($request->file('archivos'))->originalName()->save();
+
+
+//nobres para los archivos
+MoveFile::storeSingle($file)->save(); //genera nombre aleatorio texto numerico // 37e2cb859bbc06c421a695014043d23d.docx
+MoveFile::storeSingle($file)->originalName()->save(); //usa lo nombres origibales
+MoveFile::storeSingle($file)->dateName()->save(); //nonbre de la fecha y hora //12-02-25-193938.docx
+```
+
+
+
+
 # DIRECTIVA PARA LAS VISTAS
 
-[☝️Inicio](#cronos-framework-php-81)
+[☝️Inicio](#cronos-framework-php-82)
 
 las vistas debe ser creadas en la carpeta `resources/views` se puede llamar desde el controlador con la función `view()` el cual acepta dos parametros:
 
@@ -585,7 +693,7 @@ la directiva `@include` sirve para incluir una porción de código en la vista
 
 ## helper para la vista
 
-[☝️Inicio](#cronos-framework-php-81)
+[☝️Inicio](#cronos-framework-php-82)
 
 si en el controlador se uso `return back()->withErrors($dataInput, $errors, $status = 200)`
 
@@ -633,7 +741,7 @@ si en el controlador se uso `return back()->withErrors($dataInput, $errors, $sta
 
 # SESSIONES
 
-[☝️Inicio](#cronos-framework-php-81)
+[☝️Inicio](#cronos-framework-php-82)
 
 la session se puede crear desde el controlador con la helper `session()` y anidar los siguientes casos:
 
@@ -682,7 +790,7 @@ session()->logout();
 
 ## TABLA DE VALIDACIONES
 
-[☝️Inicio](#cronos-framework-php-81)
+[☝️Inicio](#cronos-framework-php-82)
 
 | Validación                   | Descripción                                                        | Ejemplo                      |
 | ---------------------------- | ------------------------------------------------------------------ | ---------------------------- |
@@ -738,7 +846,7 @@ la palabra `model` debe ser exactamente igual al nombre del modelo: `User` y la 
 
 ## Creditos 📌
 
-[☝️Inicio](#cronos-framework-php-81)
+[☝️Inicio](#cronos-framework-php-82)
 
 _Modelo de framework php_
 
