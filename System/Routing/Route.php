@@ -23,6 +23,8 @@ class Route
     //almacenamos los middlewares
     protected array $middlewares = [];
 
+    protected static array $groupStack = [];
+
     public function __construct(string $uri, Closure|array $action)
     {
         //alamacenar la uri que viene del framework
@@ -112,34 +114,116 @@ class Route
         return $new_array;
     }
 
+    public static function group(array $attributes, callable $callback): void
+    {
+        // Guardamos los atributos del grupo actual
+        self::$groupStack[] = $attributes;
+
+        // Ejecutamos las rutas dentro del grupo
+        $callback();
+
+        // Removemos los atributos del grupo actual
+        array_pop(self::$groupStack);
+    }
+
+    protected static function getGroupAttributes(): array
+    {
+        // Si no hay grupos, retornamos un array vacío
+        if (empty(self::$groupStack)) {
+            return [
+                'prefix' => '',
+                'middleware' => []
+            ];
+        }
+
+        // Combinamos todos los atributos de los grupos
+        $result = [
+            'prefix' => '',
+            'middleware' => []
+        ];
+
+        foreach (self::$groupStack as $group) {
+            // Concatenamos los prefijos
+            if (isset($group['prefix'])) {
+                $result['prefix'] .= '/' . trim($group['prefix'], '/');
+            }
+
+            // Agregamos los middlewares
+            if (isset($group['middleware'])) {
+                $middlewares = is_array($group['middleware'])
+                    ? $group['middleware']
+                    : [$group['middleware']];
+                $result['middleware'] = array_merge($result['middleware'], $middlewares);
+            }
+        }
+
+        return $result;
+    }
+
     public static function get(string $uri, Closure|array $action): Route
     {
-        //enviamos la uri y la accion al router mediante la instancia de la clase App
-        return Container::resolve(App::class)->router->get($uri, $action);
+        $groupAttributes = self::getGroupAttributes();
+        $prefixedUri = $groupAttributes['prefix'] . '/' . trim($uri, '/');
+        $route = Container::resolve(App::class)->router->get($prefixedUri, $action);
+
+        // Aplicar middlewares del grupo si existen
+        if (!empty($groupAttributes['middleware'])) {
+            $route->middleware($groupAttributes['middleware']);
+        }
+
+        return $route;
     }
 
     public static function post(string $uri, Closure|array $action): Route
     {
-        //enviamos la uri y la accion al router mediante la instancia de la clase App
-        return Container::resolve(App::class)->router->post($uri, $action);
+        $groupAttributes = self::getGroupAttributes();
+        $prefixedUri = $groupAttributes['prefix'] . '/' . trim($uri, '/');
+        $route = Container::resolve(App::class)->router->post($prefixedUri, $action);
+
+        if (!empty($groupAttributes['middleware'])) {
+            $route->middleware($groupAttributes['middleware']);
+        }
+
+        return $route;
     }
 
     public static function put(string $uri, Closure|array $action): Route
     {
-        //enviamos la uri y la accion al router mediante la instancia de la clase App
-        return Container::resolve(App::class)->router->put($uri, $action);
+        $groupAttributes = self::getGroupAttributes();
+        $prefixedUri = $groupAttributes['prefix'] . '/' . trim($uri, '/');
+        $route = Container::resolve(App::class)->router->put($prefixedUri, $action);
+
+        if (!empty($groupAttributes['middleware'])) {
+            $route->middleware($groupAttributes['middleware']);
+        }
+
+        return $route;
     }
 
     public static function patch(string $uri, Closure|array $action): Route
     {
-        //enviamos la uri y la accion al router mediante la instancia de la clase App
-        return Container::resolve(App::class)->router->patch($uri, $action);
+        $groupAttributes = self::getGroupAttributes();
+        $prefixedUri = $groupAttributes['prefix'] . '/' . trim($uri, '/');
+        $route = Container::resolve(App::class)->router->patch($prefixedUri, $action);
+
+        if (!empty($groupAttributes['middleware'])) {
+            $route->middleware($groupAttributes['middleware']);
+        }
+
+        return $route;
     }
 
     public static function delete(string $uri, Closure|array $action): Route
     {
-        //enviamos la uri y la accion al router mediante la instancia de la clase App
-        return Container::resolve(App::class)->router->delete($uri, $action);
+        $groupAttributes = self::getGroupAttributes();
+        $prefixedUri = $groupAttributes['prefix'] . '/' . trim($uri, '/');
+        $route = Container::resolve(App::class)->router->delete($prefixedUri, $action);
+
+        if (!empty($groupAttributes['middleware'])) {
+            $route->middleware($groupAttributes['middleware']);
+        }
+
+        return $route;
     }
 
     public function middlewares(): array
