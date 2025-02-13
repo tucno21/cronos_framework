@@ -157,6 +157,20 @@ los middlewares se encuentran en la carpeta `App/Middlewares` y se pueden crear 
 php cronos make:middleware Name
 ```
 
+### Generar migraciones
+
+el Database se encuentran en la carpeta `App/Migrations` y se pueden crear desde la consola
+OBSERVACION: primero configure los datos en le archivo .env
+este crea el archivo que debe modificar con sus tablas
+```bash
+php make:migration database
+```
+
+para crear la base de datos y tablas ejecute
+```bash
+php cronos migrate
+```
+
 ## CONSTANTES GENERALES
 
 [☝️Inicio](#cronos-framework-php-82)
