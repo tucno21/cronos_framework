@@ -18,6 +18,8 @@ class ConsoleCLI
 
     protected string $middlewarePath;
 
+    protected string $migrationsPath;
+
     public function __construct($data)
     {
         $this->command1 = isset($data[1]) ? $data[1] : ''; //make
@@ -33,6 +35,8 @@ class ConsoleCLI
         $this->controllerPath = dirname(__DIR__) . '/../App/Controllers/';
         $this->modelPath = dirname(__DIR__) . '/../App/Models/';
         $this->middlewarePath = dirname(__DIR__) . '/../App/Middlewares/';
+
+        $this->migrationsPath = dirname(__DIR__) . '/../App/Migrations/';
     }
 
     public function run()
@@ -49,16 +53,75 @@ class ConsoleCLI
             return $this->middleware();
         }
 
+        if ($this->command1 == 'make:migration') {
+            return $this->makeMigration();
+        }
+
+        if ($this->command1 == 'migrate') {
+            return $this->migrate();
+        }
+
         $text =   "\n" . "Command not found" . "\n";
         $text2 =    "\n" . "make:controller name folderName(optional)" . "\n";
         $text3 =   "make:model name folderName(optional)" . "\n";
         $text4 =   "make:middleware name" . "\n";
+        $text5 = "make:migration database" . "\n";
+        $text6 = "migrate" . "\n";
 
         print("\e[0;31m$text\e[0m");
         print("\e[0;36m$text2\e[0m");
         print("\e[0;36m$text3\e[0m");
         print("\e[0;36m$text4\e[0m");
+        print("\e[0;36m$text5\e[0m");
+        print("\e[0;36m$text6\e[0m");
         exit;
+    }
+
+    private function makeMigration()
+    {
+        if ($this->command2 !== 'database') {
+            $text = "\n" . "Invalid migration command. Use: make:migration database" . "\n";
+            print("\e[0;31m$text\e[0m");
+            exit;
+        }
+
+        $templateMigration = file_get_contents($this->templatesPath . 'migration.php');
+        $migrationPath = $this->migrationsPath;
+        $nameMigration = 'Database.php';
+
+        // Check if migrations directory exists
+        if (!file_exists($migrationPath)) {
+            mkdir($migrationPath, 0777, true);
+        }
+
+        // Check if migration file already exists
+        if (file_exists($migrationPath . $nameMigration)) {
+            $text = "\n" . "The $nameMigration file already exists" . "\n";
+            print("\e[0;31m$text\e[0m");
+            exit;
+        }
+
+        // Create migration file
+        file_put_contents($migrationPath . $nameMigration, $templateMigration);
+
+        $text = "\n" . "Migration file created successfully." . "\n";
+        print("\e[0;34m$text\e[0m");
+    }
+
+    private function migrate()
+    {
+        $migrationFile = $this->migrationsPath . 'Database.php';
+
+        if (!file_exists($migrationFile)) {
+            $text = "\n" . "Migration file not found. Create it first with: make:migration database" . "\n";
+            print("\e[0;31m$text\e[0m");
+            exit;
+        }
+
+        require_once $migrationFile;
+
+        $migration = new \App\Migrations\Database();
+        $migration->migrate();
     }
 
     private function controller()
