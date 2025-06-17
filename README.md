@@ -64,6 +64,7 @@
 - [Ejemplos de consultas](#ejemplos-de-consultas)
 - [consultas personalizadas de la base de datos](#consultas-personalizadas-de-la-base-de-datos)
 - [Directiva para las vistas](#directiva-para-las-vistas)
+- [Directivas Personalizadas](#directivas-personalizadas)
 - [helper para la vista](#helper-para-la-vista)
 - [Obtener las rutas](#obtener-las-rutas)
 - [Sessiones](#sessiones)
@@ -674,6 +675,59 @@ la directiva `@include` sirve para incluir una porción de código en la vista
 @include('home.navegacion')
 ```
 
+### Directiva `@component` (Componentes con Slots)
+
+[☝️Inicio](#cronos-framework-php-82)
+
+Esta directiva te permite crear componentes reutilizables y pasarles datos (props) y bloques de contenido (slots), similar a cómo funcionan los componentes en frameworks como React.
+
+**Uso en tu vista principal:**
+
+```php
+@component('components.card', ['title' => 'Mi Tarjeta'])
+    @slot('header')
+        <h2>Encabezado Personalizado</h2>
+    @endslot
+
+    <p>Este es el contenido principal de la tarjeta (slot por defecto).</p>
+
+    @slot('footer')
+        <button>Ver más</button>
+    @endslot
+@endcomponent
+```
+
+**Uso dentro del archivo del componente (ej. `resources/views/components/card.php`):**
+
+```php
+<!-- resources/views/components/card.php -->
+<div class="card">
+    <?php if (isset($title)): ?>
+        <h3>{{ $title }}</h3>
+    <?php endif; ?>
+
+    <?php if (isset($__component_slots['header'])): ?>
+        <div class="card-header">
+            <?= $__component_slots['header'] ?>
+        </div>
+    <?php endif; ?>
+
+    <div class="card-body">
+        <?= $__component_slots['default'] ?? '' ?>
+    </div>
+
+    <?php if (isset($__component_slots['footer'])): ?>
+        <div class="card-footer">
+            <?= $__component_slots['footer'] ?>
+        </div>
+    <?php endif; ?>
+</div>
+```
+
+*   Los datos pasados en el segundo argumento de `@component` (ej. `['title' => 'Mi Tarjeta']`) se acceden directamente como variables dentro del componente (ej. `$title`).
+*   El contenido entre `@slot('nombre')` y `@endslot` se accede a través de la variable `$_slots['nombre']`.
+*   Cualquier contenido dentro del bloque `@component ... @endcomponent` que no esté dentro de un `@slot` nombrado se considera el slot por defecto y se accede a través de `$_slots['default']`.
+
 . Ejemplo de referencia
 
 ```php
@@ -718,6 +772,58 @@ la directiva `@include` sirve para incluir una porción de código en la vista
     </nav>
 </header>
 ```
+
+### Directivas Personalizadas
+
+[☝️Inicio](#cronos-framework-php-82)
+
+El motor de vistas ahora soporta la creación de directivas personalizadas, lo que te permite extender sus funcionalidades sin modificar el código fuente de `CronosEngine.php`.
+
+**Cómo Definir y Usar una Directiva Personalizada:**
+
+1.  **Registro de Directivas:**
+    Utiliza el método estático `CronosEngine::directive(string $name, callable $handler)` para registrar una nueva directiva.
+    *   `$name`: Es el nombre de la directiva (ej. `'datetime'`, `'uppercase'`).
+    *   `$handler`: Es una función de callback (o closure) que se ejecutará cuando el motor encuentre tu directiva. Esta función recibirá los argumentos que se pasen a la directiva como una cadena.
+
+    **Ejemplo de Registro (puedes colocar esto en un Service Provider, como `App/Providers/ViewServiceProvider.php`, o en `System/App.php` después de que el motor de vistas esté disponible):**
+
+    ```php
+    use Cronos\View\CronosEngine;
+
+    // Directiva sin argumentos: @currentYear
+    CronosEngine::directive('currentYear', function () {
+        return '<?php echo date("Y"); ?>';
+    });
+
+    // Directiva con argumentos: @datetime($timestamp)
+    CronosEngine::directive('datetime', function ($expression) {
+        // $expression contendrá la cadena de los argumentos, ej. '$post->created_at'
+        return "<?php echo date('Y-m-d H:i:s', {$expression}); ?>";
+    });
+
+    // Directiva para convertir a mayúsculas: @uppercase($text)
+    CronosEngine::directive('uppercase', function ($expression) {
+        return "<?php echo strtoupper({$expression}); ?>";
+    });
+    ```
+
+2.  **Uso de la Directiva en tus Vistas PHP:**
+    Una vez registrada, puedes usar tu directiva personalizada en cualquier archivo de vista.
+
+    **Ejemplo de Uso en una Vista:**
+    ```php
+    <!-- En tu vista (ej. resources/views/home/index.php) -->
+    <footer>
+        &copy; @currentYear Mi Empresa.
+    </footer>
+
+    <p>Publicado el: @datetime($post->created_at)</p>
+
+    <p>Título en mayúsculas: @uppercase($post->title)</p>
+    ```
+
+Esta funcionalidad te da un control mucho mayor sobre cómo se procesan tus plantillas y te permite adaptar el motor de vistas a tus necesidades específicas de manera muy flexible.
 
 ## helper para la vista
 

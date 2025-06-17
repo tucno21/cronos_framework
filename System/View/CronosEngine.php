@@ -9,7 +9,8 @@ class CronosEngine implements View
 {
     protected string $viewDirectory;
     protected string $cacheDirectory;
-    protected array $sections;
+    protected array $sections = []; // Inicializar sections
+    protected static array $customDirectives = []; // Para almacenar directivas personalizadas
 
     public function __construct(string $viewsDirectory, string $cacheDirectory)
     {
@@ -66,6 +67,12 @@ class CronosEngine implements View
 
             // Agregar la directiva @isset
             $content = $this->compileIsset($content);
+
+            // Agregar la directiva @component
+            $content = $this->compileComponents($content);
+
+            // Agregar directivas personalizadas
+            $content = $this->compileCustomDirectives($content);
 
             // Agregar la directiva {{ }}
             $content = $this->compileVariables($content);
@@ -289,5 +296,76 @@ class CronosEngine implements View
         $contents = preg_replace('/\{\{\s*(.*?)\s*\}\}/', "<?= htmlspecialchars($1, ENT_QUOTES) ?>", $content);
 
         return $contents;
+    }
+
+    protected function compileComponents(string $content): string
+    {
+        // Regex para capturar @component(...) ... @endcomponent
+        return preg_replace_callback('/@component\((.*?)(?:,\s*(.*?))?\)(.*?)@endcomponent/s', function ($matches) {
+            $componentView = trim($matches[1], "'\"");
+            $paramsString = $matches[2] ?? '[]'; // Parámetros pasados al componente, por defecto un array vacío
+            $componentContent = $matches[3]; // Contenido entre @component y @endcomponent
+
+            $componentFile = $this->viewDirectory . DIRECTORY_SEPARATOR . str_replace('.', DIRECTORY_SEPARATOR, $componentView) . '.php';
+            if (!file_exists($componentFile)) {
+                throw new \Error("No existe el archivo de componente: $componentFile");
+            }
+
+            // Procesar los slots dentro del contenido del componente
+            $slots = [];
+            $defaultSlotContent = preg_replace_callback('/@slot\((.*?)\)(.*?)@endslot/s', function ($slotMatches) use (&$slots) {
+                $slotName = trim($slotMatches[1], "'\"");
+                $slotContent = trim($slotMatches[2]);
+                $slots[$slotName] = $slotContent;
+                return ''; // Eliminar el slot del contenido principal
+            }, $componentContent);
+
+            // El contenido restante es el slot por defecto
+            $slots['default'] = trim($defaultSlotContent);
+
+            // Generar el código PHP para incluir el componente
+            // Pasamos los parámetros y los slots al ámbito del componente
+            $phpCode = "<?php ";
+            $phpCode .= "\$__component_params = {$paramsString}; ";
+            $phpCode .= "\$__component_slots = " . var_export($slots, true) . "; "; // Exportar los slots como un array PHP
+            $phpCode .= "extract(\$__component_params); "; // Extraer los parámetros como variables
+            $phpCode .= "ob_start(); "; // Iniciar buffer de salida para capturar el contenido del componente
+            $phpCode .= "include '{$componentFile}'; "; // Incluir el archivo del componente
+            $phpCode .= "\$__component_output = ob_get_clean(); "; // Capturar la salida
+            $phpCode .= "echo \$__component_output; "; // Imprimir la salida
+            $phpCode .= "?>";
+
+            return $phpCode;
+        }, $content);
+    }
+
+    /**
+     * Registra una directiva personalizada.
+     *
+     * @param string $name El nombre de la directiva (ej. 'datetime').
+     * @param callable $handler La función de callback que procesará la directiva.
+     */
+    public static function directive(string $name, callable $handler): void
+    {
+        self::$customDirectives[$name] = $handler;
+    }
+
+    /**
+     * Compila las directivas personalizadas registradas.
+     *
+     * @param string $content El contenido de la vista.
+     * @return string El contenido de la vista con las directivas personalizadas compiladas.
+     */
+    protected function compileCustomDirectives(string $content): string
+    {
+        foreach (self::$customDirectives as $name => $handler) {
+            // Regex para capturar @directiva(...) o @directiva
+            $pattern = '/@' . preg_quote($name) . '(?:\((.*?)\))?/s';
+            $content = preg_replace_callback($pattern, function ($matches) use ($handler) {
+                $arguments = isset($matches[1]) ? $matches[1] : ''; // Argumentos dentro de los paréntesis
+                return call_user_func($handler, $arguments);
+            }, $content);
+        }
+        return $content;
     }
 }
