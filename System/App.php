@@ -12,10 +12,9 @@ use Cronos\Routing\Router;
 use Cronos\Http\HttpMethod;
 use Cronos\Session\Session;
 use Cronos\Container\Container;
-use Cronos\Errors\RouteException;
 use Cronos\Session\SessionStorage;
 use Cronos\Database\DatabaseDriver;
-use Cronos\Errors\HttpNotFoundException;
+use Cronos\Errors\ExceptionHandler;
 
 class App
 {
@@ -97,7 +96,7 @@ class App
         //metodos que usar la clase Session
         //si alquien quiere cambiar la clase Session por otra debe colocar en su contructor SessionStorage::class
         $sesionStorage = Container::resolve(SessionStorage::class);
-        $this->session = Container::singleton(Session::class, fn () => new Session($sesionStorage));
+        $this->session = Container::singleton(Session::class, fn() => new Session($sesionStorage));
 
         $this->uriCurrent();
 
@@ -150,22 +149,10 @@ class App
                 //se ejecuta solo si es una instancia de la clase Response
                 $this->response->sendResponse($response);
             }
-        } catch (HttpNotFoundException $e) {
-            $response = view('error/404');
-            $this->abort($response->setStatusCode(404));
-        } catch (RouteException $e) {
-            $response = json(["message" => $e->getMessage()]);
-            $this->abort($response->setStatusCode(500));
         } catch (Throwable $e) {
-            $response = json([
-                "Type error" => $e::class,
-                "message" => $e->getMessage(),
-                "file" => $e->getFile(),
-                "line" => $e->getLine(),
-                "trace" => $e->getTrace(),
-                "TraceAsString" => $e->getTraceAsString(),
-            ]);
-            $this->abort($response->setStatusCode(500));
+            $handler = new ExceptionHandler();
+            $response = $handler->handle($e);
+            $this->terminate($response);
         }
     }
 
