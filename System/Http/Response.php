@@ -23,7 +23,7 @@ class Response
         return $this;
     }
 
-    public function headers(string $key = null): array|string|null
+    public function headers(?string $key = null): array|string|null
     {
         if (is_null($key)) {
             return $this->headers;
@@ -42,7 +42,7 @@ class Response
         unset($this->headers[$header]);
     }
 
-    public function cookies(string $key = null): array|string|null
+    public function cookies(?string $key = null): array|string|null
     {
         if (is_null($key)) {
             return $this->cookies;
@@ -132,7 +132,7 @@ class Response
             ->setContent($text);
     }
 
-    public static function redirect(string $url = null, int $statusCode = 200): self
+    public static function redirect(?string $url = null, int $statusCode = 200): self
     {
         if (is_null($url)) {
             return (new self());
@@ -182,7 +182,7 @@ class Response
         return $this;
     }
 
-    public static function view(string $viewName, array $params = [], string $layout = null): self
+    public static function view(string $viewName, array $params = [], ?string $layout = null): self
     {
         $content = app(View::class)->render($viewName, $params, $layout);
 
