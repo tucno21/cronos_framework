@@ -254,7 +254,7 @@ abstract class Model
         return new static;
     }
 
-    public static function where(string $columna, string|int $operadorOvalor, string|int $valor = null): self
+    public static function where(string $columna, string|int $operadorOvalor, string|int|null $valor = null): self
     {
         // Validaciones
         if (empty($columna)) {
@@ -322,7 +322,7 @@ abstract class Model
     }
 
 
-    public static function andWhere(string $columna, string|int $operadorOvalor, string|int $valor = null): self
+    public static function andWhere(string $columna, string|int $operadorOvalor, string|int|null $valor = null): self
     {
         if (empty($columna)) {
             throw new \Error('Debe proveer el nombre de la columna para la condición WHERE');
@@ -347,7 +347,7 @@ abstract class Model
         return new static;
     }
 
-    public static function orWhere(string $columna, string|int $operadorOvalor, string|int $valor = null): self
+    public static function orWhere(string $columna, string|int $operadorOvalor, string|int|null $valor = null): self
     {
         if (empty($columna)) {
             throw new \Error('Debe proveer el nombre de la columna para la condición WHERE');
@@ -372,7 +372,7 @@ abstract class Model
         return new static;
     }
 
-    public static function whereConcat(string $columna, string|int $operadorOvalor, string|int $valor = null): self
+    public static function whereConcat(string $columna, string|int $operadorOvalor, string|int|null $valor = null): self
     {
         if (empty($columna)) {
             throw new \Error('Debe proveer el nombre de la columna para la condición WHERE');
@@ -692,20 +692,20 @@ abstract class Model
     }
 
 
-    public function hasOne($related, $foreignKey = null, $localKey = 'id')
+    public function hasOne(string $related, ?string $foreignKey = null, string $localKey = 'id')
     {
         $instance = new $related;
         $foreignKey = $foreignKey ?: $this->table . '_id';
         return new HasOne($instance, $this, $foreignKey, $localKey);
     }
 
-    public function hasMany(string $related, string $foreignKey = null, string $localKey = 'id'): HasMany
+    public function hasMany(string $related, ?string $foreignKey = null, string $localKey = 'id'): HasMany
     {
         $foreignKey = $foreignKey ?: $this->table . '_id';
         return new HasMany(new $related(), $this, $foreignKey, $localKey);
     }
 
-    public function belongsTo(string $related, string $foreignKey = null, string $ownerKey = 'id'): BelongsTo
+    public function belongsTo(string $related, ?string $foreignKey = null, string $ownerKey = 'id'): BelongsTo
     {
         $foreignKey = $foreignKey ?: (new $related)->primaryKey;
         return new BelongsTo(new $related(), $this, $foreignKey, $ownerKey);
