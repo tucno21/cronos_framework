@@ -361,7 +361,7 @@ class Request
         return $this->method;
     }
 
-    public function headers(string $key = null): object|string|null
+    public function headers(?string $key = null): object|string|null
     {
         //retorna los headers que se estan enviando
         if (is_null($key)) {
@@ -376,7 +376,7 @@ class Request
         return $lowercaseHeaders[$lowercaseKey] ?? null;
     }
 
-    public function cookies(string $key = null): object|string|null
+    public function cookies(?string $key = null): object|string|null
     {
         //retorna los cookies que se estan enviando
         if (is_null($key)) {
@@ -448,7 +448,7 @@ class Request
     }
 
     //metodo para guardar un archivo
-    public function store(string $file, string $nameFile = null, string $nameFolder = null)
+    public function store(string $file, ?string $nameFile = null, ?string $nameFolder = null)
     {
         $file = $this->file($file);
 
