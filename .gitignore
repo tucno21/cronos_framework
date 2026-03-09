@@ -1,4 +1,10 @@
-/vendor/
-/node_modules
-.env
+vendor/
 composer.lock
+.env
+.DS_Store
+Thumbs.db
+storage/cache/*
+storage/logs/*
+coverage/
+.phpunit.result.cache
+.phpunit.cache/
