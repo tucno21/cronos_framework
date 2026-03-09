@@ -361,8 +361,13 @@ class Validation
 
         $value = self::searchInput($nameInput);
         $date = \DateTime::createFromFormat($format, $value);
+
+        // getLastErrors puede retornar false o array
         $errors = \DateTime::getLastErrors();
-        if ($errors['error_count'] > 0 || $errors['warning_count'] > 0 || $date === false) {
+        $errorCount = is_array($errors) ? ($errors['error_count'] ?? 0) : 0;
+        $warningCount = is_array($errors) ? ($errors['warning_count'] ?? 0) : 0;
+
+        if ($date === false || $errorCount > 0 || $warningCount > 0) {
             self::addError($nameInput, 'datetime', [$format]);
         }
     }
@@ -373,8 +378,13 @@ class Validation
 
         $value = self::searchInput($nameInput);
         $date = \DateTime::createFromFormat($format, $value);
+
+        // getLastErrors puede retornar false o array
         $errors = \DateTime::getLastErrors();
-        if ($errors['error_count'] > 0 || $errors['warning_count'] > 0 || $date === false) {
+        $errorCount = is_array($errors) ? ($errors['error_count'] ?? 0) : 0;
+        $warningCount = is_array($errors) ? ($errors['warning_count'] ?? 0) : 0;
+
+        if ($date === false || $errorCount > 0 || $warningCount > 0) {
             self::addError($nameInput, $rule, [$format]);
         }
     }
@@ -385,8 +395,13 @@ class Validation
 
         $value = self::searchInput($nameInput);
         $date = \DateTime::createFromFormat($format, $value);
+
+        // getLastErrors puede retornar false o array
         $errors = \DateTime::getLastErrors();
-        if ($errors['error_count'] > 0 || $errors['warning_count'] > 0 || $date === false) {
+        $errorCount = is_array($errors) ? ($errors['error_count'] ?? 0) : 0;
+        $warningCount = is_array($errors) ? ($errors['warning_count'] ?? 0) : 0;
+
+        if ($date === false || $errorCount > 0 || $warningCount > 0) {
             self::addError($nameInput, $rule, [$format]);
         }
     }

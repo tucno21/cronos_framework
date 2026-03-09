@@ -15,6 +15,35 @@ use ReflectionNamedType;
 class DependencyInjection
 {
     /**
+     * Verifica si un tipo es builtin (primitivo), compatible con PHP 8.2 y 8.3.
+     *
+     * @param mixed $type El tipo a verificar (puede ser null, ReflectionNamedType o ReflectionUnionType)
+     * @return bool True si es builtin, false en caso contrario
+     */
+    private static function isBuiltinType($type): bool
+    {
+        if ($type === null) {
+            return true;
+        }
+
+        if ($type instanceof ReflectionNamedType) {
+            return $type->isBuiltin();
+        }
+
+        if ($type instanceof ReflectionUnionType) {
+            // Para tipos de unión, verificamos si TODOS los tipos son builtin
+            foreach ($type->getTypes() as $unionType) {
+                if ($unionType instanceof ReflectionNamedType && !$unionType->isBuiltin()) {
+                    return false; // Al menos un tipo no es builtin
+                }
+            }
+            return true; // Todos los tipos son builtin
+        }
+
+        return true; // Por defecto, tratar como builtin
+    }
+
+    /**
      * Resuelve una clase y sus dependencias de forma recursiva.
      *
      * @param string $class El nombre de la clase a resolver.
@@ -64,7 +93,7 @@ class DependencyInjection
             $type = $parameter->getType();
 
             // Si el parámetro no tiene tipo o es un tipo primitivo, intentamos resolverlo.
-            if (is_null($type) || $type->isBuiltin()) {
+            if (is_null($type) || self::isBuiltinType($type)) {
                 if ($parameter->isDefaultValueAvailable()) {
                     $dependencies[] = $parameter->getDefaultValue();
                 } else {
@@ -136,7 +165,7 @@ class DependencyInjection
                     // No se pudo resolver, lanzar excepción o manejar de otra forma
                     throw new \ReflectionException("Unresolvable dependency: {$param->getName()}");
                 }
-            } elseif ($type->isBuiltin()) { // verificar si el parametro es de tipo primitivo
+            } elseif (self::isBuiltinType($type)) { // verificar si el parametro es de tipo primitivo
                 // buscar el parametro en el array de parametros de la ruta
                 $resolved = $routeParameters[$param->getName()] ?? null;
                 if (is_null($resolved) && $param->isDefaultValueAvailable()) {
