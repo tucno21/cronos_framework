@@ -10,6 +10,8 @@ class MessageError
 
     private $attributes;
 
+    private $customMessage;
+
     private $messages = [
         'alpha'             => 'El campo %s solo debe contener caracteres alfabéticos sin espacio.',
         'alpha_space'       => 'El campo %s solo debe contener caracteres alfabéticos y espacios.',
@@ -45,13 +47,41 @@ class MessageError
         // 'file'              => 'El campo %s debe ser un archivo valido',
         'password_verify'    => 'Error la contraseña no coincide',
 
+        // ===== NUEVOS MENSAJES (FASE 3) =====
+        'boolean'           => 'El campo %s debe ser verdadero o falso.',
+        'date_format'       => 'El campo %s no coincide con el formato %s.',
+        'before'            => 'El campo %s debe ser una fecha anterior a %s.',
+        'after'             => 'El campo %s debe ser una fecha posterior a %s.',
+        'in'                => 'El campo %s debe ser uno de los siguientes: %s.',
+        'not_in'            => 'El campo %s no debe ser ninguno de los siguientes: %s.',
+        'same'              => 'El campo %s debe coincidir con %s.',
+        'different'         => 'El campo %s debe ser diferente de %s.',
+        'starts_with'       => 'El campo %s debe comenzar con %s.',
+        'ends_with'         => 'El campo %s debe terminar con %s.',
+        'regex'             => 'El formato del campo %s es inválido.',
+        'file'              => 'El campo %s debe ser un archivo válido.',
+        'image'             => 'El campo %s debe ser una imagen (jpg, png, gif, webp, svg).',
+        'mimes'             => 'El campo %s debe ser un archivo de tipo: %s.',
+        'max_size'          => 'El campo %s no puede superar los %s KB.',
+        'nullable'          => '', // No tiene mensaje, es una regla especial
+        'sometimes'         => '', // No tiene mensaje, es una regla especial
+
     ];
 
-    public function __construct(string $nameInput, string $rule, array $attributes = [])
+    /**
+     * Constructor de MessageError
+     * 
+     * @param string $nameInput Nombre del campo
+     * @param string $rule Nombre de la regla
+     * @param array $attributes Atributos para el mensaje
+     * @param string|null $customMessage Mensaje personalizado (opcional)
+     */
+    public function __construct(string $nameInput, string $rule, array $attributes = [], ?string $customMessage = null)
     {
         $this->nameInput = $nameInput;
         $this->rule = $rule;
         $this->attributes = $attributes;
+        $this->customMessage = $customMessage;
     }
 
     /**
@@ -60,6 +90,19 @@ class MessageError
      */
     public function __toString()
     {
+        // Si hay un mensaje personalizado, usarlo
+        if ($this->customMessage !== null) {
+            // Reemplazar :attribute con el nombre del campo
+            $message = str_replace(':attribute', $this->nameInput, $this->customMessage);
+
+            // Reemplazar otros parámetros :param1, :param2, etc.
+            foreach ($this->attributes as $index => $value) {
+                $message = str_replace(":param" . ($index + 1), $value, $message);
+            }
+
+            return $message;
+        }
+
         //busca si la regla existe en el array messages[]
         if (!array_key_exists($this->rule, $this->messages)) {
             return "Los campos {$this->nameInput} no coincide con la regla {$this->rule}";

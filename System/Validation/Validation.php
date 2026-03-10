@@ -4,6 +4,34 @@ namespace Cronos\Validation;
 
 use Cronos\Validation\MessageError;
 
+/**
+ * Sistema de Validación de Cronos Framework
+ * 
+ * Ejemplos de uso:
+ * 
+ * // Validación básica con string de reglas
+ * $this->validate($request->all(), [
+ *     'email' => 'required|email|unique:User,email|max:100',
+ *     'password' => 'required|min:8|confirmed',
+ *     'age' => 'required|integer|min:18',
+ *     'role' => 'required|in:admin,user,moderator',
+ *     'avatar' => 'nullable|image|max_size:2048',
+ * ]);
+ * 
+ * // Validación con mensajes personalizados
+ * $this->validate($request->all(), $rules, [
+ *     'email.required' => 'El correo es obligatorio',
+ *     'email.email' => 'Ingresa un correo válido',
+ *     'password.min' => 'La contraseña debe tener al menos 8 caracteres',
+ * ]);
+ * 
+ * // Validación con Rule object (fluent interface)
+ * $this->validate($request->all(), [
+ *     'email' => Rule::required()->email()->unique('User', 'email')->max(100),
+ *     'avatar' => Rule::nullable()->image()->max_size(2048),
+ *     'status' => Rule::required()->in('active', 'inactive', 'pending'),
+ * ]);
+ */
 class Validation
 {
     /**
@@ -17,19 +45,28 @@ class Validation
     /**
      * mensajes de errores
      */
-    private static $errors = [];
+    private static array $errors = [];
     /**
-     * mensajes de validacion
+     * mensajes de validacion personalizados por campo
      */
-    private static $customMessages = [];
+    private static array $customMessages = [];
 
-    public function validate(array|object $inputs, array $rules)
+    /**
+     * Validar datos contra reglas
+     * 
+     * @param array|object $inputs Datos a validar
+     * @param array $rules Reglas de validación
+     * @param array $messages (opcional) Mensajes de error personalizados
+     * @return true|array|string Retorna true si pasa validación, array de errores si falla
+     */
+    public function validate(array|object $inputs, array $rules, array $messages = [])
     {
         if (is_object($inputs))
             $inputs = (array)$inputs;
 
         self::$inputs = $inputs;
         self::$rules = $rules;
+        self::$customMessages = $messages;
 
         //verificar que los Inputs no esten vacios
         if (!empty($inputs)) {
@@ -145,9 +182,13 @@ class Validation
     {
         //verifica si no existe el nombreImput en el array de errores
         if (!array_key_exists($nameInput, self::$errors)) {
+            // Verificar si hay un mensaje personalizado para este campo y regla
+            $customKey = "{$nameInput}.{$rule}";
+            $customMessage = self::$customMessages[$customKey] ?? null;
+
             //enviar datos a la clase de errors (nombre del input, regla, atributos)
             //retorna el input y la regla de aclaracion de error
-            self::$errors[$nameInput] = (string)(new MessageError($nameInput, $rule, $attributes));
+            self::$errors[$nameInput] = (string)(new MessageError($nameInput, $rule, $attributes, $customMessage));
         }
     }
 
@@ -569,5 +610,311 @@ class Validation
                 self::addError($nameInput, 'type', [$value["name"]]);
             }
         }
+    }
+
+    // ===== NUEVAS REGLAS DE VALIDACIÓN (FASE 3) =====
+
+    /**
+     * Validar que el campo sea booleano
+     * Acepta: true, false, 1, 0, "1", "0"
+     */
+    private static function validateBoolean(string $nameInput, string $rule)
+    {
+        $value = self::searchInput($nameInput);
+
+        if (!in_array($value, [true, false, 1, 0, "1", "0"], true)) {
+            self::addError($nameInput, $rule);
+        }
+    }
+
+    /**
+     * Validar fecha contra formato específico
+     * Ejemplo: date_format:d/m/Y
+     */
+    private static function validateDate_format(string $nameInput, string $rule, $params)
+    {
+        $value = self::searchInput($nameInput);
+
+        if (count($params) !== 1) {
+            throw new \Exception("La regla date_format requiere un parámetro de formato");
+        }
+
+        $format = $params[0];
+        $date = \DateTime::createFromFormat($format, $value);
+
+        if ($date === false) {
+            self::addError($nameInput, 'date_format', [$format]);
+        }
+    }
+
+    /**
+     * Validar que la fecha sea anterior a la dada
+     * Ejemplo: before:2024-12-31
+     */
+    private static function validateBefore(string $nameInput, string $rule, $params)
+    {
+        $value = self::searchInput($nameInput);
+
+        if (count($params) !== 1) {
+            throw new \Exception("La regla before requiere una fecha como parámetro");
+        }
+
+        try {
+            $dateValue = new \DateTime($value);
+            $dateBefore = new \DateTime($params[0]);
+
+            if ($dateValue >= $dateBefore) {
+                self::addError($nameInput, $rule, [$params[0]]);
+            }
+        } catch (\Exception $e) {
+            self::addError($nameInput, $rule, [$params[0]]);
+        }
+    }
+
+    /**
+     * Validar que la fecha sea posterior a la dada
+     * Ejemplo: after:2024-01-01
+     */
+    private static function validateAfter(string $nameInput, string $rule, $params)
+    {
+        $value = self::searchInput($nameInput);
+
+        if (count($params) !== 1) {
+            throw new \Exception("La regla after requiere una fecha como parámetro");
+        }
+
+        try {
+            $dateValue = new \DateTime($value);
+            $dateAfter = new \DateTime($params[0]);
+
+            if ($dateValue <= $dateAfter) {
+                self::addError($nameInput, $rule, [$params[0]]);
+            }
+        } catch (\Exception $e) {
+            self::addError($nameInput, $rule, [$params[0]]);
+        }
+    }
+
+    /**
+     * Validar que el valor esté en la lista dada
+     * Ejemplo: in:admin,user,moderator
+     */
+    private static function validateIn(string $nameInput, string $rule, $params)
+    {
+        $value = self::searchInput($nameInput);
+
+        if (!in_array($value, $params)) {
+            $allowed = implode(', ', $params);
+            self::addError($nameInput, $rule, [$allowed]);
+        }
+    }
+
+    /**
+     * Validar que el valor NO esté en la lista dada
+     * Ejemplo: not_in:admin,banned
+     */
+    private static function validateNot_in(string $nameInput, string $rule, $params)
+    {
+        $value = self::searchInput($nameInput);
+
+        if (in_array($value, $params)) {
+            $notAllowed = implode(', ', $params);
+            self::addError($nameInput, $rule, [$notAllowed]);
+        }
+    }
+
+    /**
+     * Validar que el campo sea igual a otro campo
+     * Ejemplo: same:password
+     */
+    private static function validateSame(string $nameInput, string $rule, $params)
+    {
+        $value = self::searchInput($nameInput);
+
+        if (count($params) !== 1) {
+            throw new \Exception("La regla same requiere un nombre de campo como parámetro");
+        }
+
+        $otherValue = self::searchInput($params[0]);
+
+        if ($value !== $otherValue) {
+            self::addError($nameInput, $rule, [$params[0]]);
+        }
+    }
+
+    /**
+     * Validar que el campo sea diferente de otro campo
+     * Ejemplo: different:username
+     */
+    private static function validateDifferent(string $nameInput, string $rule, $params)
+    {
+        $value = self::searchInput($nameInput);
+
+        if (count($params) !== 1) {
+            throw new \Exception("La regla different requiere un nombre de campo como parámetro");
+        }
+
+        $otherValue = self::searchInput($params[0]);
+
+        if ($value === $otherValue) {
+            self::addError($nameInput, $rule, [$params[0]]);
+        }
+    }
+
+    /**
+     * Validar que el string empiece con el prefijo dado
+     * Ejemplo: starts_with:https://
+     */
+    private static function validateStarts_with(string $nameInput, string $rule, $params)
+    {
+        $value = self::searchInput($nameInput);
+
+        if (count($params) !== 1) {
+            throw new \Exception("La regla starts_with requiere un prefijo como parámetro");
+        }
+
+        if (strpos($value, $params[0]) !== 0) {
+            self::addError($nameInput, $rule, [$params[0]]);
+        }
+    }
+
+    /**
+     * Validar que el string termine con el sufijo dado
+     * Ejemplo: ends_with:.jpg
+     */
+    private static function validateEnds_with(string $nameInput, string $rule, $params)
+    {
+        $value = self::searchInput($nameInput);
+
+        if (count($params) !== 1) {
+            throw new \Exception("La regla ends_with requiere un sufijo como parámetro");
+        }
+
+        if (substr($value, -strlen($params[0])) !== $params[0]) {
+            self::addError($nameInput, $rule, [$params[0]]);
+        }
+    }
+
+    /**
+     * Validar contra expresión regular
+     * Ejemplo: regex:/^[a-z]+$/
+     */
+    private static function validateRegex(string $nameInput, string $rule, $params)
+    {
+        $value = self::searchInput($nameInput);
+
+        if (count($params) !== 1) {
+            throw new \Exception("La regla regex requiere un patrón de expresión regular como parámetro");
+        }
+
+        if (!preg_match($params[0], $value)) {
+            self::addError($nameInput, $rule);
+        }
+    }
+
+    /**
+     * Validar que sea un archivo subido válido
+     */
+    private static function validateFile(string $nameInput, string $rule)
+    {
+        $value = self::searchInput($nameInput);
+
+        if (!isset($value['tmp_name']) || !is_uploaded_file($value['tmp_name'])) {
+            self::addError($nameInput, $rule);
+        }
+    }
+
+    /**
+     * Validar que el archivo sea una imagen
+     * Extensiones permitidas: jpg, jpeg, png, gif, webp, svg
+     */
+    private static function validateImage(string $nameInput, string $rule)
+    {
+        $value = self::searchInput($nameInput);
+
+        if (!isset($value['tmp_name']) || !is_uploaded_file($value['tmp_name'])) {
+            // Si el archivo no existe, no fallar (puede ser nullable)
+            return;
+        }
+
+        $allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+
+        if (!isset($value['type']) || !in_array(strtolower($value['type']), $allowedTypes)) {
+            self::addError($nameInput, $rule);
+        }
+    }
+
+    /**
+     * Validar extensiones de archivo permitidas
+     * Ejemplo: mimes:jpg,png,pdf
+     */
+    private static function validateMimes(string $nameInput, string $rule, $params)
+    {
+        $value = self::searchInput($nameInput);
+
+        if (!isset($value['name']) || empty($value['name'])) {
+            return;
+        }
+
+        $extension = strtolower(pathinfo($value['name'], PATHINFO_EXTENSION));
+
+        if (!in_array($extension, $params)) {
+            $allowed = implode(', ', $params);
+            self::addError($nameInput, $rule, [$allowed]);
+        }
+    }
+
+    /**
+     * Validar tamaño máximo de archivo en KB
+     * Ejemplo: max_size:2048 (2MB)
+     */
+    private static function validateMax_size(string $nameInput, string $rule, $params)
+    {
+        $value = self::searchInput($nameInput);
+
+        if (count($params) !== 1) {
+            throw new \Exception("La regla max_size requiere un tamaño en KB como parámetro");
+        }
+
+        if (!isset($value['size'])) {
+            return;
+        }
+
+        $maxSizeBytes = (int)$params[0] * 1024; // Convertir KB a Bytes
+
+        if ($value['size'] > $maxSizeBytes) {
+            self::addError($nameInput, $rule, [$params[0]]);
+        }
+    }
+
+    /**
+     * Permitir que el campo sea null o vacío
+     * Detiene la validación del campo si está vacío
+     */
+    private static function validateNullable(string $nameInput, string $rule)
+    {
+        $value = self::searchInput($nameInput);
+
+        if (is_null($value) || $value === '') {
+            // Si es null o vacío, marcar como válido y no continuar con otras reglas
+            return;
+        }
+
+        // Si tiene valor, continuar con las demás reglas normalmente
+    }
+
+    /**
+     * Validar solo si el campo está presente en el request
+     */
+    private static function validateSometimes(string $nameInput, string $rule)
+    {
+        $value = self::searchInput($nameInput);
+
+        // Si el campo no existe o es null, no validar
+        if (!array_key_exists($nameInput, self::$inputs) || is_null($value)) {
+            return;
+        }
+
+        // Si existe, continuar con la validación normalmente
     }
 }

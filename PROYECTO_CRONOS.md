@@ -1386,12 +1386,23 @@ Para agregar nuevos helpers:
 - **Limpieza automática:** Flash data se elimina automáticamente
 - **Archivos involucrados:** `System/Session/Session.php`, `System/Session/SessionStorage.php`, `System/Session/PhpNativeSessionStorage.php`
 
-### Validación
-- **Validación de datos:** Múltiples reglas predefinidas
-- **Mensajes de error personalizables:** MessageError
+### Validación (Fase 3 - Mejorada)
+- **Validación de datos:** Múltiples reglas predefinidas con soporte para mensajes personalizados
+- **Clase Rule con fluent interface:** Permite construir reglas de forma programática y encadenada
+- **Mensajes de error personalizables:** MessageError con soporte para mensajes por campo y regla
+- **validateOrFail() en Controller:** Método que lanza ValidationException si falla la validación
 - **Integración con sesiones:** Auto-guardado de errores y old input
-- **Reglas soportadas:** required, email, url, alpha, alpha_dash, numeric, string, text, min, max, between, date, time, datetime, confirm, matches, slug, choice, unique, not_unique, password_verify, requiredFile, maxSize, type
-- **Archivos involucrados:** `System/Validation/Validation.php`, `System/Validation/MessageError.php`
+- **Reglas soportadas:**
+  - **Básicas:** required, email, url, alpha, alpha_dash, alpha_space, alpha_numeric, alpha_numeric_space, numeric, string, text, min, max, between
+  - **Tipo de datos:** integer, decimal, is_natural, is_natural_no_zero, boolean
+  - **Fechas:** date, time, datetime, date_format, before, after
+  - **Comparación:** confirm, matches, same, different
+  - **Inclusión:** in, not_in, choice
+  - **Cadenas:** slug, starts_with, ends_with, regex
+  - **Base de datos:** unique, not_unique, password_verify
+  - **Archivos:** requiredFile, maxSize, type, file, image, mimes, max_size
+  - **Especiales:** nullable, sometimes
+- **Archivos involucrados:** `System/Validation/Validation.php`, `System/Validation/MessageError.php`, `System/Validation/Rule.php`, `System/Http/Controller.php`
 
 ### Base de Datos
 - **Abstracción PDO:** PdoDriver
@@ -1878,3 +1889,67 @@ Para agregar nuevos helpers:
 14. **No hay pagination helper:** Si necesitas paginación, implementa manualmente con `limit()` y `offset()`. No hay `paginate()`.
 
 15. **CLI solo funciona con php-cli:** El archivo `cronos` verifica que se ejecute con PHP CLI, no con php-cgi.
+
+### Advertencias específicas de la FASE 3 (Sistema de Validación Mejorado)
+
+16. **Uso de abort() vs lanzar excepciones manualmente:** 
+   - `abort($code, $message)` es el helper preferido para lanzar excepciones HTTP desde controladores y middlewares
+   - Usa `abort(403)` para acceso denegado, `abort(404)` para recursos no encontrados
+   - Si necesitas validar condiciones antes de una acción, usa `abort_if($condition, $code, $message)`
+   - No lances excepciones HTTP manualmente con `throw new HttpException()`, usa el helper `abort()` en su lugar
+   - Ejemplo: `abort_if(!$user->isAdmin(), 403, 'Acceso denegado')`
+
+17. **validateOrFail() vs validate():**
+   - `validate()` retorna `true` si pasa o array de errores si falla. Debes verificar el resultado manualmente
+   - `validateOrFail()` lanza ValidationException automáticamente si falla. Úsalo cuando quieras que el ExceptionHandler maneje el error automáticamente
+   - `validateOrFail()` es ideal para APIs: la excepción se captura y se retorna JSON con formato estándar
+   - Ejemplo de uso correcto con validateOrFail():
+     ```php
+     public function store(Request $request)
+     {
+         $this->validateOrFail($request->all(), [
+             'email' => 'required|email|unique:User,email',
+             'password' => 'required|min:8'
+         ]);
+         // Si falla, lanza ValidationException y se detiene ejecución
+         // El ExceptionHandler captura y retorna respuesta JSON 422
+         $user = User::create($request->all());
+         return json(['status' => 'success']);
+     }
+     ```
+
+18. **Uso de la clase Rule con fluent interface:**
+   - La clase `Rule` permite construir reglas de forma programática y encadenada
+   - Úsalo cuando necesitas reglas dinámicas o condicionales
+   - Ejemplo: `Rule::required()->email()->unique('User', 'email')` es equivalente a `'required|email|unique:User,email'`
+   - Los métodos de Rule retornan la misma instancia para permitir encadenamiento
+   - Puedes mezclar string de reglas con objetos Rule: `['email' => 'required|email|' . Rule::unique('User', 'email')]`
+
+19. **Mensajes personalizados en validación:**
+   - Usa el tercer parámetro de `validate()` para definir mensajes personalizados por campo y regla
+   - La clave del mensaje debe ser formato `campo.regl`: `'email.required' => 'El correo es obligatorio'`
+   - En los mensajes puedes usar `:attribute` para el nombre del campo y `:param1`, `:param2`, etc. para parámetros
+   - Ejemplo: `'password.min' => 'La contraseña debe tener al menos :param1 caracteres'`
+
+20. **Regla nullable:**
+   - `nullable` permite que el campo sea nulo o vacío sin validar las demás reglas
+   - Úsalo cuando el campo es opcional
+   - Si el campo está vacío, la validación se detiene para ese campo (se considera válido)
+   - Ejemplo: `'avatar' => 'nullable|image|max_size:2048'` (avatar opcional pero si se envía debe ser imagen)
+
+21. **Regla sometimes:**
+   - `sometimes` es similar a `nullable` pero más flexible: solo valida si el campo está presente en el request
+   - Diferencia con `nullable`: `nullable` acepta campos vacíos, `sometimes` solo valida si el campo existe
+   - Útil para campos opcionales que solo se validan si se envían
+   - Ejemplo: `'bio' => 'sometimes|string|max:500'` (solo valida bio si se envía en el request)
+
+22. **ValidationException es capturada por ExceptionHandler:**
+   - Cuando usas `validateOrFail()` y falla, se lanza `ValidationException`
+   - El ExceptionHandler detecta automáticamente si es API request y retorna JSON 422 con errores
+   - Para requests web, redirige a la página anterior con errores en sesión
+   - No necesitas capturar `ValidationException` manualmente en tus controladores
+
+23. **Compatibilidad con el sistema de sesiones:**
+   - Si usas `validate()` y falla, los errores y old input se guardan automáticamente en sesión
+   - En la vista puedes usar `{{ error('campo') }}` y `{{ old('campo') }}` para mostrar errores y datos antiguos
+   - Esto funciona tanto con validate() como con validateOrFail()
