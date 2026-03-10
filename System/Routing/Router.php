@@ -4,13 +4,14 @@ namespace Cronos\Routing;
 
 use Closure;
 use Cronos\Http\Request;
-use Cronos\Http\Response;
 use Cronos\Routing\Route;
 use Cronos\Http\HttpMethod;
 use Cronos\Container\Container;
 use Cronos\Errors\RouteException;
 use Cronos\Errors\HttpNotFoundException;
 use Cronos\Container\DependencyInjection;
+use Cronos\Http\Pipeline;
+use Cronos\Http\MiddlewareGroup;
 
 
 class Router
@@ -67,11 +68,22 @@ class Router
         //obtener los parametros que se declara en la funcion o metodo de la ruta del framework
         $params = DependencyInjection::resolveParameters($action, $route->parseParameters($request->uri()));
 
-        //primero se ejecutan los middlewares y despues la accion
-        //primero se ejecutan los middlewares de la ruta y luego los del controlador
-        //ejecutar la accion sea una funcion o una clase y sus parametros
-        // return call_user_func($action, ...$params);
-        return $this->runMiddlewares($request, $middlewares, fn() => call_user_func($action, ...$params));
+        // Construir el pipeline de middlewares en el orden correcto:
+        // 1. Middlewares globales (se ejecutan en TODAS las rutas)
+        // 2. Middlewares de la ruta
+        // 3. Middlewares del controlador
+        // 4. Acción del controlador (destino)
+
+        $allMiddlewares = array_merge(
+            MiddlewareGroup::getGlobalMiddlewares(),
+            $middlewares
+        );
+
+        // Usar el Pipeline para ejecutar los middlewares en cadena
+        return (new Pipeline())
+            ->send($request)
+            ->through($allMiddlewares)
+            ->then(fn() => call_user_func($action, ...$params));
     }
 
     public function resolveRoute(Request $request)
@@ -88,17 +100,6 @@ class Router
 
         //si no existe la ruta lanzar una excepcion
         throw new HttpNotFoundException();
-    }
-
-    protected function runMiddlewares(Request $request, array $middlewares, $target): Response
-    {
-        if (count($middlewares) === 0) {
-            //ejecutamos los controladores
-            return $target();
-        }
-
-        //ejecutamos el primer middleware y le pasamos el request y la funcion que se ejecutara  que esta en el objeto Route declarado en la linea web.php
-        return $middlewares[0]->handle($request, fn($request) => $this->runMiddlewares($request, array_slice($middlewares, 1), $target));
     }
 
     protected function registerRoute(HttpMethod $method, string $uri, Closure|array $action): Route
