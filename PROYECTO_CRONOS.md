@@ -77,9 +77,13 @@ cronos_framework/
 │   │   ├── DBexecute.php        # Ejecutor de queries
 │   │   └── PdoDriver.php        # Implementación PDO
 │   ├── Errors/                  # Manejo de errores
-│   │   ├── ExceptionHandler.php # Manejador de excepciones
-│   │   ├── HttpNotFoundException.php # Excepción 404
-│   │   └── RouteException.php   # Excepción de rutas
+│   │   ├── ExceptionHandler.php # Manejador centralizado de excepciones (captura Exception, Error y errores fatales)
+│   │   ├── HttpNotFoundException.php # Excepción HTTP 404 Not Found
+│   │   ├── HttpException.php    # Excepción HTTP genérica con código de estado configurable
+│   │   ├── RouteException.php   # Excepción de rutas
+│   │   ├── ValidationException.php # Excepción para errores de validación
+│   │   ├── AuthorizationException.php # Excepción HTTP 403 Forbidden (acceso denegado)
+│   │   └── MethodNotAllowedException.php # Excepción HTTP 405 Method Not Allowed
 │   ├── Exceptions/              # Excepciones personalizadas
 │   │   └── CronosException.php  # Excepción base del framework
 │   ├── Helpers/                 # Funciones helper globales
@@ -149,7 +153,17 @@ cronos_framework/
 │       │   ├── show.php        # Vista de detalle
 │       │   └── create.php      # Formulario de creación
 │       └── error/               # Vistas de error
-│           └── 404.php         # Página no encontrada
+│           ├── 404.php         # Página no encontrada
+│           ├── 403.php         # Acceso denegado
+│           ├── 405.php         # Método no permitido
+│           ├── 500.php         # Error interno del servidor
+│           └── error.php       # Página genérica para errores HTTP
+<diff>
+  ------- SEARCH
+### Logging
+- ✅ Completo | ❌ No implementado
+### Logging
+- ✅ Completo | ✅ Implementado (Logger con rotación diaria)
 ├── storage/                     # Almacenamiento
 │   ├── cache/                   # Cache de vistas compiladas
 │   └── logs/                    # Logs de aplicación
@@ -1423,18 +1437,33 @@ Para agregar nuevos helpers:
 - **app($class)** - Resuelve instancia del contenedor
 - **configGet($key, $default)** - Obtiene valor de configuración
 - **env($key, $default)** - Obtiene variable de entorno
+- **resource_path($path)** - Obtiene la ruta a la carpeta resources
+- **abort($code, $message)** - Lanza HttpException con código de estado HTTP
+- **abort_if($condition, $code, $message)** - Lanza HttpException si la condición es verdadera
+- **logger()** - Retorna clase Logger para acceso a métodos estáticos (error, warning, info)
 - **json($data, $code)** - Retorna respuesta JSON
 - **redirect($url)** - Redirecciona a URL
-- **back()` - Redirecciona atrás
-- **view($name, $params)` - Renderiza vista
-- **route($name, $params)` - Genera URL desde nombre
+- **back()** - Redirecciona atrás
+- **view($name, $params)** - Renderiza vista
+- **route($name, $params)** - Genera URL desde nombre
 - **session()** - Retorna instancia de sesión
 - **Archivos involucrados:** `System/Helpers/*`
 
 ### Manejo de Errores
-- **ExceptionHandler:** Captura y maneja excepciones
-- **Excepciones específicas:** HttpNotFoundException, RouteException
-- **Archivos involucrados:** `System/Errors/ExceptionHandler.php`, `System/Errors/*`, `System/Exceptions/*`
+- **ExceptionHandler centralizado:** Captura Exception, Error y errores fatales de PHP con set_exception_handler, set_error_handler y register_shutdown_function
+- **Detección automática de API requests:** Detecta si la petición es API (Accept: application/json o URI /api/*) y retorna JSON en ese caso
+- **Modo debug vs producción:** En modo debug muestra stack trace detallado; en producción muestra mensajes genéricos sin exponer detalles
+- **Logging automático de errores:** Registra TODOS los errores en el sistema de Log con contexto completo (URL, método HTTP, IP, user-agent)
+- **Excepciones específicas:** HttpException (genérica), HttpNotFoundException (404), AuthorizationException (403), MethodNotAllowedException (405), ValidationException (422), RouteException
+- **Vistas de error específicas:** 404.php, 403.php, 405.php, 500.php y error.php (genérica)
+- **Archivos involucrados:** `System/Errors/ExceptionHandler.php`, `System/Errors/*`, `System/Exceptions/*`, `System/Log/Logger.php`, `resources/views/error/*`
+
+### Logging
+- **Sistema de logging completo:** Logger con métodos estáticos error(), warning() e info()
+- **Rotación diaria de logs:** Archivos rotan automáticamente por día (formato: cronos-YYYY-MM-DD.log)
+- **Formato de logs:** `[datetime] LEVEL: message | context_json`
+- **Almacenamiento:** Logs guardados en `storage/logs/`
+- **Archivos involucrados:** `System/Log/Logger.php`
 
 ### Criptografía
 - **Hashing Bcrypt:** Implementación de password_hash
