@@ -43,7 +43,9 @@ cronos_framework/
 │   │   ├── ThrottleMiddleware.php # Middleware de rate limiting (limitación de peticiones)
 │   │   └── LogRequestMiddleware.php # Middleware para logging de todas las peticiones HTTP
 │   ├── Migrations/               # Migraciones de base de datos
-│   │   └── Database.php          # Archivo único de migraciones
+│   │   ├── Database.php          # Archivo único de migraciones (legacy)
+│   │   ├── 2026_01_03_140000_create_users_table.php  # Migración de tabla users
+│   │   └── 2026_01_03_140100_create_blogs_table.php  # Migración de tabla blogs
 │   ├── Providers/                # Service Providers
 │   │   └── RouteServiceProvider.php # Provider que carga las rutas
 │   ├── Help/                     # Clases auxiliares
@@ -1409,8 +1411,22 @@ Para agregar nuevos helpers:
 - **Conexión configurada:** Desde .env y config/database.php
 - **Prepared statements:** Protección contra SQL injection
 - **Soporte UTF-8:** Configuración charset utf8mb4
-- **Migraciones básicas:** Archivo único Database.php
-- **Archivos involucrados:** `System/Database/DatabaseDriver.php`, `System/Database/PdoDriver.php`, `App/Migrations/Database.php`
+- **Sistema de Migraciones con control de versiones:** Sistema completo de migraciones con tracking de ejecución
+- **Schema Builder:** Constructor fluido de tablas tipo Laravel con Blueprint
+- **Soporta:** create, table, drop, dropIfExists, hasTable, hasColumn, rename
+- **Tipos de columna:** id, string, text, longText, integer, bigInteger, boolean, decimal, float, date, datetime, timestamp, enum, json, binary
+- **Modificadores de columna:** nullable, default, unique, unsigned, after, comment
+- **Índices y Foreign Keys:** Soporte para índices y claves foráneas
+- **Batch system:** Agrupación de migraciones para rollback por grupos
+- **Comandos CLI:** migrate, migrate:rollback, migrate:reset, migrate:refresh, migrate:status, make:migration
+- **Archivos involucrados:** 
+  - `System/Database/DatabaseDriver.php`, `System/Database/PdoDriver.php`
+  - `System/Database/Schema/Schema.php` - Fachada del Schema Builder
+  - `System/Database/Schema/Blueprint.php` - Constructor fluido de tablas
+  - `System/Database/Schema/ColumnDefinition.php` - Definición de columnas
+  - `System/Database/Schema/ForeignKeyDefinition.php` - Definición de FKs
+  - `System/Database/DatabaseMigrate.php` - Ejecutor de migraciones con version control
+  - `App/Migrations/*` - Archivos individuales de migraciones con timestamp
 
 ### Autenticación
 - **Autenticación web:** Sesión con session()->attempt()
@@ -1801,6 +1817,158 @@ Para agregar nuevos helpers:
        Route::get('/users', [AdminUserController::class, 'index']);
    });
    ```
+
+### Sistema de Migraciones
+
+El sistema de migraciones de Cronos Framework incluye un Schema Builder completo con control de versiones, similar a Laravel.
+
+#### Resumen del Sistema de Migraciones
+
+1. **Schema Builder** - Constructor fluido de tablas tipo Laravel
+2. **Control de Versiones** - Tabla `cronos_migrations` para tracking
+3. **Batch System** - Agrupación para rollback por grupos
+4. **Migraciones Individuales** - Archivos separados con timestamp
+
+#### Comandos Disponibles
+
+**1. Crear una migración**
+```bash
+php cronos make:migration create_users_table
+# Genera: App/Migrations/2026_01_03_143000_create_users_table.php
+
+php cronos make:migration create_posts_table --table=posts
+# Genera migración con nombre de tabla personalizado
+```
+
+**2. Ejecutar migraciones pendientes**
+```bash
+php cronos migrate
+```
+
+**3. Ver estado de migraciones**
+```bash
+php cronos migrate:status
+```
+
+**4. Revertir último batch (rollback)**
+```bash
+php cronos migrate:rollback
+php cronos migrate:rollback 3  # Revierte los últimos 3 batches
+```
+
+**5. Resetear todas las migraciones**
+```bash
+php cronos migrate:reset
+```
+
+**6. Resetear y re-ejecutar (refresh)**
+```bash
+php cronos migrate:refresh
+```
+
+#### Estructura de una Migración
+
+```php
+<?php
+
+use Cronos\Database\Schema\Schema;
+use Cronos\Database\Schema\Blueprint;
+
+return new class {
+    public string $table = 'nombre_tabla';
+
+    public function up(): void
+    {
+        Schema::create($this->table, function (Blueprint $table) {
+            $table->id();
+            $table->string('name', 100);
+            $table->string('email')->unique();
+            $table->string('password');
+            $table->text('bio')->nullable();
+            $table->boolean('active')->default(1);
+            $table->integer('age')->unsigned();
+            $table->decimal('price', 8, 2);
+            $table->enum('status', ['active','inactive','pending']);
+            $table->timestamps();
+            $table->softDeletes();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists($this->table);
+    }
+};
+```
+
+#### Métodos de Columna Disponibles
+
+- `$table->id()` - INT AUTO_INCREMENT PRIMARY KEY
+- `$table->string($name, $length)` - VARCHAR(255) o VARCHAR($length)
+- `$table->text($name)` - TEXT
+- `$table->longText($name)` - LONGTEXT
+- `$table->integer($name)` - INT
+- `$table->bigInteger($name)` - BIGINT
+- `$table->boolean($name)` - BOOLEAN/TINYINT(1)
+- `$table->decimal($name, $precision, $scale)` - DECIMAL(10, 2)
+- `$table->float($name)` - FLOAT
+- `$table->date($name)` - DATE
+- `$table->datetime($name)` - DATETIME
+- `$table->timestamp($name)` - TIMESTAMP
+- `$table->enum($name, $values)` - ENUM
+- `$table->json($name)` - JSON
+- `$table->binary($name)` - BLOB/BINARY
+
+#### Modificadores Encadenables
+
+- `->nullable()` - Permite NULL
+- `->default($value)` - Valor por defecto
+- `->unique()` - Índice UNIQUE
+- `->unsigned()` - UNSIGNED
+- `->after('column')` - Agregar después de otra columna
+- `->comment('texto')` - Comentario en la columna
+
+#### Índices y Foreign Keys
+
+```php
+// Índice simple
+$table->index('email');
+
+// Índice compuesto
+$table->index(['user_id', 'created_at']);
+
+// Foreign Key
+$table->foreign('user_id')
+      ->references('id')
+      ->on('users')
+      ->onDelete('cascade');
+```
+
+#### Métodos de Schema
+
+- `Schema::create($table, $callback)` - Crear tabla
+- `Schema::table($table, $callback)` - Modificar tabla existente
+- `Schema::drop($table)` - Eliminar tabla
+- `Schema::dropIfExists($table)` - Eliminar si existe
+- `Schema::hasTable($table)` - Verificar si existe
+- `Schema::hasColumn($table, $column)` - Verificar columna
+- `Schema::rename($from, $to)` - Renombrar tabla
+
+#### Convenciones de Nombres
+
+- **Archivos de migración:** `YYYY_MM_DD_HHMMSS_descripcion.php`
+- **Nombre de tabla:** snake_case, plural (ej: `users`, `blog_posts`)
+- **Nombre de clase:** PascalCase (ej: `CreateUsersTable`)
+- **Namespace:** `App\Migrations\`
+
+#### Notas Importantes
+
+1. **Orden de ejecución:** Las migraciones se ejecutan en orden por nombre de archivo (timestamp)
+2. **Método down() obligatorio:** Todas las migraciones deben tener método `down()` que revierta completamente el `up()`
+3. **Batch numbers:** Cada ejecución de `migrate` incrementa el batch number
+4. **Foreign keys:** Las FKs deben crearse después de que las tablas referenciadas existan
+5. **Timestamps:** `timestamps()` crea `created_at` y `updated_at`
+6. **Soft deletes:** `softDeletes()` crea `deleted_at` NULLABLE
 
 ## 14. Notas Importantes para IAs
 
