@@ -1,5 +1,6 @@
-@include('dashboard.layouts.head')
+@extends('dashboard.layouts.app')
 
+@section('content')
 <!-- CONTENT -->
 <div class="main-content">
     <div class="max-w-4xl mx-auto">
@@ -45,9 +46,8 @@
 
     </div>
 </div>
+@endsection
 
 @push('scripts')
 <script src="@asset('assets/cronos.dashboard.js')"></script>
 @endpush
-
-@include('dashboard.layouts.footer')
