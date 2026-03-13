@@ -160,11 +160,11 @@ cronos_framework/
 │       │   └── register.php            # Formulario de registro
 │       ├── dashboard/                   # Vistas de dashboard
 │       │   ├── layouts/                 # Layouts de dashboard
-│       │   │   ├── head.php            # Head de dashboard
-│       │   │   └── footer.php          # Footer de dashboard
+│       │   │   └── app.php             # Layout principal de dashboard (@extends/@section)
 │       │   ├── index.php               # Página de dashboard
 │       │   ├── show.php                # Vista de detalle
 │       │   └── create.php              # Formulario de creación
+  +++++++ REPLACE
 │       └── error/                       # Vistas de error
 │           └── 404.php                 # Página no encontrada
 ├── storage/                     # Almacenamiento
