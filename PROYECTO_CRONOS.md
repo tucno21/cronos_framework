@@ -18,11 +18,15 @@ cronos_framework/
 │   ├── index.php                 # Punto de entrada de la aplicación
 │   ├── .htaccess                  # Configuración Apache para reescritura de URLs
 │   ├── assets/                   # Archivos estáticos (CSS, JS, imágenes)
-│   │   ├── index.css
-│   │   ├── index.js
-│   │   ├── cronos.dashboard.css
-│   │   ├── cronos.dashboard.js
-│   │   └── blog.js
+│   │   ├── css/                   # CSS compilados por Tailwind CLI (generados)
+│   │   │   ├── home.css          # Compilado para home, login, register
+│   │   │   ├── dashboard.css     # Compilado para dashboard
+│   │   │   └── error.css         # Compilado para páginas de error
+│   │   ├── js/                    # Archivos JavaScript (manuales)
+│   │   │   ├── home.js          # JavaScript para home
+│   │   │   ├── cronos.dashboard.js  # JavaScript para dashboard
+│   │   │   └── blog.js           # JavaScript para gestión de blogs
+│   │   └── imagenes/             # Imágenes subidas (opcional)
 │   └── imagenes/                 # Carpeta para imágenes subidas
 ├── App/
 │   ├── Controllers/              # Controladores de la aplicación
@@ -133,23 +137,28 @@ cronos_framework/
 │   ├── session.php              # Configuración de sesión
 │   └── view.php                 # Configuración de vistas
 ├── resources/
-│   └── views/                   # Archivos de vistas
-│       ├── home/                # Vistas de home
-│       │   ├── layouts/         # Layouts base
-│       │   │   ├── head.php    # Head de HTML
-│       │   │   └── footer.php  # Footer de HTML
-│       │   ├── index.php       # Página principal
-│       │   ├── login.php       # Formulario de login
-│       │   └── register.php    # Formulario de registro
-│       ├── dashboard/           # Vistas de dashboard
-│       │   ├── layouts/         # Layouts de dashboard
-│       │   │   ├── head.php    # Head de dashboard
-│       │   │   └── footer.php  # Footer de dashboard
-│       │   ├── index.php       # Página de dashboard
-│       │   ├── show.php        # Vista de detalle
-│       │   └── create.php      # Formulario de creación
-│       └── error/               # Vistas de error
-│           └── 404.php         # Página no encontrada
+│   ├── css/                         # Archivos CSS fuente de TailwindCSS v4
+│   │   ├── app.css                  # Variables @theme y componentes globales compartidos
+│   │   ├── home.css                 # Estilos para vistas: home, login, register
+│   │   ├── dashboard.css            # Estilos para vistas: dashboard
+│   │   └── error.css                # Estilos para vistas: error
+│   └── views/                       # Archivos de vistas
+│       ├── home/                        # Vistas de home
+│       │   ├── layouts/                 # Layouts base
+│       │   │   ├── head.php            # Head de HTML
+│       │   │   └── footer.php          # Footer de HTML
+│       │   ├── index.php               # Página principal
+│       │   ├── login.php               # Formulario de login
+│       │   └── register.php            # Formulario de registro
+│       ├── dashboard/                   # Vistas de dashboard
+│       │   ├── layouts/                 # Layouts de dashboard
+│       │   │   ├── head.php            # Head de dashboard
+│       │   │   └── footer.php          # Footer de dashboard
+│       │   ├── index.php               # Página de dashboard
+│       │   ├── show.php                # Vista de detalle
+│       │   └── create.php              # Formulario de creación
+│       └── error/                       # Vistas de error
+│           └── 404.php                 # Página no encontrada
 ├── storage/                     # Almacenamiento
 │   ├── cache/                   # Cache de vistas compiladas
 │   └── logs/                    # Logs de aplicación
@@ -1849,3 +1858,274 @@ Para agregar nuevos helpers:
 14. **No hay pagination helper:** Si necesitas paginación, implementa manualmente con `limit()` y `offset()`. No hay `paginate()`.
 
 15. **CLI solo funciona con php-cli:** El archivo `cronos` verifica que se ejecute con PHP CLI, no con php-cgi.
+
+## 15. TailwindCSS v4 — Frontend
+
+### Instalación y herramienta
+
+Cronos Framework usa **TailwindCSS v4 CLI standalone** (sin Node.js ni npm). El binario `tailwindcss` 
+se descarga directamente desde GitHub Releases y se ejecuta como comando local.
+
+- **CLI descargado desde:** `https://github.com/tailwindlabs/tailwindcss/releases/latest`
+- **Binario:** `./tailwindcss` en la raíz del proyecto (en .gitignore)
+- **Versión:** v4.x (NO v3)
+
+### Diferencia crítica v3 → v4
+
+| Característica       | Tailwind v3 (OBSOLETO)            | Tailwind v4 (ACTUAL)              |
+|----------------------|-----------------------------------|-----------------------------------|
+| Config               | `tailwind.config.js`              | ❌ No existe — va en CSS con `@theme {}` |
+| Directivas CSS       | `@tailwind base/components/utilities` | `@import "tailwindcss"`       |
+| Escaneo de archivos  | `content: [...]` en config.js     | `@source "ruta/**/*.php"` en CSS  |
+| Personalización      | `theme.extend` en config.js       | `@theme { --variable: valor; }` en CSS |
+
+### Estructura de archivos CSS
+
+Los CSS están organizados por grupo de vistas para optimizar el tamaño de cada archivo:
+
+| Archivo fuente                  | Vistas que cubre                     | CSS compilado              |
+|---------------------------------|--------------------------------------|----------------------------|
+| `resources/css/app.css`         | Variables y componentes compartidos  | (importado por los demás)  |
+| `resources/css/home.css`        | home/, login.php, register.php       | `public/assets/home.css`   |
+| `resources/css/dashboard.css`   | dashboard/ (todas sus vistas)        | `public/assets/dashboard.css` |
+| `resources/css/error.css`       | error/404.php (y otros errores)      | `public/assets/error.css`  |
+
+### Scripts de compilación
+
+El proyecto incluye scripts para automatizar la compilación de TailwindCSS:
+
+**Para Windows:**
+- `tailwind-setup.bat` - Descarga el binario CLI de Tailwind v4
+- `tailwind-dev.bat` - Compila en modo desarrollo con watchers (abre ventanas separadas)
+- `tailwind-build.bat` - Compila en modo producción (minificado)
+
+**Para Linux/Mac:**
+- `tailwind-setup.sh` - Descarga el binario CLI de Tailwind v4
+- `tailwind-dev.sh` - Compila en modo desarrollo con watchers (en paralelo)
+- `tailwind-build.sh` - Compila en modo producción (minificado)
+
+### Comandos de uso
+
+#### Desarrollo (con recarga automática):
+
+**Windows:**
+```bash
+.\tailwind-dev.bat        # Inicia watchers para todos los grupos en paralelo (ventanas separadas)
+```
+
+**Linux/Mac:**
+```bash
+./tailwind-dev.sh        # Inicia watchers para todos los grupos en paralelo
+```
+
+O individualmente:
+```bash
+# Windows
+.\tailwindcss -i resources/css/home.css -o public/assets/css/home.css --watch
+
+# Linux/Mac
+./tailwindcss -i resources/css/home.css -o public/assets/css/home.css --watch
+```
+
+#### Producción (minificado):
+
+**Windows:**
+```bash
+.\tailwind-build.bat      # Compila y minifica todos los grupos
+```
+
+**Linux/Mac:**
+```bash
+./tailwind-build.sh      # Compila y minifica todos los grupos
+```
+
+O individualmente:
+```bash
+# Windows
+.\tailwindcss -i resources/css/home.css -o public/assets/css/home.css --minify
+
+# Linux/Mac
+./tailwindcss -i resources/css/home.css -o public/assets/css/home.css --minify
+```
+
+### Por qué múltiples archivos CSS
+
+Cada grupo de vistas tiene su propio CSS compilado para que Tailwind **solo incluya las clases 
+usadas en ese grupo específico**. Esto significa:
+
+- `home.css` solo contiene utilidades usadas en home/login/register
+- `dashboard.css` solo contiene utilidades usadas en el dashboard
+- El resultado es archivos CSS más pequeños y carga más rápida por página
+
+### Cómo agregar un nuevo grupo de vistas con CSS
+
+Paso a paso para agregar un nuevo grupo de vistas (ej: "admin"):
+
+**1. Crear el archivo CSS fuente:**
+```css
+/* resources/css/admin.css */
+@import "tailwindcss";
+
+/* Escanear SOLO las vistas correspondientes a este grupo */
+@source "../../resources/views/admin/**/*.php";
+
+/* Importar variables y componentes base */
+@import "./app.css";
+
+/* Estilos específicos del grupo admin */
+@layer components {
+  .admin-layout {
+    @apply min-h-screen bg-gray-100;
+  }
+  .admin-sidebar {
+    @apply w-64 bg-gray-900 text-white fixed h-full;
+  }
+}
+```
+
+**2. Actualizar `tailwind-dev.bat` (Windows):**
+```batch
+@echo off
+echo Iniciando Tailwind - Admin
+start "Tailwind - Admin" cmd /k "tailwindcss -i resources/css/admin.css -o public/assets/css/admin.css --watch"
+```
+
+**3. Actualizar `tailwind-dev.sh` (Linux/Mac):**
+```bash
+#!/bin/bash
+echo "Iniciando watcher para admin.css..."
+./tailwindcss -i resources/css/admin.css -o public/assets/css/admin.css --watch &
+```
+
+**4. Actualizar `tailwind-build.bat` (Windows):**
+```batch
+echo Compilando admin.css...
+tailwindcss -i resources/css/admin.css -o public/assets/css/admin.css --minify
+if %errorlevel% neq 0 (
+    echo [ERROR] Error compilando admin.css
+    exit /b %errorlevel%
+)
+echo [OK] admin.css compilado
+```
+
+**5. Actualizar `tailwind-build.sh` (Linux/Mac):**
+```bash
+#!/bin/bash
+echo "Compilando admin.css..."
+./tailwindcss -i resources/css/admin.css -o public/assets/css/admin.css --minify
+echo "✓ admin.css compilado"
+```
+
+**6. Actualizar `.gitignore`:**
+```gitignore
+/public/assets/css/admin.css
+```
+
+**7. Incluir el CSS compilado en el layout de las vistas:**
+```php
+<!-- resources/views/admin/layouts/head.php -->
+<link href="<?= base_url . '/assets/css/admin.css' ?>" rel="stylesheet">
+```
+
+**8. Probar la compilación:**
+```bash
+# Windows
+.\tailwind-build.bat
+
+# Linux/Mac
+./tailwind-build.sh
+```
+
+**9. Probar el modo desarrollo:**
+```bash
+# Windows
+.\tailwind-dev.bat
+
+# Linux/Mac
+./tailwind-dev.sh
+```
+
+### Cómo actualizar TailwindCSS a una nueva versión
+
+Para actualizar TailwindCSS a una versión más nueva:
+
+**1. Verificar la versión actual:**
+```bash
+# Windows
+.\tailwindcss --version
+
+# Linux/Mac
+./tailwindcss --version
+```
+
+**2. Visitar los releases de TailwindCSS:**
+- URL: https://github.com/tailwindlabs/tailwindcss/releases
+- Identificar la versión más reciente (ej: v4.3.0)
+
+**3. Descargar el nuevo binario:**
+
+**Windows:**
+```powershell
+# Descargar desde PowerShell
+Invoke-WebRequest -Uri "https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-windows-x64.exe" -OutFile "tailwindcss.exe"
+
+# O manualmente desde el navegador:
+# 1. Ir a https://github.com/tailwindlabs/tailwindcss/releases/latest
+# 2. Descargar: tailwindcss-windows-x64.exe
+# 3. Renombrar a: tailwindcss.exe
+# 4. Reemplazar el archivo existente en la raíz del proyecto
+```
+
+**Linux/Mac:**
+```bash
+# Detectar OS y arquitectura
+OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+ARCH=$(uname -m)
+
+if [ "$ARCH" = "x86_64" ]; then ARCH="x64"; fi
+if [ "$ARCH" = "aarch64" ]; then ARCH="arm64"; fi
+
+echo "Descargando Tailwind CSS v4 para $OS-$ARCH..."
+
+curl -sLO "https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-$OS-$ARCH"
+mv "tailwindcss-$OS-$ARCH" tailwindcss
+chmod +x tailwindcss
+
+echo "✓ Tailwind CLI actualizado: $(./tailwindcss --version)"
+```
+
+**4. Verificar la actualización:**
+```bash
+# Windows
+.\tailwindcss --version
+
+# Linux/Mac
+./tailwindcss --version
+```
+
+**5. Recompilar todos los CSS:**
+```bash
+# Windows
+.\tailwind-build.bat
+
+# Linux/Mac
+./tailwind-build.sh
+```
+
+**6. Probar que todo funciona:**
+- Abrir el sitio web
+- Verificar que los estilos cargan correctamente
+- Abrir la consola del navegador (F12) para verificar que no hay errores
+
+**Notas importantes:**
+- TailwindCSS v4 es compatible hacia atrás con v4.x, pero no con v3.x
+- Si hay cambios importantes en la nueva versión, revisar el changelog: https://github.com/tailwindlabs/tailwindcss/blob/master/CHANGELOG.md
+- El archivo `tailwindcss` (o `tailwindcss.exe`) está en `.gitignore`, así que cada desarrollador debe actualizarlo manualmente
+- No es necesario actualizar `resources/css/*.css` a menos que la nueva versión tenga breaking changes
+
+### Notas importantes
+
+- Los archivos en `public/assets/*.css` son **generados** — no editarlos manualmente
+- Los archivos en `resources/css/*.css` son los **fuentes** — editarlos con las clases personalizadas
+- El binario `tailwindcss` está en `.gitignore` — cada desarrollador debe ejecutar `tailwind-setup.sh` (Linux/Mac) o `tailwind-setup.bat` (Windows)
+- En producción, ejecutar `./tailwind-build.sh` antes del deploy

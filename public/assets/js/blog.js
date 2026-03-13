@@ -25,14 +25,14 @@ async function renderTable() {
 	const data = await response.json();
 	data.forEach((element) => {
 		element.action = `
-						<button class="btn-sm btn-outline-primary btnShow" data-id=${element.slug} title="ver post">
-							<i class="bi bi-file-post"></i>
+						<button class="btn-action-view btnShow" data-id="${element.slug}" title="ver post">
+							<i class="bi bi-file-earmark-text"></i>
 						</button>
-						<button class="btn-sm btn-outline-warning btnEdita" data-id=${element.id} title="editar post">
+						<button class="btn-action-edit btnEdita" data-id="${element.id}" title="editar post">
 							<i class="bi bi-pencil"></i>
 						</button>
-						<button class="btn-sm btn-outline-danger btnEliminar" data-id=${element.id} title="eliminar post">
-							<i class="bi bi-trash3"></i>
+						<button class="btn-action-delete btnEliminar" data-id="${element.id}" title="eliminar post">
+							<i class="bi bi-trash"></i>
 						</button>
 						`;
 	});

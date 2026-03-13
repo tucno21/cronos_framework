@@ -5,12 +5,19 @@
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title><?= $pageTitle ?? 'Crosos Framework' ?></title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="<?= base_url . '/assets/index.css' ?>" rel="stylesheet">
+    <title><?= $pageTitle ?? 'Cronos Framework' ?></title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <!-- TailwindCSS v4 compilado para el grupo home/login/register -->
+    <link href="<?= base_url . '/assets/css/home.css' ?>" rel="stylesheet">
 </head>
 
-<body class="font-[Poppins]">
+<body class="font-sans">
     <header class="bg-gradient-to-r from-blue-700 via-blue-800 to-blue-900 fixed top-0 w-full h-16 flex z-20">
         <nav class="flex justify-between items-center w-[92%]  mx-auto">
             <!-- logo -->

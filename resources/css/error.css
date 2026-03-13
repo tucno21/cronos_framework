@@ -1,0 +1,22 @@
+/* Cronos Framework — Estilos para páginas de error */
+@import "tailwindcss";
+
+/* Escanear vistas de error */
+@source "../../resources/views/error/**/*.php";
+
+/* Importar base */
+@import "./app.css";
+
+@layer components {
+    .error-page {
+        @apply min-h-screen flex flex-col items-center justify-center bg-gray-50 text-center;
+    }
+
+    .error-code {
+        @apply text-8xl font-black text-blue-600 mb-4;
+    }
+
+    .error-message {
+        @apply text-xl text-gray-600 mb-8;
+    }
+}

@@ -1,4 +1,4 @@
-<script src="<?= base_url . '/assets/index.js' ?>"></script>
+<script src="<?= base_url . '/assets/js/home.js' ?>"></script>
 </body>
 
 </html>

@@ -1,0 +1,64 @@
+/* Cronos Framework — Estilos para Home, Login y Register */
+@import "tailwindcss";
+/* Importar variables y componentes base */
+@import "./app.css";
+
+/* Escanear SOLO las vistas correspondientes a este grupo */
+@source "../../resources/views/home/**/*.php";
+
+/* Estilos específicos del grupo home */
+@layer components {
+
+    /* === INPUTS PERSONALIZADOS === */
+    .input-especial {
+        @apply w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-xl text-gray-700 placeholder-transparent transition-all duration-300 outline-none;
+    }
+
+    .input-especial:focus {
+        @apply border-blue-500 ring-4 ring-blue-100 outline-none;
+    }
+
+    .input-especial::placeholder {
+        @apply text-transparent;
+    }
+
+    .input-placeholder {
+        @apply absolute left-4 top-1/2 -translate-y-1/2 px-1 bg-transparent text-gray-400 text-sm pointer-events-none transition-all duration-300;
+    }
+
+    .input-especial:focus+.input-placeholder,
+    .input-especial:not(:placeholder-shown)+.input-placeholder {
+        @apply -top-2 left-3 bg-white px-1 text-xs text-blue-500 font-medium;
+    }
+
+    .input-especial.error {
+        @apply border-red-500 ring-red-100;
+    }
+
+    .input-especial.error:focus {
+        @apply ring-red-100;
+    }
+
+    /* === CARDS DE AUTH === */
+    .auth-card {
+        @apply bg-white px-8 py-8 rounded-2xl shadow-xl border border-gray-100 max-w-md w-full mx-auto;
+    }
+
+    .auth-title {
+        @apply text-3xl font-bold text-center mb-8 text-gray-800;
+    }
+
+    /* === BOTONES DE AUTH === */
+    .btn-auth {
+        @apply w-full py-3.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-300 outline-none;
+    }
+
+    .btn-auth:active {
+        @apply scale-[0.98];
+    }
+
+    /* === LINKS DE AUTH === */
+    .auth-link {
+        @apply text-blue-600 hover:text-blue-700 font-medium border-b border-transparent hover:border-blue-600 transition-all duration-200;
+    }
+}
