@@ -5,6 +5,7 @@
 
 /* Escanear SOLO las vistas correspondientes a este grupo */
 @source "../../resources/views/home/**/*.php";
+@source "../../resources/views/components/**/*.php";
 
 /* Estilos específicos del grupo home */
 @layer components {

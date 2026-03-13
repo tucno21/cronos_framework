@@ -9,6 +9,7 @@
 
 /* Escanear SOLO las vistas del dashboard */
 @source "../../resources/views/dashboard/**/*.php";
+@source "../../resources/views/components/**/*.php";
 
 @theme {
     --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;

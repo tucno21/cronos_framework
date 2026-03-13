@@ -14,7 +14,10 @@
     <!-- Bootstrap Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <!-- TailwindCSS v4 compilado para el grupo home/login/register -->
-    <link href="<?= base_url . '/assets/css/home.css' ?>" rel="stylesheet">
+    <link href="@asset('assets/css/home.css')" rel="stylesheet">
+
+    {{-- Estilos adicionales inyectados por vistas hijas --}}
+    @stack('styles')
 </head>
 
 <body class="font-sans">

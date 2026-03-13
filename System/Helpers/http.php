@@ -24,6 +24,17 @@ function view(string $viewName, array $params = [], string $layout = null): Resp
     return Response::view($viewName, $params, $layout);
 }
 
+if (!function_exists('base_url')) {
+    /**
+     * Obtiene la URL base del proyecto
+     */
+    function base_url(): string
+    {
+        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        return $protocol . '://' . $host;
+    }
+}
 
 if (!function_exists('route')) {
     /**

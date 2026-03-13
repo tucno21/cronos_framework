@@ -8,172 +8,193 @@
        active link — el resto sigue en cronos.dashboard.js
     ========================================================= */
 
-    // ── Estado persistido ─────────────────────────────────────
-    let full = localStorage.getItem("dashboardToggleMenu") === "true";
-    if (localStorage.getItem("dashboardToggleMenu") === null) {
-        localStorage.setItem("dashboardToggleMenu", "true");
-        full = true;
-    }
+    // IIFE para evitar conflictos de scope con cronos.dashboard.js
+    (function() {
 
-    const sidebar = document.getElementById("sidebar");
-    const mainContainer = document.getElementById("mainContainer");
-    const titleLogo = document.getElementById("titleLogo");
-    const singleMenu = document.querySelectorAll(".singleMenu");
-    const dropdownMenu = document.querySelectorAll(".dropdownMenu");
-    const sidebarToggleMovil = document.getElementById("sidebarToggleMovil");
-    const botonuser = document.getElementById("botonuser");
-    const menulaptop = document.getElementById("menulaptop");
-    const sidebarOverlay = document.getElementById("sidebarOverlay");
-
-    // ── Función principal de toggle collapsed ─────────────────
-    function cambioClassList() {
-        // Sidebar width
-        sidebar.classList.toggle("w-14", !full);
-        sidebar.classList.remove(full ? "w-14" : "");
-
-        if (full) {
-            sidebar.style.width = "15rem";
-            mainContainer.style.marginLeft = "15rem";
-        } else {
-            sidebar.style.width = "3.5rem";
-            mainContainer.style.marginLeft = "3.5rem";
+        // ── Estado persistido ─────────────────────────────────────
+        let full = localStorage.getItem("dashboardToggleMenu") === "true";
+        if (localStorage.getItem("dashboardToggleMenu") === null) {
+            localStorage.setItem("dashboardToggleMenu", "true");
+            full = true;
         }
 
-        // Título logo
-        if (titleLogo) {
-            titleLogo.style.opacity = full ? "1" : "0";
-            titleLogo.style.width = full ? "auto" : "0";
-            titleLogo.style.overflow = "hidden";
-        }
+        const sidebar = document.getElementById("sidebar");
+        const mainContainer = document.getElementById("mainContainer");
+        const titleLogo = document.getElementById("titleLogo");
+        const singleMenu = document.querySelectorAll(".singleMenu");
+        const dropdownMenu = document.querySelectorAll(".dropdownMenu");
+        const sidebarToggleMovil = document.getElementById("sidebarToggleMovil");
+        const botonuser = document.getElementById("botonuser");
+        const dropdownuser = document.getElementById("dropdownuser");
+        const menulaptop = document.getElementById("menulaptop");
+        const sidebarOverlay = document.getElementById("sidebarOverlay");
 
-        // Ícono del toggle
-        if (menulaptop) {
-            const icon = menulaptop.querySelector("i");
-            if (icon) {
-                icon.className = full ?
-                    "bi bi-layout-sidebar-reverse" :
-                    "bi bi-layout-sidebar";
-            }
-        }
+        // ── Función principal de toggle collapsed ─────────────────
+        function cambioClassList() {
+            // Sidebar width
+            sidebar.classList.toggle("w-14", !full);
+            sidebar.classList.remove(full ? "w-14" : "");
 
-        // Items del menú: mostrar/ocultar labels
-        singleMenu.forEach((menu) => {
-            menu.classList.toggle("justify-start", full);
-            menu.classList.toggle("justify-center", !full);
-            const label = menu.querySelector(".singleMenu__label");
-            if (label) {
-                label.style.opacity = full ? "1" : "0";
-                label.style.width = full ? "auto" : "0";
-            }
-        });
-
-        // Tooltips en modo colapsado
-        singleMenu.forEach((menu) => {
-            if (!full) {
-                menu.addEventListener("mouseenter", showTooltip);
-                menu.addEventListener("mouseleave", hideTooltip);
+            if (full) {
+                sidebar.style.width = "15rem";
+                mainContainer.style.marginLeft = "15rem";
             } else {
-                menu.removeEventListener("mouseenter", showTooltip);
-                menu.removeEventListener("mouseleave", hideTooltip);
+                sidebar.style.width = "3.5rem";
+                mainContainer.style.marginLeft = "3.5rem";
+            }
+
+            // Título logo
+            if (titleLogo) {
+                titleLogo.style.opacity = full ? "1" : "0";
+                titleLogo.style.width = full ? "auto" : "0";
+                titleLogo.style.overflow = "hidden";
+            }
+
+            // Ícono del toggle
+            if (menulaptop) {
+                const icon = menulaptop.querySelector("i");
+                if (icon) {
+                    icon.className = full ?
+                        "bi bi-layout-sidebar-reverse" :
+                        "bi bi-layout-sidebar";
+                }
+            }
+
+            // Items del menú: mostrar/ocultar labels
+            singleMenu.forEach((menu) => {
+                menu.classList.toggle("justify-start", full);
+                menu.classList.toggle("justify-center", !full);
+                const label = menu.querySelector(".singleMenu__label");
+                if (label) {
+                    label.style.opacity = full ? "1" : "0";
+                    label.style.width = full ? "auto" : "0";
+                }
+            });
+
+            // Tooltips en modo colapsado
+            singleMenu.forEach((menu) => {
+                if (!full) {
+                    menu.addEventListener("mouseenter", showTooltip);
+                    menu.addEventListener("mouseleave", hideTooltip);
+                } else {
+                    menu.removeEventListener("mouseenter", showTooltip);
+                    menu.removeEventListener("mouseleave", hideTooltip);
+                }
+            });
+
+            // dropdownMenu labels
+            dropdownMenu.forEach((menu) => {
+                const firstChildLabel = menu.firstElementChild?.lastElementChild;
+                const lastChild = menu.lastElementChild;
+                if (firstChildLabel) firstChildLabel.classList.toggle("hidden", !full);
+                if (lastChild) lastChild.classList.toggle("hidden", !full);
+                menu.classList.toggle("justify-between", full);
+                menu.classList.toggle("justify-center", !full);
+                menu.classList.toggle("menu-comprimido", !full);
+                menu.classList.toggle("menu-extendido", full);
+            });
+
+            // Footer info del usuario
+            const userInfo = document.querySelector(".sidebar-user__info");
+            if (userInfo) {
+                userInfo.style.opacity = full ? "1" : "0";
+                userInfo.style.width = full ? "auto" : "0";
+            }
+        }
+
+        function showTooltip(e) {
+            const tooltip = e.currentTarget.querySelector(".singleMenu__tooltip");
+            if (tooltip) tooltip.style.display = "block";
+        }
+
+        function hideTooltip(e) {
+            const tooltip = e.currentTarget.querySelector(".singleMenu__tooltip");
+            if (tooltip) tooltip.style.display = "none";
+        }
+
+        cambioClassList();
+
+        // ── Toggle laptop ──────────────────────────────────────────
+        if (menulaptop) {
+            menulaptop.addEventListener("click", () => {
+                full = !full;
+                localStorage.setItem("dashboardToggleMenu", full);
+                cambioClassList();
+            });
+        }
+
+        // ── Toggle móvil ───────────────────────────────────────────
+        if (sidebarToggleMovil) {
+            sidebarToggleMovil.addEventListener("click", () => {
+                const isOpen = sidebar.classList.contains("sidebar--open");
+                sidebar.classList.toggle("sidebar--open", !isOpen);
+                sidebarOverlay.classList.toggle("active", !isOpen);
+
+                // Íconos hamburguesa / X
+                const iconOpen = document.getElementById("iconMovilOpen");
+                const iconClose = document.getElementById("iconMovilClose");
+                if (iconOpen && iconClose) {
+                    iconOpen.classList.toggle("hidden", !isOpen);
+                    iconClose.classList.toggle("hidden", isOpen);
+                }
+
+                document.body.style.overflow = isOpen ? "" : "hidden";
+            });
+        }
+
+        // Cerrar sidebar móvil al tocar el overlay
+        if (sidebarOverlay) {
+            sidebarOverlay.addEventListener("click", () => {
+                sidebar.classList.remove("sidebar--open");
+                sidebarOverlay.classList.remove("active");
+                document.getElementById("iconMovilOpen")?.classList.remove("hidden");
+                document.getElementById("iconMovilClose")?.classList.add("hidden");
+                document.body.style.overflow = "";
+            });
+        }
+
+        // ── User dropdown ──────────────────────────────────────────
+        if (botonuser && dropdownuser) {
+            // Asegurar que el menú empiece oculto
+            dropdownuser.style.display = 'none';
+            dropdownuser.style.position = 'absolute';
+
+            botonuser.addEventListener("click", function(e) {
+                e.stopPropagation();
+                e.preventDefault();
+
+                const isHidden = dropdownuser.style.display === 'none';
+                dropdownuser.style.display = isHidden ? 'block' : 'none';
+                botonuser.classList.toggle("open", isHidden);
+
+                // Forzar z-index alto
+                dropdownuser.style.zIndex = '9999';
+
+                console.log("Dropdown toggled:", {
+                    display: dropdownuser.style.display,
+                    zIndex: dropdownuser.style.zIndex,
+                    position: dropdownuser.style.position
+                });
+            });
+        }
+
+        document.addEventListener("click", (e) => {
+            // Cerrar el menú si el click NO está en el botón NI en el dropdown
+            if (!e.target.closest("#botonuser") && !e.target.closest("#dropdownuser")) {
+                dropdownuser.style.display = 'none';
+                botonuser?.classList.remove("open");
             }
         });
 
-        // dropdownMenu labels
-        dropdownMenu.forEach((menu) => {
-            const firstChildLabel = menu.firstElementChild?.lastElementChild;
-            const lastChild = menu.lastElementChild;
-            if (firstChildLabel) firstChildLabel.classList.toggle("hidden", !full);
-            if (lastChild) lastChild.classList.toggle("hidden", !full);
-            menu.classList.toggle("justify-between", full);
-            menu.classList.toggle("justify-center", !full);
-            menu.classList.toggle("menu-comprimido", !full);
-            menu.classList.toggle("menu-extendido", full);
-        });
-
-        // Footer info del usuario
-        const userInfo = document.querySelector(".sidebar-user__info");
-        if (userInfo) {
-            userInfo.style.opacity = full ? "1" : "0";
-            userInfo.style.width = full ? "auto" : "0";
+        // ── Sidebar en móvil: asegurar que siempre empiece cerrado ─
+        if (window.innerWidth < 640) {
+            sidebar.style.width = "";
+            mainContainer.style.marginLeft = "";
         }
-    }
 
-    function showTooltip(e) {
-        const tooltip = e.currentTarget.querySelector(".singleMenu__tooltip");
-        if (tooltip) tooltip.style.display = "block";
-    }
-
-    function hideTooltip(e) {
-        const tooltip = e.currentTarget.querySelector(".singleMenu__tooltip");
-        if (tooltip) tooltip.style.display = "none";
-    }
-
-    cambioClassList();
-
-    // ── Toggle laptop ──────────────────────────────────────────
-    if (menulaptop) {
-        menulaptop.addEventListener("click", () => {
-            full = !full;
-            localStorage.setItem("dashboardToggleMenu", full);
-            cambioClassList();
-        });
-    }
-
-    // ── Toggle móvil ───────────────────────────────────────────
-    if (sidebarToggleMovil) {
-        sidebarToggleMovil.addEventListener("click", () => {
-            const isOpen = sidebar.classList.contains("sidebar--open");
-            sidebar.classList.toggle("sidebar--open", !isOpen);
-            sidebarOverlay.classList.toggle("active", !isOpen);
-
-            // Íconos hamburguesa / X
-            const iconOpen = document.getElementById("iconMovilOpen");
-            const iconClose = document.getElementById("iconMovilClose");
-            if (iconOpen && iconClose) {
-                iconOpen.classList.toggle("hidden", !isOpen);
-                iconClose.classList.toggle("hidden", isOpen);
-            }
-
-            document.body.style.overflow = isOpen ? "" : "hidden";
-        });
-    }
-
-    // Cerrar sidebar móvil al tocar el overlay
-    if (sidebarOverlay) {
-        sidebarOverlay.addEventListener("click", () => {
-            sidebar.classList.remove("sidebar--open");
-            sidebarOverlay.classList.remove("active");
-            document.getElementById("iconMovilOpen")?.classList.remove("hidden");
-            document.getElementById("iconMovilClose")?.classList.add("hidden");
-            document.body.style.overflow = "";
-        });
-    }
-
-    // ── User dropdown ──────────────────────────────────────────
-    if (botonuser) {
-        botonuser.addEventListener("click", function(e) {
-            e.stopPropagation();
-            dropdownuser.classList.toggle("hidden");
-            botonuser.classList.toggle("open");
-        });
-    }
-
-    document.addEventListener("click", (e) => {
-        if (!e.target.closest("#botonuser")) {
-            dropdownuser?.classList.add("hidden");
-            botonuser?.classList.remove("open");
-        }
-    });
-
-    // ── Sidebar en móvil: asegurar que siempre empiece cerrado ─
-    if (window.innerWidth < 640) {
-        sidebar.style.width = "";
-        mainContainer.style.marginLeft = "";
-    }
-
-    // Estilos del sidebar en móvil (desde CSS)
-    const styleMovil = document.createElement("style");
-    styleMovil.textContent = `
+        // Estilos del sidebar en móvil (desde CSS)
+        const styleMovil = document.createElement("style");
+        styleMovil.textContent = `
         @media (max-width: 639px) {
             .sidebar {
                 transform: translateX(-100%) !important;
@@ -188,9 +209,12 @@
             }
         }
     `;
-    document.head.appendChild(styleMovil);
+        document.head.appendChild(styleMovil);
+    })();
 </script>
 
+{{-- Scripts adicionales inyectados por vistas hijas --}}
+@stack('scripts')
 </body>
 
 </html>

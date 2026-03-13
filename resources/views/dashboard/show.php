@@ -46,6 +46,8 @@
     </div>
 </div>
 
-<script src="<?= base_url . '/assets/cronos.dashboard.js' ?>"></script>
+@push('scripts')
+<script src="@asset('assets/cronos.dashboard.js')"></script>
+@endpush
 
 @include('dashboard.layouts.footer')

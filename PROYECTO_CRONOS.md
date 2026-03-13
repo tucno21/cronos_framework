@@ -124,7 +124,8 @@ cronos_framework/
 │   │   └── MessageError.php    # Mensajes de error
 │   └── View/                    # Sistema de vistas
 │       ├── View.php            # Interfaz de vista
-│       └── CronosEngine.php    # Motor de plantillas (Blade-like)
+│       └── CronosEngine.php    # Motor de plantillas Blade-like con 25+ directivas,
+│                               #   sistema de componentes x-, stacks, @asset y más
 ├── routes/                      # Definición de rutas
 │   ├── web.php                  # Rutas web (páginas)
 │   └── api.php                  # Rutas API (JSON)
@@ -143,6 +144,13 @@ cronos_framework/
 │   │   ├── dashboard.css            # Estilos para vistas: dashboard
 │   │   └── error.css                # Estilos para vistas: error
 │   └── views/                       # Archivos de vistas
+│       ├── components/              # Componentes reutilizables <x-nombre>
+│       │   ├── alert.php           # Alerta con variantes (success/error/warning/info)
+│       │   ├── badge.php           # Badge/pill de colores
+│       │   ├── button.php          # Botón con variantes y tamaños
+│       │   ├── card.php            # Tarjeta con slots header/footer
+│       │   ├── input.php           # Input de formulario con validación flotante
+│       │   └── textarea.php        # Textarea con validación
 │       ├── home/                        # Vistas de home
 │       │   ├── layouts/                 # Layouts base
 │       │   │   ├── head.php            # Head de HTML
@@ -168,10 +176,12 @@ cronos_framework/
 │   ├── Crypto/                  # Tests de criptografía
 │   ├── Helpers/                 # Tests de helpers
 │   ├── Integration/             # Tests de integración
+│   │   └── ViewsIntegrationTest.php # Tests de integración de vistas
 │   ├── Routing/                 # Tests de rutas
 │   ├── Session/                 # Tests de sesión
 │   ├── TestCase/                # Casos de test base
 │   ├── Unit/                    # Tests unitarios
+│   │   └── CronosEngineTest.php    # Tests unitarios del motor de plantillas
 │   └── Validation/              # Tests de validación
 ├── .env.example                 # Ejemplo de archivo .env
 ├── .env.example2                # Segundo ejemplo de .env
@@ -1028,20 +1038,307 @@ El framework usa sintaxis tipo Blade:
 @include('home.layouts.footer')
 ```
 
-**Directivas disponibles en CronosEngine:**
-- `@extends('vista')` - Extiende un layout
-- `@include('vista')` - Incluye otra vista
-- `@section('nombre')` ... `@endsection` - Define una sección
-- `@yield('nombre')` - Muestra una sección del layout
-- `@foreach($array as $item)` ... `@endforeach` - Bucle foreach
-- `@if($condition)` ... `@endif` - Condicionales (incluye `@elseif`, `@else`)
-- `@for($i=0; $i<10; $i++)` ... `@endfor` - Bucle for
-- `@while($condition)` ... `@endwhile` - Bucle while
-- `@switch($var)` ... `@endswitch` - Switch
-- `@isset($var)` ... `@endisset` - Verifica si existe
-- `@empty($var)` ... `@endempty` - Verifica si está vacío
-- `@component('vista', $params)` ... `@slot('nombre')` ... `@endslot` ... `@endcomponent` - Componentes con slots
-- Directivas personalizadas registradas con `CronosEngine::directive('nombre', $handler)`
+### Directivas del motor CronosEngine
+
+#### Directivas heredadas (existentes desde el inicio)
+- `@extends('vista')` — extiende un layout (fusiona la vista con el archivo del layout)
+- `@include('vista')` — incluye otra vista directamente en el contenido
+- `@section('nombre')` ... `@endsection` — define una sección nombrada
+- `@yield('nombre')` — muestra el contenido de una sección en el layout
+- `@foreach($array as $item)` ... `@endforeach` — bucle iterador
+- `@if($cond)` ... `@elseif($cond)` ... `@else` ... `@endif` — condicionales
+- `@for($i=0; $i<n; $i++)` ... `@endfor` — bucle for clásico
+- `@while($cond)` ... `@endwhile` — bucle while
+- `@switch($var)` / `@case` / `@default` / `@break` ... `@endswitch` — switch
+- `@isset($var)` ... `@endisset` — renderiza si la variable existe
+- `@empty($var)` ... `@endempty` — renderiza si la variable está vacía
+- `{{ $variable }}` — imprime con escape HTML (seguro contra XSS)
+- `{!! $variable !!}` — imprime sin escape (solo para HTML de confianza)
+- `@component('vista', $params)` ... `@slot('nombre')` ... `@endslot` ... `@endcomponent`
+  — componentes legacy con slots
+- `CronosEngine::directive('nombre', $handler)` — registra directiva personalizada
+
+#### Directivas nuevas (Fase 1 — incorporadas en la iteración actual)
+- `{{-- comentario --}}` — comentario de plantilla que NO aparece en el HTML
+- `@csrf` — genera `<input type="hidden" name="_token" value="...">` para protección CSRF
+- `@method('PUT')` / `@method('DELETE')` — genera `<input type="hidden" name="_method">`
+  para formularios que necesitan métodos HTTP distintos de POST
+- `@auth` ... `@endauth` — renderiza si hay usuario autenticado (`session()->hasUser()`)
+- `@guest` ... `@endguest` — renderiza si NO hay usuario autenticado
+- `@error('campo')` ... `@enderror` — renderiza si existe error de validación para ese campo;
+  dentro del bloque la variable `$message` contiene el texto del error
+- `@push('nombre')` ... `@endpush` — acumula contenido en un stack (JS, CSS)
+- `@stack('nombre')` — renderiza todo el contenido acumulado en ese stack
+- `@forelse($arr as $item)` ... `@empty` ... `@endforelse` — foreach con bloque alternativo
+  si la colección está vacía (el `@empty` de `@forelse` es distinto del `@empty($var)`)
+- `@unless($cond)` ... `@endunless` — condicional inverso; renderiza si la condición es FALSA
+- `@dump($var)` — ejecuta `var_dump($var)` sin detener la ejecución
+- `@dd($var)` — ejecuta `var_dump($var)` y detiene la ejecución (dump-and-die)
+- `@asset('ruta/al/archivo')` — genera URL con cache-busting automático usando `filemtime()`
+
+#### Sistema de componentes x- (Fase 2)
+Componentes HTML personalizados con prefijo `x-` que el motor compila automáticamente.
+Los archivos PHP de los componentes viven en `resources/views/components/`.
+
+Sintaxis:
+- Self-closing:  `<x-badge color="blue" />`
+- Con contenido: `<x-card>Contenido aquí</x-card>`
+- Con slots nombrados: `<x-card><x-slot:header>Título</x-slot:header>Cuerpo</x-card>`
+
+Dentro del archivo del componente:
+- Las props son variables PHP (`$type`, `$color`, `$label`, etc.)
+- El slot por defecto está en `$slot`
+- Los slots nombrados están en `$__slots['nombre']`
+
+**Regla crítica para atributos:** los atributos de `<x-componente>` solo aceptan
+valores literales (`name="email"`, `type="text"`, `required`).
+NO se pueden pasar expresiones PHP como valores de atributos
+(`value="<?= old('email') ?>"` rompe el parser). Si el componente necesita
+un valor dinámico, debe calcularlo internamente con las props que recibe.
+
+Si el archivo del componente no existe en `resources/views/components/`,
+la etiqueta se deja intacta (puede ser un web component nativo del navegador).
+
+### Patrón correcto para scripts y estilos en layouts
+
+Los layouts deben usar `@stack` (no `@yield`) para los scripts y estilos,
+ya que `@push` desde las vistas hijas es más flexible que `@section`:
+
+**En el layout** (`resources/views/home/layouts/head.php`):
+```php
+<head>
+    <link href="@asset('assets/css/home.css')" rel="stylesheet">
+    @stack('styles')  {{-- ← punto de inyección de estilos adicionales --}}
+</head>
+<body>
+    @yield('content')
+
+    <script src="@asset('assets/js/home.js')"></script>
+    @stack('scripts') {{-- ← punto de inyección de scripts adicionales --}}
+</body>
+```
+
+**En una vista hija** que necesita JS o CSS adicional:
+```php
+@push('scripts')
+    <script src="@asset('assets/js/blog.js')"></script>
+    <script>
+        function deleteBlog(id) { ... }
+    </script>
+@endpush
+```
+
+**Importante:** El `@push`/`@stack` se compila DESPUÉS de que `@extends`/`@include`
+fusionan el layout. Por eso funciona correctamente cuando `@push` está en la vista
+hija y `@stack` está en el layout.
+
+### Directiva @asset — cache-busting automático
+
+Reemplaza las URLs estáticas en layouts y vistas:
+
+```php
+{{-- Antes (sin cache-busting) --}}
+<link href="<?= base_url . '/assets/css/home.css' ?>" rel="stylesheet">
+<script src="<?= base_url . '/assets/js/home.js' ?>"></script>
+
+{{-- Después (con cache-busting automático) --}}
+<link href="@asset('assets/css/home.css')" rel="stylesheet">
+<script src="@asset('assets/js/home.js')"></script>
+```
+
+`@asset()` genera una URL del tipo: `http://proyecto.test/assets/css/home.css?v=1748291234`
+
+El número `v=...` es el `filemtime()` del archivo. Si el archivo cambia, el hash cambia
+y el navegador descarga la nueva versión en lugar de usar el cache.
+
+### Componentes x- disponibles en el proyecto
+
+Todos los componentes viven en `resources/views/components/`.
+
+#### `<x-alert>`
+Alerta con variantes de color según el tipo.
+
+Props:
+- `type` (string, default `'info'`): `'success'` | `'error'` | `'warning'` | `'info'`
+- `title` (string, default `null`): título opcional en negrita
+
+Slot por defecto: cuerpo del mensaje (puede incluir HTML)
+
+```php
+<x-alert type="success" title="¡Operación exitosa!">
+    El registro fue creado correctamente.
+</x-alert>
+
+<x-alert type="error">
+    <ul>
+        @foreach($errors as $err)
+            <li>{{ $err }}</li>
+        @endforeach
+    </ul>
+</x-alert>
+```
+
+#### `<x-card>`
+Tarjeta contenedora con slots opcionales para header y footer.
+
+Props:
+- `class` (string, default `''`): clases CSS adicionales
+- `shadow` (bool, default `true`): activar sombra
+- `padding` (string, default `'md'`): `'sm'` | `'md'` | `'lg'`
+
+Slots: `default` (cuerpo), `header`, `footer`
+
+```php
+<x-card>
+    <x-slot:header>
+        <h2 class="font-bold">Título de la tarjeta</h2>
+    </x-slot:header>
+
+    Contenido principal aquí.
+
+    <x-slot:footer>
+        <x-button type="submit">Guardar</x-button>
+    </x-slot:footer>
+</x-card>
+```
+
+#### `<x-button>`
+Botón o enlace estilizado con variantes.
+
+Props:
+- `type` (string, default `'button'`): tipo del `<button>`
+- `variant` (string, default `'primary'`): `'primary'` | `'secondary'` | `'danger'` | `'ghost'`
+- `size` (string, default `'md'`): `'sm'` | `'md'` | `'lg'`
+- `href` (string, default `null`): si se pasa, renderiza como `<a>` en vez de `<button>`
+- `disabled` (bool, default `false`)
+- `class` (string, default `''`)
+
+Slot por defecto: etiqueta/texto del botón
+
+```php
+<x-button type="submit" variant="primary" size="lg" class="w-full">
+    Iniciar Sesión
+</x-button>
+
+<x-button href="{{ route('dashboard.index') }}" variant="secondary">
+    Volver al Dashboard
+</x-button>
+```
+
+#### `<x-input>`
+Campo de formulario con label, validación y soporte de floating label.
+
+Props:
+- `name` (string, requerido): nombre del campo (también usado como `id`)
+- `label` (string, default auto desde `$name`): texto del label
+- `type` (string, default `'text'`): tipo del input
+- `placeholder` (string, default `''`)
+- `required` (bool, default `false`)
+- `class` (string, default `''`)
+- `variant` (string, default `'standard'`): `'standard'` | `'floating'` (estilo floating label para home)
+
+El componente internamente:
+- Llama `old($name)` para recuperar valores anteriores tras redirección
+- Llama `session()->error($name)` para mostrar errores de validación
+
+**IMPORTANTE:** No pasar `value` como atributo — el componente lo maneja solo.
+
+```php
+{{-- Variante estándar (dashboard) --}}
+<x-input name="title" label="Título" required />
+<x-input name="email" type="email" placeholder="correo@ejemplo.com" />
+
+{{-- Variante floating label (home/login) --}}
+<x-input name="email" type="email" label="Email" variant="floating" required />
+```
+
+#### `<x-textarea>`
+Textarea con las mismas capacidades que `<x-input>`.
+
+Props adicionales:
+- `rows` (int, default `4`): número de filas visibles
+
+```php
+<x-textarea name="content" label="Contenido" rows="6" required />
+```
+
+#### `<x-badge>`
+Badge/pill de colores para estados o etiquetas.
+
+Props:
+- `color` (string, default `'blue'`): `'blue'` | `'green'` | `'red'` | `'yellow'` | `'gray'`
+
+Slot por defecto: texto del badge
+
+```php
+<x-badge color="green">Publicado</x-badge>
+<x-badge color="red">Borrador</x-badge>
+
+### Manejo de errores de validación en vistas
+
+Con la directiva `@error` el manejo de errores por campo es más limpio:
+
+```php
+{{-- Patrón antiguo --}}
+<input name="email" type="email">
+@if(session()->error('email'))
+    <p class="text-red-500">{{ session()->error('email') }}</p>
+@endif
+
+{{-- Patrón nuevo con @error --}}
+<input name="email" type="email">
+@error('email')
+    <p class="text-red-500">{{ $message }}</p>
+@enderror
+```
+
+Dentro de `@error` ... `@enderror`, la variable `$message` contiene automáticamente
+el texto del error para ese campo. Después del `@enderror` la variable `$message`
+se elimina para evitar contaminación de scope.
+
+### Pipeline de compilación de CronosEngine
+
+El motor compila las directivas en este orden exacto (el orden importa):
+
+```
+1.  compileExtends        — fusiona el layout (@extends)
+2.  compileIncludes       — fusiona los @include
+3.  compileComments       — elimina {{-- comentarios --}}   ← DEBE ser después de 1 y 2
+4.  compilePushStack      — procesa @push/@endpush y @stack ← DEBE ser después de 1 y 2
+5.  compileSections       — captura @section/@endsection
+6.  compileYields         — reemplaza @yield con el contenido de las secciones
+7.  compileForelse        — @forelse/@empty/@endforelse     ← ANTES de compileForeach
+8.  compileForeach        — @foreach/@endforeach
+9.  compileIf             — @if/@elseif/@else/@endif
+10. compileFor            — @for/@endfor
+11. compileWhile          — @while/@endwhile
+12. compileSwitch         — @switch/@endswitch
+13. compileEmpty          — @empty($var)/@endempty
+14. compileIsset          — @isset($var)/@endisset
+15. compileComponents     — @component legacy
+16. compileCustomDirectives — directivas registradas con CronosEngine::directive()
+17. compileAuth           — @auth/@endauth / @guest/@endguest
+18. compileCsrf           — @csrf
+19. compileMethod          — @method('PUT')
+20. compileError           — @error('campo')/@enderror
+21. compileUnless         — @unless/@endunless
+22. compileDebug          — @dump / @dd
+23. compileRawEcho        — {!! !!}                        ← ANTES de compileVariables
+24. compileVariables      — {{ }}                          ← SIEMPRE AL FINAL
+25. compileXComponents    — <x-nombre> (se ejecuta entre includes y sections)
+26. compileAsset          — @asset('ruta')
+```
+
+**Reglas críticas del pipeline:**
+- `compileComments` y `compilePushStack` DEBEN ejecutarse después de `compileExtends`
+  e `compileIncludes`, porque los comentarios y `@stack` pueden estar dentro de los
+  layouts fusionados.
+- `compileForelse` DEBE ejecutarse antes de `compileForeach` para que sus patrones
+  no entren en conflicto.
+- `compileRawEcho` DEBE ejecutarse antes de `compileVariables` para que `{!! !!}`
+  no sea capturado por el regex de `{{ }}`.
+- `compileVariables` es SIEMPRE el último compilador.
+```
 
 ## 9. Configuración y Variables de Entorno
 
@@ -1859,6 +2156,42 @@ Para agregar nuevos helpers:
 
 15. **CLI solo funciona con php-cli:** El archivo `cronos` verifica que se ejecute con PHP CLI, no con php-cgi.
 
+### Tests del motor de plantillas
+
+**`tests/Unit/CronosEngineTest.php`** — Tests unitarios puros del motor.
+- No depende del framework ni de base de datos
+- Usa directorios temporales (`sys_get_temp_dir()`) para crear vistas de prueba
+- Cubre todas las directivas existentes y las nuevas
+- 13 tests, 21 assertions — 100% passing
+
+Directivas cubiertas por los tests:
+- `{{ }}` con escape XSS
+- `{!! !!}` raw echo
+- `@if` / `@elseif` / `@else` / `@endif`
+- `@foreach` / `@endforeach`
+- `@for` / `@endfor`
+- `@while` / `@endwhile`
+- `@isset` / `@endisset`
+- `@empty` / `@endempty`
+- `@section` / `@yield` / `@extends`
+- `@include`
+- Directivas personalizadas (`CronosEngine::directive()`)
+- `@csrf`
+- `@method`
+- `@forelse` / `@empty` / `@endforelse`
+- `{{-- comentarios --}}`
+- Componentes `<x-nombre>` con slot por defecto y slots nombrados
+- Escape XSS
+- Vista inexistente lanza `\Error`
+- Cache se genera en disco
+
+**`tests/Integration/ViewsIntegrationTest.php`** — Tests de integración de vistas reales.
+- Verifica que los layouts tienen `@stack('scripts')`
+- Verifica que los formularios tienen `@csrf`
+- Verifica que el CSS tiene `@source` apuntando a `components/`
+- Verifica que los componentes existen con las props correctas
+- Verifica consistencia entre `@section` y `@push` en cada vista
+
 ## 15. TailwindCSS v4 — Frontend
 
 ### Instalación y herramienta
@@ -2123,9 +2456,80 @@ echo "✓ Tailwind CLI actualizado: $(./tailwindcss --version)"
 - El archivo `tailwindcss` (o `tailwindcss.exe`) está en `.gitignore`, así que cada desarrollador debe actualizarlo manualmente
 - No es necesario actualizar `resources/css/*.css` a menos que la nueva versión tenga breaking changes
 
+### Configuración de @source en TailwindCSS v4 para componentes
+
+Los componentes `<x-nombre>` usan clases de Tailwind. Para que Tailwind las incluya
+en el CSS compilado, cada archivo CSS fuente debe tener una línea `@source` apuntando
+a `resources/views/components/`:
+
+**`resources/css/home.css`:**
+```css
+@import "tailwindcss";
+@source "../../resources/views/home/**/*.php";
+@source "../../resources/views/components/**/*.php";  ← línea necesaria para componentes
+@import "./app.css";
+```
+
+**`resources/css/dashboard.css`:**
+```css
+@import "tailwindcss";
+@source "../../resources/views/dashboard/**/*.php";
+@source "../../resources/views/components/**/*.php";  ← línea necesaria para componentes
+@import "./app.css";
+```
+
+Sin esta línea, los componentes `<x-card>`, `<x-button>`, etc. aparecerán en el HTML
+pero sin estilos de Tailwind porque el compilador no escaneó sus clases.
+
 ### Notas importantes
 
 - Los archivos en `public/assets/*.css` son **generados** — no editarlos manualmente
 - Los archivos en `resources/css/*.css` son los **fuentes** — editarlos con las clases personalizadas
 - El binario `tailwindcss` está en `.gitignore` — cada desarrollador debe ejecutar `tailwind-setup.sh` (Linux/Mac) o `tailwind-setup.bat` (Windows)
 - En producción, ejecutar `./tailwind-build.sh` antes del deploy
+
+## NN. Notas para IAs — Cómo Trabajar Correctamente en este Proyecto
+
+Esta sección documenta las reglas y lecciones aprendidas para que cualquier IA
+que trabaje en este proyecto entienda el contexto y evite errores conocidos.
+
+### Restricciones conocidas del motor CronosEngine
+
+- **Los atributos de `<x-componente>` NO aceptan expresiones PHP**.
+  `value="<?= old('email') ?>"` rompe el parser. El componente debe calcular
+  valores dinámicos internamente.
+
+- **`compileComments` y `compilePushStack` DEBEN estar después de `compileExtends`**
+  e `compileIncludes`. Si se ponen antes, los comentarios y `@stack` dentro de
+  layouts incluidos no serán procesados.
+
+- **`@forelse` tiene su propio `@empty`** que es distinto del `@empty($var)/@endempty`.
+  `compileForelse` debe ejecutarse antes de `compileForeach` para evitar conflictos.
+
+- **El cache en `storage/cache/` debe borrarse** después de cualquier cambio al
+  motor de plantillas. Los archivos compilados en cache no se regeneran
+  automáticamente si el motor cambia pero la vista no.
+
+### Componentes x- y props
+
+Cuando se crea un nuevo componente en `resources/views/components/`:
+1. Siempre definir defaults para todas las props (`$type = $type ?? 'info'`)
+2. No asumir que `old()` existe — usar `function_exists('old')` antes de llamarla
+3. No asumir que `session()` existe — usar `function_exists('session')` antes
+4. El slot por defecto está en `$slot` y también en `$__slots['default']`
+5. El componente se registra automáticamente solo con existir en la carpeta
+
+### Gestión del CSS con Tailwind CLI
+
+- Los archivos en `public/assets/css/*.css` son **generados** — no editarlos
+- Los archivos en `resources/css/*.css` son los **fuentes** — editarlos aquí
+- Después de agregar componentes nuevos, el desarrollador debe recompilar:
+  ```bash
+  # Windows
+  .\tailwind-build.bat
+
+  # Linux/Mac
+  ./tailwind-build.sh
+  ```
+- Los nuevos componentes `<x-nombre>` necesitan que su `@source` esté en el CSS
+  correspondiente, o sus clases de Tailwind no serán compiladas.

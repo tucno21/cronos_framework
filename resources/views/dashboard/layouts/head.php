@@ -14,7 +14,10 @@
     <!-- Bootstrap Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 
-    <link href="<?= base_url . '/assets/css/dashboard.css' ?>" rel="stylesheet">
+    <link href="@asset('assets/css/dashboard.css')" rel="stylesheet">
+
+    {{-- Estilos adicionales inyectados por vistas hijas --}}
+    @stack('styles')
 </head>
 
 <body class="bg-gray-50">

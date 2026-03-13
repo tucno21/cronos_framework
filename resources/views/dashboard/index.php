@@ -114,10 +114,12 @@
     </div>
 </div>
 
+@push('scripts')
 <script>
     const baseLink = "<?= base_url ?>";
 </script>
-<script src="<?= base_url . '/assets/js/cronos.dashboard.js' ?>"></script>
-<script src="<?= base_url . '/assets/js/blog.js' ?>"></script>
+<script src="@asset('assets/js/cronos.dashboard.js')"></script>
+<script src="@asset('assets/js/blog.js')"></script>
+@endpush
 
 @include('dashboard.layouts.footer')
