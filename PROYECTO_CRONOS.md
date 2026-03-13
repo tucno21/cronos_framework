@@ -191,8 +191,7 @@ cronos_framework/
 ├── cronos.sql                   # SQL de base de datos
 ├── phpunit.xml                  # Configuración de PHPUnit
 ├── Procfile                     # Configuración de despliegue
-├── README.md                    # Documentación del proyecto
-└── tarea.md                     # Especificación de tarea actual
+└── README.md                    # Documentación del proyecto
 ```
 
 ## 3. Flujo de Ejecución (Request Lifecycle)
@@ -446,6 +445,84 @@ cronos_framework/
   - `resolve(string $class)` - Resuelve una instancia del contenedor
 - **Cómo se usa:** Usado internamente por todo el framework para gestionar instancias
 - **Equivalente en Laravel:** `Illuminate\Container\Container`
+
+### DependencyInjection — `System/Container/DependencyInjection.php`
+- **Responsabilidad:** Sistema de inyección de dependencias automática para los parámetros de métodos en controladores y otros clases. Analiza los parámetros de los métodos y los resuelve automáticamente desde el contenedor.
+
+- **Diferencia con Container.php:**
+  - **Container.php** es un almacén simple que registra y resuelve instancias manualmente
+  - **DependencyInjection.php** analiza automáticamente los parámetros de los métodos y los inyecta desde el contenedor sin necesidad de código manual
+  - Container = registro y resolución; DependencyInjection = análisis e inyección automática
+
+- **Métodos principales:**
+  - `resolveDependencies(string $class, string $method, array $params)` - Resuelve las dependencias para un método específico, analizando sus parámetros e inyectándolos desde el contenedor
+
+- **Cómo funciona el proceso de inyección:**
+  1. Se analiza el método a ejecutar (ej: un método de controlador)
+  2. Se extraen los parámetros del método usando Reflection
+  3. Para cada parámetro:
+     - Si el parámetro es un tipo tipado (ej: `Request $request`), se resuelve desde el contenedor
+     - Si el parámetro corresponde a un tipo conocido del framework (Request, Response, etc.), se instancia automáticamente
+     - Si el parámetro es un modelo con route model binding, se resuelve desde la BD
+  4. Se construye un array con las instancias resueltas
+  5. Se invoca el método con las dependencias inyectadas
+
+- **Ejemplo de uso real en el framework:**
+
+  **En un controlador (inyección automática):**
+  ```php
+  <?php
+  
+  namespace App\Controllers;
+  
+  use Cronos\Http\Controller;
+  use Cronos\Http\Request;
+  use App\Models\User;
+  
+  class DashboardController extends Controller
+  {
+      // DependencyInjection inyecta Request automáticamente
+      public function show(Request $request, User $user)
+      {
+          // $request se resuelve desde el contenedor
+          // $user se resuelve via route model binding
+          return view('dashboard.show', ['user' => $user]);
+      }
+  }
+  ```
+
+  **Ejemplo de cómo el Router usa DependencyInjection:**
+  ```php
+  // En System/Routing/Router.php
+  public function runMiddlewares(Request $request, array $middlewares, $target)
+  {
+      // DependencyInjection analiza los parámetros del controlador
+      // y los inyecta automáticamente
+      $dependencies = DependencyInjection::resolveDependencies(
+          $controllerClass,
+          $controllerMethod,
+          $routeParams
+      );
+      
+      // Invoca el método con las dependencias resueltas
+      return $controller->$methodName(...$dependencies);
+  }
+  ```
+
+- **Tipos soportados para inyección automática:**
+  - `Cronos\Http\Request` - Petición HTTP actual
+  - `Cronos\Http\Response` - Objeto de respuesta
+  - Modelos (`App\Models\*`) - Resolución via route model binding
+  - Cualquier clase registrada en el contenedor como singleton
+
+- **Limitaciones actuales:**
+  - No soporta inyección en constructor de controladores (solo en métodos)
+  - No soporta interfaces para resolución automática
+  - No soporta inyección condicional basada en atributos PHP 8
+
+- **Equivalente en Laravel:** `Illuminate\Container\Container::call()` con Reflection y análisis automático de dependencias
+
+<!-- completado -->
 
 ## 5. Sistema de Enrutamiento
 
@@ -776,6 +853,85 @@ class User extends Model
 - `toArray()` / `toObject()` - Convierte a array u objeto
 - `dd()` - Debug de la query SQL generada
 - `customQuery(string $query, array|object $data)` - Ejecuta query personalizada
+
+### ModelCollection — Métodos Disponibles
+
+`ModelCollection` es una clase envoltorio para colecciones de modelos que proporciona métodos útiles para manipular y transformar resultados de consultas ORM.
+
+**Constructor:**
+```php
+public function __construct(array $items = [])
+```
+Crea una nueva colección con los items proporcionados. Retorna la propia instancia para encadenamiento.
+
+**Métodos de manipulación:**
+
+| Método | Firma | Descripción | Ejemplo |
+|--------|---------|-------------|-----------|
+| `map()` | `public function map(callable $callback): self` | Aplica una función a cada elemento de la colección, retornando nueva colección | `$titles = $collection->map(fn($blog) => $blog->title);` |
+| `filter()` | `public function filter(callable $callback): self` | Filtra elementos de la colección basado en un callback, retornando nueva colección | `$published = $collection->filter(fn($blog) => $blog->status === 'published');` |
+
+**Métodos de acceso:**
+
+| Método | Firma | Descripción | Ejemplo |
+|--------|---------|-------------|-----------|
+| `first()` | `public function first()` | Retorna el primer elemento de la colección | `$firstBlog = $blogs->first();` |
+| `last()` | `public function last()` | Retorna el último elemento de la colección | `$lastBlog = $blogs->last();` |
+| `count()` | `public function count(): int` | Retorna la cantidad de elementos en la colección | `$total = $blogs->count();` |
+
+**Métodos de transformación:**
+
+| Método | Firma | Descripción | Ejemplo |
+|--------|---------|-------------|-----------|
+| `toArray()` | `public function toArray(): array` | Convierte todos los modelos de la colección a arrays | `$data = $blogs->toArray();` |
+| `toObject()` | `public function toObject(): array` | Convierte todos los modelos de la colección a objetos | `$data = $blogs->toObject();` |
+| `toJson()` | `public function toJson(): string` | Convierte la colección a JSON | `$json = $blogs->toJson();` |
+
+**Métodos de utilidad:**
+
+| Método | Firma | Descripción | Ejemplo |
+|--------|---------|-------------|-----------|
+| `pluck()` | `public function pluck(string $key): array` | Extrae una propiedad específica de todos los elementos | `$titles = $blogs->pluck('title');` |
+| `getIterator()` | `public function getIterator()` | Retorna un iterador para recorrer la colección | `foreach ($collection as $item) { ... }` |
+
+**Ejemplo de uso completo:**
+
+```php
+// Supongamos que obtenemos una colección de blogs
+$blogs = Blog::where('status', 'published')->get();
+
+// Usar map para transformar datos
+$titles = $blogs->map(function($blog) {
+    return strtoupper($blog->title);
+});
+
+// Usar filter para filtrar elementos
+$recentBlogs = $blogs->filter(function($blog) {
+    return strtotime($blog->created_at) > strtotime('-30 days');
+});
+
+// Usar pluck para extraer valores específicos
+$slugs = $blogs->pluck('slug');
+
+// Convertir a JSON para respuesta API
+return json($blogs->toArray());
+
+// Obtener primer y último elemento
+$first = $blogs->first();
+$last = $blogs->last();
+
+// Contar elementos
+$total = $blogs->count();
+```
+
+**Limitaciones actuales:**
+- No implementa métodos de ordenamiento (sortBy, sortByDesc)
+- No implementa métodos de agrupamiento (groupBy)
+- No implementa métodos de reducción (reduce, each)
+- No implementa métodos de chunking (chunk)
+- No implementa métodos de paginación (forPage, paginate)
+
+<!-- completado -->
 
 ### Cómo se hacen consultas
 
@@ -1430,16 +1586,266 @@ return [
 **`config/database.php`:** (ver arriba)
 
 **`config/session.php`:**
-Configuración del sistema de sesiones (no mostrado en archivos leídos)
+Configuración del sistema de sesiones que controla cómo se almacenan y manejan los datos de sesión.
+
+**Estructura del archivo:**
+
+```php
+<?php
+
+return [
+    'storage' => env('SESSION_STORAGE', 'native'),
+];
+```
+
+**Descripción de cada opción:**
+
+| Clave | Tipo | Default | Descripción |
+|-------|------|---------|-------------|
+| `storage` | string | `'native'` | Driver de almacenamiento de sesión. Únicamente soporta `'native'` que usa sesiones nativas de PHP (`PhpNativeSessionStorage`) |
+
+**Valores posibles:**
+- `'native'` - Usa `PhpNativeSessionStorage` que utiliza `$_SESSION` y funciones nativas de PHP (`session_start()`, `session_destroy()`, etc.)
+
+**Ejemplos de configuración:**
+
+```php
+<?php
+
+// Configuración por defecto
+return [
+    'storage' => env('SESSION_STORAGE', 'native'),
+];
+
+// Configuración explícita (sin usar .env)
+return [
+    'storage' => 'native',
+];
+```
+
+**Limitaciones actuales:**
+- Solo soporta el driver `'native'`
+- No hay drivers alternativos (database, redis, memcached, file)
+- No hay configuración de lifetime de sesión (usa la configuración de php.ini)
+- No hay configuración de cookie de sesión (usa la configuración de php.ini)
+
+<!-- completado -->
 
 **`config/view.php`:**
-Configuración del sistema de vistas (no mostrado en archivos leídos)
+Configuración del sistema de vistas que controla el motor de plantillas y el almacenamiento de caché.
+
+**Estructura del archivo:**
+
+```php
+<?php
+
+return [
+    'engine' => 'cronos',
+    'path' => resourcesDirectory() . '/views',
+    'cache' => cacheDirectory(),
+];
+```
+
+**Descripción de cada opción:**
+
+| Clave | Tipo | Default | Descripción |
+|-------|------|---------|-------------|
+| `engine` | string | `'cronos'` | Motor de plantillas a usar. Únicamente soporta `'cronos'` que usa `CronosEngine` |
+| `path` | string | `resourcesDirectory() . '/views'` | Ruta al directorio de vistas (ubicación de los archivos `.php` de las plantillas) |
+| `cache` | string | `cacheDirectory()` | Ruta al directorio de caché donde se guardan las vistas compiladas (`storage/cache/`) |
+
+**Valores posibles:**
+- `engine: 'cronos'` - Usa `CronosEngine` (motor de plantillas tipo Blade con directivas personalizadas)
+- `path` - Debe ser una ruta válida al sistema de archivos
+- `cache` - Debe ser una ruta válida con permisos de escritura
+
+**Ejemplos de configuración:**
+
+```php
+<?php
+
+// Configuración por defecto
+return [
+    'engine' => 'cronos',
+    'path' => resourcesDirectory() . '/views',
+    'cache' => cacheDirectory(),
+];
+
+// Configuración personalizada (no recomendado, usa las funciones helper)
+return [
+    'engine' => 'cronos',
+    'path' => __DIR__ . '/../resources/views',
+    'cache' => __DIR__ . '/../storage/cache',
+];
+```
+
+**Notas importantes:**
+- Las funciones `resourcesDirectory()` y `cacheDirectory()` son helpers globales definidos en `System/Helpers/variable.php`
+- Si cambias la ruta de `cache`, debes asegurarte de que el directorio tenga permisos de escritura
+- El motor `'cronos'` compila las vistas a PHP y las guarda en el directorio de caché para mejorar el rendimiento
+
+<!-- completado -->
 
 **`config/hashing.php`:**
-Configuración del sistema de hashing (no mostrado en archivos leídos)
+Configuración del sistema de hashing que controla qué algoritmo se usa para hashear contraseñas.
+
+**Estructura del archivo:**
+
+```php
+<?php
+
+return [
+    'hasher' => 'bcrypt'
+];
+```
+
+**Descripción de cada opción:**
+
+| Clave | Tipo | Default | Descripción |
+|-------|------|---------|-------------|
+| `hasher` | string | `'bcrypt'` | Algoritmo de hashing a usar. Únicamente soporta `'bcrypt'` que usa `Bcrypt` |
+
+**Valores posibles:**
+- `'bcrypt'` - Usa `Bcrypt` que implementa `password_hash()` de PHP con el algoritmo `PASSWORD_BCRYPT`
+
+**Ejemplos de configuración:**
+
+```php
+<?php
+
+// Configuración por defecto
+return [
+    'hasher' => 'bcrypt'
+];
+
+// Configuración explícita
+return [
+    'hasher' => 'bcrypt'
+];
+```
+
+**Cómo se usa el hasher en la aplicación:**
+
+El hasher se registra como singleton en `HasherServiceProvider` y se puede acceder desde el contenedor:
+
+```php
+// Desde el contenedor
+$hasher = app(Cronos\Crypto\Hasher::class);
+$hashed = $hasher->make('password123');
+
+// Desde un modelo (al guardar contraseña)
+$user = new User();
+$user->password = bcrypt('password123'); // bcrypt() es un helper global
+$user->save();
+```
+
+**Limitaciones actuales:**
+- Solo soporta el algoritmo `'bcrypt'`
+- No hay configuración de rounds/cost (usa el default de PHP que es 10)
+- No hay otros algoritmos (argon2i, argon2id, sha256, etc.)
+
+<!-- completado -->
 
 **`config/cors.php`:**
-Configuración de CORS (no mostrado en archivos leídos)
+Configuración de CORS (Cross-Origin Resource Sharing) para controlar el acceso a APIs desde otros dominios.
+
+**Estructura completa del archivo:**
+
+```php
+<?php
+
+return [
+    'allowed_origins' => ['*'],
+
+    'allowed_methods' => ['*'],
+
+    'allowed_headers' => ['*'],
+
+    'exposed_headers' => ['Authorization'],
+
+    'supports_credentials' => false,
+
+    'allowed_origins_patterns' => ['http://127.0.0.1:8090'],
+    
+    // 'max_age' => 0,
+];
+```
+
+**Descripción de cada opción:**
+
+| Clave | Tipo | Default | Descripción |
+|-------|------|---------|-------------|
+| `allowed_origins` | array | `['*']` | Dominios permitidos para hacer peticiones. `['*']` permite todos los dominios. Ej: `['https://example.com', 'https://app.example.com']` |
+| `allowed_methods` | array | `['*']` | Métodos HTTP permitidos. `['*']` permite todos. Ej: `['GET', 'POST', 'PUT', 'DELETE']` |
+| `allowed_headers` | array | `['*']` | Headers que el cliente puede enviar. `['*']` permite todos. Ej: `['Content-Type', 'Authorization']` |
+| `exposed_headers` | array | `['Authorization']` | Headers que el servidor expone al navegador en la respuesta (accesibles desde JavaScript) |
+| `supports_credentials` | bool | `false` | Si se permite el envío de cookies y credenciales (cookies, auth headers, TLS client certs). Debe ser `true` cuando `allowed_origins_patterns` tiene dominios específicos |
+| `allowed_origins_patterns` | array | `['http://127.0.0.1:8090']` | Dominios permitidos para el envío de credenciales y registro de cookies. Usar solo cuando `supports_credentials` es `true` |
+| `max_age` | int | `0` (comentado) | Tiempo en segundos que el navegador puede cachear la respuesta preflight de CORS. `0` significa sin caché. Debe ser un número positivo (ej: `3600` para 1 hora) |
+
+**Ejemplo de configuración completa:**
+
+```php
+<?php
+
+return [
+    // Permite peticiones desde estos dominios específicos
+    'allowed_origins' => [
+        'https://myapp.com',
+        'https://admin.myapp.com',
+    ],
+
+    // Métodos HTTP permitidos en la API
+    'allowed_methods' => [
+        'GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'
+    ],
+
+    // Headers que el cliente puede enviar
+    'allowed_headers' => [
+        'Content-Type',
+        'Authorization',
+        'X-Requested-With',
+        'X-CSRF-TOKEN',
+    ],
+
+    // Headers que el cliente puede leer desde JavaScript
+    'exposed_headers' => [
+        'Authorization',
+        'X-Custom-Header',
+    ],
+
+    // Habilita credenciales (cookies, auth headers)
+    'supports_credentials' => true,
+
+    // Dominios específicos para envío de credenciales
+    'allowed_origins_patterns' => [
+        'http://localhost:8090',
+        'http://127.0.0.1:8090',
+        'https://myapp.com',
+    ],
+
+    // Cachear respuesta preflight por 1 hora
+    'max_age' => 3600,
+];
+```
+
+**Configuración para desarrollo (permitir todo):**
+
+```php
+<?php
+
+return [
+    'allowed_origins' => ['*'],
+    'allowed_methods' => ['*'],
+    'allowed_headers' => ['*'],
+    'exposed_headers' => ['*'],
+    'supports_credentials' => false,
+    'allowed_origins_patterns' => ['http://127.0.0.1:8090'],
+    // 'max_age' => 0,
+];
+```
+
+<!-- completado -->
 
 **`config/providers.php`:**
 ```php
@@ -1652,6 +2058,81 @@ Para agregar nuevos helpers:
 - **Directivas personalizadas:** Registro de directivas custom
 - **Archivos involucrados:** `System/View/View.php`, `System/View/CronosEngine.php`, `resources/views/*`
 
+### Caché de Vistas — Invalidación y Limpieza
+
+El sistema de caché de vistas en Cronos Framework guarda las versiones compiladas de las plantillas en el directorio `storage/cache/` para mejorar el rendimiento.
+
+**Ubicación del caché:**
+- Directorio: `storage/cache/`
+- Archivos: Cada vista compilada genera un archivo PHP con el mismo nombre que la vista original
+
+**Cuándo se invalida el caché automáticamente:**
+
+El caché se invalida y se regenera automáticamente cuando:
+1. **El archivo de vista original cambia** — El sistema verifica `filemtime()` de la vista original
+2. **La vista no existe en caché** — Se crea una nueva versión compilada
+
+**Cuándo hay que borrar el caché manualmente:**
+
+Debes borrar el caché manualmente cuando:
+1. **Cambias el motor CronosEngine** — Si modificas el código en `System/View/CronosEngine.php` que compila las directivas, el caché no se regenera automáticamente
+2. **Agregas o modificas directivas personalizadas** — Nuevas directivas o modificaciones a `CronosEngine::directive()` requieren limpieza de caché
+3. **El caché está corrupto** — Si ves errores de sintaxis PHP que no corresponden a tu código
+4. **Cambio de lógica de compilación** — Cualquier modificación a los métodos `compile*()` en `CronosEngine`
+
+**Cómo borrar el caché:**
+
+**Opción 1: Borrar manualmente todos los archivos de caché**
+```bash
+# Windows
+Remove-Item storage\cache\*.php
+
+# Linux/Mac
+rm storage/cache/*.php
+```
+
+**Opción 2: Borrar el directorio completo y recrearlo**
+```bash
+# Linux/Mac
+rm -rf storage/cache
+mkdir storage/cache
+chmod 777 storage/cache
+```
+
+**Consecuencias de NO borrar el caché tras cambiar CronosEngine:**
+
+Si modificas el motor de plantillas y no borras el caché:
+- ❌ **Las vistas antiguas siguen usando la lógica de compilación antigua**
+- ❌ **Las nuevas directivas no funcionan** — Las vistas compiladas no las reconocen
+- ❌ **Errores de sintaxis o comportamiento inesperado** — El código compilado no coincide con la nueva lógica
+- ❌ **Cambios en directivas existentes no se reflejan** — El caché contiene la versión anterior de la directiva
+
+**Ejemplo de escenario:**
+
+Imagina que modificas `@foreach` para agregar un contador interno:
+
+```php
+// En CronosEngine.php - MODIFICACIÓN
+protected function compileForeach(string $viewContent): string
+{
+    // Nueva funcionalidad agregada
+    return preg_replace('/@foreach\((.*?)\)/', '<?php $counter = 0; foreach($1): $counter++; ?>', $viewContent);
+}
+```
+
+Sin borrar el caché:
+- Las vistas existentes en `storage/cache/` siguen usando el código antiguo
+- El contador `$counter` no está disponible en ninguna vista
+- Necesitas borrar `storage/cache/*.php` para que se recompile todo
+
+**Buenas prácticas:**
+1. Siempre borrar el caché después de modificar `System/View/CronosEngine.php`
+2. Borrar el caché en producción después de deployar cambios al motor de plantillas
+3. Agregar `storage/cache/` a `.gitignore` (ya está en el proyecto)
+4. Considerar crear un comando CLI `php cronos view:clear` para limpieza rápida
+
+<!-- completado -->
+
 ### Middleware
 - **Sistema de middleware en cadena con Pipeline:** Ejecución secuencial usando patro de Pipeline
 - **Middlewares globales:** Se ejecutan en TODAS las rutas (configurables en config/app.php)
@@ -1668,6 +2149,139 @@ Para agregar nuevos helpers:
 - **Middleware de validación de tokens:** TokenValidationMiddleware
 - **Interfaz Middleware:** Contrato para implementar middlewares
 - **Archivos involucrados:** `System/Http/Middleware.php`, `System/Http/Pipeline.php`, `System/Http/MiddlewareGroup.php`, `App/Middlewares/*`, `config/app.php`
+
+#### ThrottleMiddleware — Configuración y Uso
+
+El `ThrottleMiddleware` implementa rate limiting para prevenir ataques de fuerza bruta y abuso de API, limitando cuántas peticiones puede hacer una dirección IP en un período de tiempo.
+
+**Configuración del middleware:**
+
+El middleware acepta los siguientes parámetros en su constructor:
+
+| Parámetro | Tipo | Default | Descripción |
+|-----------|------|---------|-------------|
+| `$maxRequests` | int | 60 | Máximo de peticiones permitidas en la ventana de tiempo |
+| `$decayMinutes` | int | 1 | Ventana de tiempo en minutos antes de resetear el contador |
+| `$onLimit` | string | 'block' | Acción al exceder el límite: 'block' o 'log_only' |
+
+**Identificación de clientes:**
+
+El middleware identifica automáticamente las peticiones por dirección IP, verificando en este orden:
+1. `HTTP_CLIENT_IP`
+2. `HTTP_X_FORWARDED_FOR`
+3. `HTTP_X_FORWARDED`
+4. `HTTP_FORWARDED_FOR`
+5. `HTTP_FORWARDED`
+6. `HTTP_X_CLUSTER_CLIENT_IP`
+7. `REMOTE_ADDR`
+
+Soporta múltiples IPs separadas por coma (toma la primera) y valida que sea una IP válida usando `filter_var()`.
+
+**Ejemplos de uso:**
+
+```php
+// Uso básico con valores por defecto (60 peticiones por minuto)
+Route::get('/api/data', [ApiController::class, 'index'])
+    ->middleware(ThrottleMiddleware::class);
+
+// Configuración personalizada: 100 peticiones por 5 minutos
+Route::get('/api/search', [ApiController::class, 'search'])
+    ->middleware(new ThrottleMiddleware(100, 5));
+
+// Solo logging sin bloquear (modo log_only)
+Route::get('/api/track', [ApiController::class, 'track'])
+    ->middleware(new ThrottleMiddleware(1000, 60, 'log_only'));
+
+// API endpoint con límite estricto
+Route::get('/api/login', [ApiController::class, 'login'])
+    ->middleware(new ThrottleMiddleware(5, 1)); // 5 intentos por minuto
+```
+
+**Headers de respuesta:**
+
+El middleware agrega los siguientes headers informativos a todas las respuestas:
+
+- `X-RateLimit-Limit`: Máximo de peticiones permitidas
+- `X-RateLimit-Remaining`: Peticiones restantes en la ventana actual
+- `X-RateLimit-Reset`: Timestamp Unix cuando se resetea el contador
+
+Cuando se excede el límite y `$onLimit === 'block'`:
+- Retorna código HTTP 429 (Too Many Requests)
+- Header `Retry-After`: Segundos restantes antes de poder hacer otra petición
+- Response JSON con mensaje de error
+
+<!-- completado -->
+
+#### LogRequestMiddleware — Destino y Formato del Log
+
+El `LogRequestMiddleware` registra información detallada de cada petición HTTP entrante para debugging, análisis de tráfico y detección de anomalías.
+
+**Destino de los logs:**
+
+Los logs se escriben en `storage/logs/request.log` por defecto. El directorio `storage/logs/` se crea automáticamente si no existe.
+
+**Opciones de configuración:**
+
+| Parámetro | Tipo | Default | Descripción |
+|-----------|------|---------|-------------|
+| `$logLevel` | string | 'basic' | Nivel de detalle: 'full', 'basic', 'minimal' |
+| `$logTo` | string | 'error_log' | Dónde guardar: 'error_log', 'file', 'database' |
+| `$logFile` | string | 'storage/logs/request.log' | Ruta del archivo de log (solo si `$logTo === 'file'`) |
+| `$includeRequestBody` | bool | false | Si incluir el body de la petición |
+| `$includeResponseTime` | bool | true | Si incluir el tiempo de ejecución |
+
+**Formato de las entradas de log:**
+
+El formato depende del nivel de configuración:
+
+**Nivel 'minimal':**
+```
+[2026-03-13 14:30:45] GET /api/users
+```
+
+**Nivel 'basic' (default):**
+```
+[2026-03-13 14:30:45] POST /api/login | IP: 192.168.1.100 | Status: 200 | Time: 0.045s
+```
+
+**Nivel 'full' (JSON formateado):**
+```json
+{
+    "timestamp": "2026-03-13 14:30:45",
+    "method": "POST",
+    "uri": "/api/login",
+    "ip": "192.168.1.100",
+    "status_code": 200,
+    "execution_time": "45.23ms",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+    "referer": "https://example.com/login",
+    "request_body": {
+        "email": "user@example.com",
+        "password": "***HIDDEN***"
+    }
+}
+```
+
+**Rotación y límites:**
+- No hay rotación automática de logs
+- No hay límite de tamaño del archivo
+- Los logs crecen indefinidamente hasta que se borran manualmente
+- Se recomienda implementar un sistema de rotación (logrotate) en producción
+
+**Ejemplo de uso:**
+
+```php
+// En config/app.php como middleware global
+'global_middlewares' => [
+    \App\Middlewares\LogRequestMiddleware::class,
+],
+
+// O configuración personalizada
+Route::get('/api/data', [ApiController::class, 'index'])
+    ->middleware(new LogRequestMiddleware('full', 'file', 'storage/logs/api.log', true, true));
+```
+
+<!-- completado -->
 
 ### Sesiones
 - **Sistema de sesiones nativo PHP:** PhpNativeSessionStorage
@@ -1725,6 +2339,93 @@ Para agregar nuevos helpers:
 - **Ejecución de migraciones:** migrate
 - **Archivos involucrados:** `cronos`, `System/ConsoleCLI/ConsoleCLI.php`, `System/ConsoleCLI/templates/*`
 
+#### make:migration — Ejemplo Completo
+
+El comando `make:migration` genera el archivo `App/Migrations/Database.php`. A diferencia de Laravel, este framework usa un solo archivo para todas las migraciones.
+
+**Comando:**
+```bash
+php cronos make:migration database
+```
+
+**Comportamiento:**
+
+| Situación | Resultado |
+|------------|-----------|
+| Archivo no existe | ✅ Crea `App/Migrations/Database.php` con plantilla |
+| Archivo ya existe | ❌ Error: "The Database.php file already exists" (NO sobreescribe) |
+| Argumento ≠ `database` | ❌ Error: "Invalid migration command. Use: make:migration database" |
+
+**Ejecutar migración:**
+```bash
+php cronos migrate
+```
+
+**Archivo generado (plantilla base):**
+```php
+<?php
+
+namespace App\Migrations;
+
+use Cronos\Database\DatabaseMigrate;
+
+class Database extends DatabaseMigrate
+{
+    public function migrate()
+    {
+        if (!$this->connect()) {
+            return false;
+        }
+
+        try {
+            echo "\nIniciando migración...\n";
+            
+            $this->pdo->exec("DROP TABLE IF EXISTS `blogs`;");
+            $this->pdo->exec("DROP TABLE IF EXISTS `users`;");
+            
+            $this->pdo->exec("
+                CREATE TABLE IF NOT EXISTS `users` (
+                    `id` INT AUTO_INCREMENT PRIMARY KEY,
+                    `name` VARCHAR(60),
+                    `email` VARCHAR(60),
+                    `password` VARCHAR(60),
+                    `created_at` TIMESTAMP NULL DEFAULT NULL,
+                    `updated_at` TIMESTAMP NULL DEFAULT NULL
+                );
+            ");
+            
+            $this->pdo->exec("
+                CREATE TABLE IF NOT EXISTS `blogs` (
+                    `id` INT AUTO_INCREMENT PRIMARY KEY,
+                    `title` VARCHAR(100),
+                    `sglu` VARCHAR(150),
+                    `content` TEXT,
+                    `user_id` INT,
+                    `created_at` TIMESTAMP NULL DEFAULT NULL,
+                    `updated_at` TIMESTAMP NULL DEFAULT NULL,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                );
+            ");
+            
+            echo "\nMigración completada exitosamente.\n";
+            return true;
+        } catch (\PDOException $e) {
+            echo "\nError en la migración: " . $e->getMessage() . "\n";
+            return false;
+        }
+    }
+}
+```
+
+**Consideraciones al editar el archivo:**
+- La plantilla incluye tablas `users` y `blogs` como ejemplo
+- La plantilla tiene `DROP TABLE IF EXISTS` (destruye datos - usar con cuidado)
+- Corregir error tipográfico: `sglu` → `slug`
+- El método es `migrate()` (no `up()` como en Laravel)
+- Agregar `ENGINE=InnoDB` y `CHARSET=utf8mb4` para mejor compatibilidad
+
+<!-- completado -->
+
 ### Helpers Globales
 - **app($class)** - Resuelve instancia del contenedor
 - **configGet($key, $default)** - Obtiene valor de configuración
@@ -1773,7 +2474,7 @@ Para agregar nuevos helpers:
 | Casting | ✅ Implementado | ❌ No implementado |
 | Eager Loading (with) | ✅ Implementado | ❌ No implementado |
 | API Resources | ✅ Implementado | ❌ No implementado |
-| CSRF Protection | ✅ Implementado | ❌ No implementado |
+| CSRF Protection | ✅ Implementado | ✅ Implementado (directiva @csrf genera token en formularios) |
 | Rate Limiting | ✅ Implementado | ✅ Implementado (ThrottleMiddleware) |
 | File Storage | ✅ Completo | ⚠️ Básico (solo archivos locales) |
 | Cache | ✅ Múltiples drivers | ⚠️ Solo cache de vistas |
