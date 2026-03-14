@@ -32,7 +32,6 @@ class CronosEngine implements View
         $cacheFile = $this->cacheDirectory . DIRECTORY_SEPARATOR . md5($view) . '.php';
         $cacheKey = md5($viewFile . json_encode($this->getIncludeFiles($viewFile)));
 
-        // if (!file_exists($cacheFile) || filemtime($cacheFile) < filemtime($viewFile)) {
         if (!file_exists($cacheFile) || filemtime($cacheFile) < filemtime($viewFile) || file_get_contents($cacheFile) !== $this->getCacheContent($cacheKey)) {
 
             //extraer el contenido del archivo de la vista
@@ -133,28 +132,35 @@ class CronosEngine implements View
 
     protected function compileIncludes(string $content): string
     {
-        // $contents = preg_replace_callback('/@include\((.*?)\)/', function ($match) {
-        //     $filename = trim($match[1], '\'"');
+        return preg_replace_callback(
+            '/@include\(\s*[\'"]([^\'"]+)[\'"]\s*(?:,\s*(.*?))?\s*\)/s',  // ← AGREGADO 's' para que . match newlines
+            function (array $matches): string {
+                $includeView = trim($matches[1], "'\"");
+                $includeFile = $this->viewDirectory
+                    . DIRECTORY_SEPARATOR
+                    . str_replace('.', DIRECTORY_SEPARATOR, $includeView)
+                    . '.php';
 
-        //     $filepath = $this->viewDirectory . '/' . str_replace('.', '/', $filename) . '.php';
+                if (!file_exists($includeFile)) {
+                    throw new \Error("No existe el archivo: $includeFile");
+                }
 
-        //     if (!file_exists($filepath)) {
-        //         throw new \Error("No existe el archivo {$filepath}");
-        //     }
+                $fileContent = file_get_contents($includeFile);
 
-        //     return file_get_contents($filepath);
-        // }, $contents);
+                // Si hay segundo parámetro (array de variables), extraerlas en scope local
+                if (!empty(trim($matches[2] ?? ''))) {
+                    $params = trim($matches[2]);
+                    return "<?php (function(\$__data) { "
+                        . "extract(\$__data); "
+                        . "extract({$params}); ?>"
+                        . $fileContent
+                        . "<?php })(get_defined_vars()); ?>";
+                }
 
-        // return $contents;
-
-        return preg_replace_callback('/@include\((.*?)\)/', function ($matches) {
-            $includeView = trim($matches[1], "'\"");
-            $includeFile = $this->viewDirectory . DIRECTORY_SEPARATOR . str_replace('.', DIRECTORY_SEPARATOR, $includeView) . '.php';
-            if (!file_exists($includeFile)) {
-                throw new \Error("No existe el archivo: $includeFile");
-            }
-            return file_get_contents($includeFile);
-        }, $content);
+                return $fileContent;
+            },
+            $content
+        );
     }
 
     protected function compileSections(string $content): string
