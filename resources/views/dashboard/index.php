@@ -5,22 +5,17 @@
 <div class="main-content">
     <div class="max-w-7xl mx-auto">
 
-        <!-- Page header -->
-        <div class="page-header">
-            <div>
-                <h1 class="page-header__title">Gestión de Blogs</h1>
-                <p class="page-header__subtitle">Administra todos tus blogs y artículos</p>
-            </div>
-            <button class="btn-primary" id="btnCrear">
-                <i class="bi bi-plus-lg"></i>
-                Crear Blog
-            </button>
-        </div>
+        <!-- Botón externo para eventos JS -->
+        <button class="btn-primary" id="btnCrear">
+            <i class="bi bi-plus-lg"></i>
+            Crear Blog
+        </button>
 
-        <!-- Table card -->
-        <div class="card">
-            <div id="simpleDatatable"></div>
-        </div>
+        @include('dashboard.components.data-table', [
+        'tableId' => 'simpleDatatable',
+        'title' => 'Gestión de Blogs',
+        'subtitle' => 'Administra todos tus blogs y artículos',
+        ])
 
     </div>
 </div>

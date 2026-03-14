@@ -5,21 +5,47 @@ const btnSubmit = document.querySelector("#btnSubmit");
 const textTitle = document.querySelector("#title");
 const textSlug = document.querySelector("#slug");
 const textContent = document.querySelector("#content");
-const simpleDatatable = document.querySelector("#simpleDatatable");
+const simpleDatatable = document.querySelector("#simpleDatatable-wrapper");
 
 //cuando el documento este listo
 document.addEventListener("DOMContentLoaded", function () {
-	//inicializar datatable
-	renderTable();
 	btnRegistrarBlog();
-
-	//registrar botonnes de acciones
 	registrarBotones();
-
-	//generar slug
 	generarSlug();
 });
 
+// Función de inicialización que el componente llamará automáticamente
+window.__dt_init_simpleDatatable = async function () {
+	const response = await fetch(`${baseLink}/dashboard/blogs`);
+	const data = await response.json();
+	data.forEach((element) => {
+		element.action = `
+						<button class="btn-action-view btnShow" data-id="${element.slug}" title="ver post">
+							<i class="bi bi-file-earmark-text"></i>
+						</button>
+						<button class="btn-action-edit btnEdita" data-id="${element.id}" title="editar post">
+							<i class="bi bi-pencil"></i>
+						</button>
+						<button class="btn-action-delete btnEliminar" data-id="${element.id}" title="eliminar post">
+							<i class="bi bi-trash"></i>
+						</button>
+						`;
+	});
+
+	const headers = {
+		id: "ID",
+		name: "Autor",
+		title: "Titulo",
+		action: "Acciones",
+	};
+	const table = new DataTable("#simpleDatatable-wrapper", data, headers, [10, 15, 20]);
+	table.init();
+
+	// Registrar la instancia para acceso externo
+	window.__datatables['simpleDatatable'] = table;
+};
+
+// Wrapper function para recargar la tabla
 async function renderTable() {
 	const response = await fetch(`${baseLink}/dashboard/blogs`);
 	const data = await response.json();
@@ -43,11 +69,17 @@ async function renderTable() {
 		title: "Titulo",
 		action: "Acciones",
 	};
-	const table = new DataTable("#simpleDatatable", data, headers, [10, 15, 20]);
+
+	// Recrear la instancia de DataTable
+	const table = new DataTable("#simpleDatatable-wrapper", data, headers, [10, 15, 20]);
 	table.init();
+
+	// Actualizar la referencia global
+	window.__datatables['simpleDatatable'] = table;
 }
 
 function btnRegistrarBlog() {
+	if (!btnCrear) return;
 	btnCrear.addEventListener("click", () => {
 		limpiarErrrorInput([textTitle, textSlug, textContent]);
 		btnSubmit.textContent = "Crear";
@@ -81,6 +113,7 @@ function registrarBlog() {
 }
 
 function registrarBotones() {
+	if (!simpleDatatable) return;
 	simpleDatatable.addEventListener("click", (e) => {
 		// console.log(e.target);
 		if (e.target.closest(".btnShow")) {

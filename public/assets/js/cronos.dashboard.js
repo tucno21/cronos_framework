@@ -956,14 +956,13 @@
 		filtrarData() {
 			if (this.searchTerm === "") {
 				return this.data;
-			} else {
-				const lowerCaseSearchTerm = this.searchTerm.toLowerCase();
-				return this.data.filter((row) =>
-					Object.values(row).some(
-						(value) => value.toString().toLowerCase().indexOf(lowerCaseSearchTerm) !== -1
-					)
-				);
 			}
+			const lowerCaseSearchTerm = this.searchTerm.toLowerCase();
+			return this.data.filter((row) =>
+				Object.values(row).some(
+					(value) => value != null && value.toString().toLowerCase().indexOf(lowerCaseSearchTerm) !== -1
+				)
+			);
 		}
 
 		ordenarData(data) {
