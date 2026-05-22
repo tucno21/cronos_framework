@@ -10,9 +10,17 @@ class User extends Model
 
     protected string $primaryKey = 'id';
 
-    protected array $fillable = ['name', 'email', 'password'];
+    protected array $fillable = [
+        'name',
+        'email',
+        'password',
+        'role',
+        'avatar',
+        'email_verified_at',
+        'remember_token',
+    ];
 
-    protected array $hidden = ['password'];
+    protected array $hidden = ['password', 'remember_token'];
 
     protected bool $timestamps = true;
 
@@ -20,8 +28,13 @@ class User extends Model
 
     protected string $updated = 'updated_at';
 
-    public function blogs()
+    public function posts()
     {
-        return $this->hasMany(Blog::class, 'user_id');
+        return $this->hasMany(Post::class, 'user_id');
+    }
+
+    public function tokens()
+    {
+        return $this->hasMany(PersonalAccessToken::class, 'user_id');
     }
 }
