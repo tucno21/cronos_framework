@@ -27,7 +27,6 @@ class Request
 
     public function __construct()
     {
-        $this->setupCorsHeaders();
         $this->initializeRequest();
     }
 
@@ -39,22 +38,6 @@ class Request
         $this->cookies = $this->sanitizeInput($_COOKIE);
         $this->rawBody = $this->getRawBody();
         $this->data = $this->setData();
-    }
-
-    private function setupCorsHeaders(): void
-    {
-        $corsConfigs = [
-            'allowed_origins' => 'Access-Control-Allow-Origin',
-            'allowed_methods' => 'Access-Control-Allow-Methods',
-            'allowed_headers' => 'Access-Control-Allow-Headers'
-        ];
-
-        foreach ($corsConfigs as $key => $header) {
-            $allowed = configGet("cors.$key");
-            if (!empty($allowed)) {
-                header("$header: " . implode(', ', $allowed));
-            }
-        }
     }
 
     private function sanitizeUri(string $uri): string

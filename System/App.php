@@ -14,6 +14,7 @@ use Cronos\Session\Session;
 use Cronos\Container\Container;
 use Cronos\Session\SessionStorage;
 use Cronos\Database\DatabaseDriver;
+use Cronos\Http\MiddlewareGroup;
 use Cronos\Errors\ExceptionHandler;
 
 class App
@@ -43,6 +44,7 @@ class App
             ->loadConfig()
             ->runServiceProvider("boot")
             ->setHttpStartHandlers()
+            ->loadGlobalMiddlewares()
             ->setSessionHandler()
             ->setUpDatabaseConnection()
             ->runServiceProvider("runtime")
@@ -85,6 +87,13 @@ class App
 
         //instanciamos la clase Response y almacenamos en la propiedad response
         $this->response = Container::singleton(Response::class);
+
+        return $this;
+    }
+
+    protected function loadGlobalMiddlewares(): self
+    {
+        MiddlewareGroup::loadFromConfig();
 
         return $this;
     }

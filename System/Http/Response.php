@@ -33,13 +33,13 @@ class Response
 
     public function setHeader(string $name, string $value): self
     {
-        $this->headers[$name] = $value;
+        $this->headers[strtolower($name)] = $value;
         return $this;
     }
 
     public function removeHeader(string $header): void
     {
-        unset($this->headers[$header]);
+        unset($this->headers[strtolower($header)]);
     }
 
     public function cookies(?string $key = null): array|string|null
@@ -204,25 +204,22 @@ class Response
     //ejectuamos la respuestas que hemos preparado
     public function sendResponse(Response $response)
     {
-        if (!configGet('cors.supports_credentials')) {
-            header('Access-Control-Allow-Origin: *');
-        } else {
-            //obtener dominio del origen de la solicitud
-            $origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '';
-            //comprobar si el dominio del origen de la solicitud está en la lista de dominios permitidos
-            if (in_array($origin, configGet('cors.allowed_origins_patterns'))) {
+        if (!$response->headers('Access-Control-Allow-Origin')) {
+            $allowedOrigins = configGet('cors.allowed_origins', ['*']);
+            $origin = $_SERVER['HTTP_ORIGIN'] ?? null;
+
+            if ($allowedOrigins === ['*']) {
+                header('Access-Control-Allow-Origin: *');
+            } elseif ($origin && in_array($origin, $allowedOrigins)) {
                 header("Access-Control-Allow-Origin: $origin");
-                header("Access-Control-Allow-Credentials: true");
-            } else {
-                header('HTTP/1.1 403 Forbidden');
-                exit();
+                if (configGet('cors.supports_credentials')) {
+                    header('Access-Control-Allow-Credentials: true');
+                }
             }
         }
 
-        //establecer cors que encabezados se pueden exponer para javascript en el cliente
         $exposed_headers = configGet('cors.exposed_headers');
         if ($exposed_headers !== null && $exposed_headers !== []) {
-            //['*']
             $origins = implode(', ', $exposed_headers);
             header("Access-Control-Expose-Headers: $origins");
         }

@@ -132,14 +132,13 @@ class MiddlewareGroup
      */
     public static function loadFromConfig(): void
     {
-        $groups = Config::get('middleware_groups', []);
+        $groups = Config::get('app.middleware_groups', []);
 
         foreach ($groups as $name => $middlewares) {
             static::group($name, $middlewares);
         }
 
-        // Cargar middlewares globales desde configuración
-        $global = Config::get('global_middlewares', []);
+        $global = Config::get('app.global_middlewares', []);
         static::$globalMiddlewares = $global;
     }
 

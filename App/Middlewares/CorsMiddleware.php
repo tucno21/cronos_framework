@@ -89,7 +89,7 @@ class CorsMiddleware implements Middleware
     {
         $config = Config::get('cors', []);
 
-        // Orígenes permitidos
+        // Origenes permitidos
         $allowedOrigins = $config['allowed_origins'] ?? ['*'];
         $origin = $this->getOrigin();
 
@@ -99,23 +99,29 @@ class CorsMiddleware implements Middleware
             $response->setHeader('Access-Control-Allow-Origin', $origin);
         }
 
-        // Métodos permitidos
+        // Metodos permitidos
         $allowedMethods = $config['allowed_methods'] ?? ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'];
+        if ($allowedMethods === ['*']) {
+            $allowedMethods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'];
+        }
         $response->setHeader('Access-Control-Allow-Methods', implode(', ', $allowedMethods));
 
-        // Encabezados permitidos
-        $allowedHeaders = $config['allowed_headers'] ?? ['Content-Type', 'Authorization', 'X-Requested-With'];
+        // Headers permitidos
+        $allowedHeaders = $config['allowed_headers'] ?? ['Content-Type', 'Authorization', 'X-Token', 'X-Requested-With', 'Accept'];
+        if ($allowedHeaders === ['*']) {
+            $allowedHeaders = ['Content-Type', 'Authorization', 'X-Token', 'X-Requested-With', 'Accept'];
+        }
         $response->setHeader('Access-Control-Allow-Headers', implode(', ', $allowedHeaders));
 
         // Credenciales
-        $allowCredentials = $config['allow_credentials'] ?? true;
+        $allowCredentials = $config['supports_credentials'] ?? false;
         $response->setHeader('Access-Control-Allow-Credentials', $allowCredentials ? 'true' : 'false');
 
-        // Tiempo máximo de cache (para pre-flight requests)
+        // Tiempo maximo de cache (para pre-flight requests)
         $maxAge = $config['max_age'] ?? 86400;
         $response->setHeader('Access-Control-Max-Age', (string)$maxAge);
 
-        // Encabezado Vary para que el navegador guarde respuestas por origen
+        // Header Vary para que el navegador guarde respuestas por origen
         if ($allowedOrigins !== ['*']) {
             $response->setHeader('Vary', 'Origin');
         }

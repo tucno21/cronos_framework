@@ -19,14 +19,6 @@ return [
      * - \App\Middlewares\ThrottleMiddleware::class - Limitar tasa de peticiones
      */
     'global_middlewares' => [
-        // Ejemplos de uso (descomentar según necesidad):
-
-        // \App\Middlewares\LogRequestMiddleware::class,
-
-        // Para APIs, descomentar CORS:
-        // \App\Middlewares\CorsMiddleware::class,
-
-        // Para limitar peticiones a toda la aplicación:
-        // new \App\Middlewares\ThrottleMiddleware(60, 1, 'block'),
+        \App\Middlewares\CorsMiddleware::class,
     ],
 ];

@@ -12,7 +12,7 @@ use Cronos\Errors\HttpNotFoundException;
 use Cronos\Container\DependencyInjection;
 use Cronos\Http\Pipeline;
 use Cronos\Http\MiddlewareGroup;
-
+use Cronos\Http\Response;
 
 class Router
 {
@@ -48,6 +48,14 @@ class Router
 
     public function resolve(Request $request): mixed
     {
+        if ($request->method()->value === 'OPTIONS') {
+            $globalMiddlewares = MiddlewareGroup::getGlobalMiddlewares();
+            return (new Pipeline())
+                ->send($request)
+                ->through($globalMiddlewares)
+                ->then(fn() => new Response());
+        }
+
         //obtener la instancia de la clase Route dependiendo de la uri y el metodo http
         $route = $this->resolveRoute($request);
 
