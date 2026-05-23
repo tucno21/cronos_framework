@@ -30,6 +30,11 @@ class AuthController extends Controller
         $data->password = $hasher->hash($data->password);
         unset($data->confirm_password);
 
+        $data->role = 'user';
+        $data->avatar = null;
+        $data->email_verified_at = null;
+        $data->remember_token = null;
+
         $user = User::create($data);
 
         $jwt = new JWTAuth();
