@@ -131,6 +131,27 @@ class Database extends DatabaseMigrate
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
             ");
 
+            echo "Insertando seed basico de prueba...\n";
+            $this->pdo->exec(<<<'SQL'
+                INSERT INTO `users` (`name`, `email`, `password`, `role`, `created_at`) VALUES
+                ('Admin', 'admin@admin.com', '$2y$10$hhq6q6ZpdOvfMvLxZkdH9elRyNIP.au0fOPMORZnKhRMRJScsNzBa', 'admin', NOW()),
+                ('Editor', 'editor@admin.com', '$2y$10$hhq6q6ZpdOvfMvLxZkdH9elRyNIP.au0fOPMORZnKhRMRJScsNzBa', 'editor', NOW());
+
+                INSERT INTO `categories` (`name`, `slug`, `created_at`) VALUES
+                ('Tecnología', 'tecnologia', NOW()),
+                ('Tutoriales', 'tutoriales', NOW());
+
+                INSERT INTO `tags` (`name`, `slug`, `created_at`) VALUES
+                ('PHP', 'php', NOW()),
+                ('MySQL', 'mysql', NOW()),
+                ('API', 'api', NOW());
+
+                INSERT INTO `posts` (`user_id`, `category_id`, `title`, `slug`, `excerpt`, `content`, `status`, `published_at`, `created_at`) VALUES
+                (1, 1, 'Mi primer post', 'mi-primer-post', 'Resumen del post.', 'Contenido completo del post de prueba.', 'published', NOW(), NOW());
+
+                INSERT INTO `post_tag` (`post_id`, `tag_id`) VALUES (1, 1), (1, 3);
+            SQL);
+
             echo "\nMigracion completada exitosamente.\n";
             return true;
         } catch (\PDOException $e) {
