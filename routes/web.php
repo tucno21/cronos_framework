@@ -6,6 +6,7 @@ use App\Controllers\LoginController;
 use App\Controllers\RegisterController;
 use App\Middlewares\DahboardMiddleware;
 use App\Controllers\DashboardController;
+use App\Controllers\SpaController;
 
 Route::get('/', [HomeController::class, 'index'])->name('home.index')->middleware(DahboardMiddleware::class);
 
@@ -24,3 +25,7 @@ Route::post('/dashboard/create', [DashboardController::class, 'store']);
 Route::get('/dashboard/{blog}/edit', [DashboardController::class, 'edit']);
 Route::put('/dashboard/{blog}/edit', [DashboardController::class, 'update']);
 Route::delete('/dashboard/{blog}/delete', [DashboardController::class, 'destroy']);
+
+//Rutas SPA
+Route::get('/prueba/page1', [SpaController::class, 'index']);
+Route::get('/prueba/page2', [SpaController::class, 'index']);
