@@ -7,9 +7,6 @@ echo "🚀 Compilando Tailwind CSS v4 para PRODUCCIÓN..."
 ./tailwindcss -i resources/css/home.css -o public/assets/css/home.css --minify
 echo "✓ home.css compilado"
 
-./tailwindcss -i resources/css/dashboard.css -o public/assets/css/dashboard.css --minify
-echo "✓ dashboard.css compilado"
-
 ./tailwindcss -i resources/css/error.css -o public/assets/css/error.css --minify
 echo "✓ error.css compilado"
 

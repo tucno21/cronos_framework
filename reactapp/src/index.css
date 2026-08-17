@@ -1,1 +1,15 @@
 @import "tailwindcss";
+
+@layer components {
+  .auth-card {
+    @apply bg-white px-8 py-8 rounded-2xl shadow-xl border border-gray-100 max-w-md w-full mx-auto;
+  }
+
+  .auth-title {
+    @apply text-3xl font-bold text-center mb-8 text-gray-800;
+  }
+
+  .auth-link {
+    @apply text-blue-600 hover:text-blue-700 font-medium border-b border-transparent hover:border-blue-600 transition-all duration-200;
+  }
+}

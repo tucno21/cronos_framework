@@ -1,15 +1,30 @@
 import { createBrowserRouter } from 'react-router'
-import Layout from './layouts/Layout'
-import Page1 from './pages/Page1'
-import Page2 from './pages/Page2'
+import Login from './pages/Login'
+import Register from './pages/Register'
+import RequireAuth from './components/RequireAuth'
+import DashboardLayout from './layouts/DashboardLayout'
+import Dashboard from './pages/dashboard/Dashboard'
+import BlogList from './pages/dashboard/BlogList'
+import BlogShow from './pages/dashboard/BlogShow'
+import BlogForm from './pages/dashboard/BlogForm'
 
 const router = createBrowserRouter([
+  { path: '/login', Component: Login },
+  { path: '/register', Component: Register },
   {
-    path: '/prueba',
-    Component: Layout,
+    element: <RequireAuth />,
     children: [
-      { path: 'page1', Component: Page1 },
-      { path: 'page2', Component: Page2 },
+      {
+        path: '/dashboard',
+        Component: DashboardLayout,
+        children: [
+          { index: true, Component: Dashboard },
+          { path: 'blogs', Component: BlogList },
+          { path: 'blogs/crear', Component: BlogForm },
+          { path: 'blogs/:slug', Component: BlogShow },
+          { path: 'blogs/:id/editar', Component: BlogForm },
+        ],
+      },
     ],
   },
 ])

@@ -16,14 +16,6 @@ if %errorlevel% neq 0 (
 )
 echo [OK] home.css compilado
 
-REM Compilar dashboard.css para produccion
-tailwindcss -i resources/css/dashboard.css -o public/assets/css/dashboard.css --minify
-if %errorlevel% neq 0 (
-    echo [ERROR] Error compilando dashboard.css
-    exit /b %errorlevel%
-)
-echo [OK] dashboard.css compilado
-
 REM Compilar error.css para produccion
 tailwindcss -i resources/css/error.css -o public/assets/css/error.css --minify
 if %errorlevel% neq 0 (

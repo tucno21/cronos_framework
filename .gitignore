@@ -15,7 +15,6 @@ coverage/
 
 # CSS compilados (se generan con los scripts)
 /public/assets/css/home.css
-/public/assets/css/dashboard.css
 /public/assets/css/error.css
 # NO ignorar los CSS fuente en resources/css/
 
