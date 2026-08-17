@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
+import { FileText, Pencil, Plus, Trash2 } from 'lucide-react'
 import { deleteBlog, getBlogs, type Blog } from '../../services/blogService'
 
 const BlogList = () => {
@@ -62,7 +63,7 @@ const BlogList = () => {
           to="/dashboard/blogs/crear"
           className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
         >
-          <i className="bi bi-plus-lg"></i>
+          <Plus size={16} />
           Crear Blog
         </Link>
       </div>
@@ -141,21 +142,21 @@ const BlogList = () => {
                           title="Ver post"
                           className="p-1.5 rounded text-gray-500 hover:bg-gray-100 hover:text-blue-600"
                         >
-                          <i className="bi bi-file-earmark-text"></i>
+                          <FileText size={16} />
                         </Link>
                         <Link
-                          to={`/dashboard/blogs/${blog.id}/editar`}
+                          to={`/dashboard/blogs/${blog.slug}/editar`}
                           title="Editar post"
                           className="p-1.5 rounded text-gray-500 hover:bg-gray-100 hover:text-blue-600"
                         >
-                          <i className="bi bi-pencil"></i>
+                          <Pencil size={16} />
                         </Link>
                         <button
                           onClick={() => handleDelete(blog.id)}
                           title="Eliminar post"
                           className="p-1.5 rounded text-gray-500 hover:bg-gray-100 hover:text-red-600"
                         >
-                          <i className="bi bi-trash"></i>
+                          <Trash2 size={16} />
                         </button>
                       </div>
                     </td>

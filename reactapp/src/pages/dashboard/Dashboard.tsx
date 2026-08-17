@@ -1,4 +1,5 @@
 import { Link } from 'react-router'
+import { BookOpen } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 
 const Dashboard = () => {
@@ -18,7 +19,7 @@ const Dashboard = () => {
         >
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
-              <i className="bi bi-journal-text text-xl"></i>
+              <BookOpen size={22} />
             </div>
             <div>
               <h3 className="font-semibold text-gray-800">Blogs</h3>

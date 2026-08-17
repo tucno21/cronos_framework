@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
+import { ArrowLeft, User } from 'lucide-react'
 import { getBlog, type Blog } from '../../services/blogService'
 
 const BlogShow = () => {
@@ -52,7 +53,7 @@ const BlogShow = () => {
         to="/dashboard/blogs"
         className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-blue-600 transition-colors mb-5"
       >
-        <i className="bi bi-arrow-left"></i>
+        <ArrowLeft size={16} />
         Volver al listado
       </Link>
 
@@ -60,7 +61,7 @@ const BlogShow = () => {
         <div className="px-8 py-6 border-b border-gray-100">
           <div className="flex items-center gap-2 text-sm text-gray-400 mb-3">
             <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-[0.6875rem] text-white">
-              <i className="bi bi-person-fill"></i>
+              <User size={12} />
             </div>
             <span>
               Por <strong className="text-gray-600">{blog.name ?? 'Autor'}</strong>
@@ -83,7 +84,7 @@ const BlogShow = () => {
 
         <div className="px-8 py-4 border-t border-gray-100 flex gap-3">
           <Link to="/dashboard/blogs" className="btn-secondary">
-            <i className="bi bi-arrow-left"></i>
+            <ArrowLeft size={16} />
             Volver
           </Link>
         </div>

@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
+import { ArrowLeft, Check } from 'lucide-react'
 import { createBlog, getBlog, updateBlog } from '../../services/blogService'
 
 const inputClass =
@@ -7,21 +8,23 @@ const inputClass =
 
 const BlogForm = () => {
   const navigate = useNavigate()
-  const { id } = useParams()
-  const isEditing = Boolean(id)
+  const { slug } = useParams()
+  const isEditing = Boolean(slug)
 
+  const [blogId, setBlogId] = useState<number | null>(null)
   const [title, setTitle] = useState('')
-  const [slug, setSlug] = useState('')
+  const [slugValue, setSlug] = useState('')
   const [content, setContent] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!id) return
+    if (!slug) return
     const load = async () => {
       try {
-        const data = await getBlog(id)
+        const data = await getBlog(slug)
         if (data) {
+          setBlogId(data.id)
           setTitle(data.title)
           setSlug(data.slug)
           setContent(data.content)
@@ -31,7 +34,7 @@ const BlogForm = () => {
       }
     }
     load()
-  }, [id])
+  }, [slug])
 
   const generateSlug = (value: string) =>
     value
@@ -56,9 +59,9 @@ const BlogForm = () => {
     setError(null)
     try {
       if (isEditing) {
-        await updateBlog(Number(id), { title, slug, content })
+        await updateBlog(blogId!, { title, slug: slugValue, content })
       } else {
-        await createBlog({ title, slug, content })
+        await createBlog({ title, slug: slugValue, content })
       }
       navigate('/dashboard/blogs')
     } catch (err: any) {
@@ -74,7 +77,7 @@ const BlogForm = () => {
         to="/dashboard/blogs"
         className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-blue-600 transition-colors mb-5"
       >
-        <i className="bi bi-arrow-left"></i>
+        <ArrowLeft size={16} />
         Volver al listado
       </Link>
 
@@ -114,7 +117,7 @@ const BlogForm = () => {
           <input
             type="text"
             id="slug"
-            value={slug}
+            value={slugValue}
             onChange={(e) => setSlug(generateSlug(e.target.value))}
             placeholder="se-genera-automaticamente"
             required
@@ -154,7 +157,7 @@ const BlogForm = () => {
             disabled={loading}
             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
           >
-            <i className="bi bi-check-lg"></i>
+            <Check size={16} />
             {loading ? 'Guardando...' : isEditing ? 'Actualizar Blog' : 'Guardar Blog'}
           </button>
         </div>

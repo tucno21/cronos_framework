@@ -6,7 +6,6 @@
     <link rel="icon" type="image/svg+xml" href="/assets/spa/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>reactapp</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 </head>
 
 <body>

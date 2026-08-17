@@ -1,9 +1,10 @@
 import { NavLink, Outlet, useNavigate } from 'react-router'
+import { BookOpen, Cpu, LayoutGrid, LogOut, User } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 
 const navItems = [
-  { to: '/dashboard', label: 'Dashboard', icon: 'bi-grid-1x2-fill' },
-  { to: '/dashboard/blogs', label: 'Blogs', icon: 'bi-journal-text' },
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutGrid },
+  { to: '/dashboard/blogs', label: 'Blogs', icon: BookOpen },
 ]
 
 const DashboardLayout = () => {
@@ -20,7 +21,7 @@ const DashboardLayout = () => {
     <div className="min-h-screen bg-gray-50">
       <nav className="fixed inset-y-0 left-0 w-56 bg-gray-900 text-white flex flex-col">
         <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-800">
-          <i className="bi bi-cpu-fill text-blue-400 text-xl"></i>
+          <Cpu className="text-blue-400 text-xl" size={22} />
           <h1 className="font-bold text-lg">Cronos</h1>
         </div>
 
@@ -41,7 +42,7 @@ const DashboardLayout = () => {
                 }`
               }
             >
-              <i className={`bi ${item.icon}`}></i>
+              <item.icon size={18} />
               <span>{item.label}</span>
             </NavLink>
           ))}
@@ -50,7 +51,7 @@ const DashboardLayout = () => {
         <div className="px-4 py-4 border-t border-gray-800 space-y-3">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-sm">
-              <i className="bi bi-person-fill"></i>
+              <User size={16} />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium truncate">{user?.name ?? 'Usuario'}</p>
@@ -61,7 +62,7 @@ const DashboardLayout = () => {
             onClick={handleLogout}
             className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-300 hover:bg-red-600/20 hover:text-red-300 transition-colors"
           >
-            <i className="bi bi-box-arrow-right text-lg"></i>
+            <LogOut size={18} />
             Cerrar sesión
           </button>
         </div>

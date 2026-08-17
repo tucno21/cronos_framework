@@ -22,7 +22,7 @@ const router = createBrowserRouter([
           { path: 'blogs', Component: BlogList },
           { path: 'blogs/crear', Component: BlogForm },
           { path: 'blogs/:slug', Component: BlogShow },
-          { path: 'blogs/:id/editar', Component: BlogForm },
+          { path: 'blogs/:slug/editar', Component: BlogForm },
         ],
       },
     ],

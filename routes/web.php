@@ -15,4 +15,4 @@ Route::get('/dashboard', [SpaController::class, 'index'])->name('dashboard.index
 Route::get('/dashboard/blogs', [SpaController::class, 'index']);
 Route::get('/dashboard/blogs/crear', [SpaController::class, 'index']);
 Route::get('/dashboard/blogs/{slug}', [SpaController::class, 'index']);
-Route::get('/dashboard/blogs/{id}/editar', [SpaController::class, 'index']);
+Route::get('/dashboard/blogs/{slug}/editar', [SpaController::class, 'index']);
