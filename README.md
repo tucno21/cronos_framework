@@ -51,6 +51,8 @@ La documentacion completa esta organizada en la carpeta `Documentation/`:
 | [09 - Helpers](Documentation/09-helpers.md) | Depuracion, HTTP, archivos/imagenes, constantes |
 | [10 - Configuracion](Documentation/10-configuracion.md) | Variables .env, archivos config/* |
 | [11 - Guia Nuevo Modulo](Documentation/11-guia-nuevo-modulo.md) | Paso a paso: modelo, migracion, controlador, vistas, rutas |
+| [12 - TailwindCSS](Documentation/12-tailwindcss.md) | CLI standalone, v3 vs v4, @theme, configuracion de build |
+| [13 - React SPA](Documentation/13-reactapp-spa.md) | SPA con Vite + React + TypeScript + Tailwind v4 en carpeta `reactapp/` |
 
 ## Inicio Rapido
 
@@ -68,6 +70,48 @@ php cronos make:middleware AuthMiddleware
 php cronos make:migration database
 php cronos migrate
 ```
+
+## Ejecucion en Desarrollo
+
+Para desarrollar se ejecutan 3 procesos en paralelo (cada uno en su terminal):
+
+### 1. Servidor web (PHP)
+
+El proyecto corre bajo **Laragon** (Apache + MySQL) apuntando a la carpeta `public/`. Alternativa con el servidor integrado de PHP:
+
+```bash
+php -S localhost:8080 -t public
+```
+
+### 2. TailwindCSS (Documento 12)
+
+Compila los CSS del SSR con recarga automatica al guardar:
+
+```bash
+# Windows
+.\tailwind-dev.bat
+
+# Linux/Mac
+./tailwind-dev.sh
+```
+
+### 3. SPA React (Documento 13)
+
+**Desarrollo** (hot reload en `http://localhost:5173`):
+
+```bash
+cd reactapp
+npm run dev
+```
+
+**Build** (compila a `public/assets/spa/` para servir la SPA via el framework):
+
+```bash
+cd reactapp
+npm run build
+```
+
+> En desarrollo se recomienda hacer `npm run build` cada vez que se compilan los cambios de la SPA para verlos en `http://localhost/prueba/page1` y `/prueba/page2`.
 
 ## Creditos
 
