@@ -2,6 +2,8 @@
 
 namespace Cronos\ConsoleCLI;
 
+use Cronos\Database\Migrator;
+
 class ConsoleCLI
 {
     protected string $command1;
@@ -57,16 +59,46 @@ class ConsoleCLI
             return $this->makeMigration();
         }
 
+        if ($this->command1 == 'make:seeder') {
+            return $this->makeSeeder();
+        }
+
         if ($this->command1 == 'migrate') {
             return $this->migrate();
+        }
+
+        if ($this->command1 == 'migrate:rollback') {
+            return $this->migrateRollback();
+        }
+
+        if ($this->command1 == 'migrate:status') {
+            return $this->migrateStatus();
+        }
+
+        if ($this->command1 == 'migrate:fresh') {
+            return $this->migrateFresh();
+        }
+
+        if ($this->command1 == 'migrate:refresh') {
+            return $this->migrateRefresh();
+        }
+
+        if ($this->command1 == 'db:seed') {
+            return $this->dbSeed();
         }
 
         $text =   "\n" . "Command not found" . "\n";
         $text2 =    "\n" . "make:controller name folderName(optional)" . "\n";
         $text3 =   "make:model name folderName(optional)" . "\n";
         $text4 =   "make:middleware name" . "\n";
-        $text5 = "make:migration database" . "\n";
-        $text6 = "migrate" . "\n";
+        $text5 = "make:migration name (ej: create_users_table)" . "\n";
+        $text6 = "make:seeder name" . "\n";
+        $text7 = "migrate" . "\n";
+        $text8 = "migrate:rollback (steps opcional)" . "\n";
+        $text9 = "migrate:status" . "\n";
+        $text10 = "migrate:fresh" . "\n";
+        $text11 = "migrate:refresh" . "\n";
+        $text12 = "db:seed" . "\n";
 
         print("\e[0;31m$text\e[0m");
         print("\e[0;36m$text2\e[0m");
@@ -74,59 +106,154 @@ class ConsoleCLI
         print("\e[0;36m$text4\e[0m");
         print("\e[0;36m$text5\e[0m");
         print("\e[0;36m$text6\e[0m");
+        print("\e[0;36m$text7\e[0m");
+        print("\e[0;36m$text8\e[0m");
+        print("\e[0;36m$text9\e[0m");
+        print("\e[0;36m$text10\e[0m");
+        print("\e[0;36m$text11\e[0m");
+        print("\e[0;36m$text12\e[0m");
         exit;
+    }
+
+    private function printError(string $text): void
+    {
+        print("\e[0;31m\n{$text}\n\e[0m");
+    }
+
+    private function printSuccess(string $text): void
+    {
+        print("\e[0;34m\n{$text}\n\e[0m");
     }
 
     private function makeMigration()
     {
-        if ($this->command2 !== 'database') {
-            $text = "\n" . "Invalid migration command. Use: make:migration database" . "\n";
-            print("\e[0;31m$text\e[0m");
+        $name = $this->command2;
+
+        if ($name === '' || !preg_match('/^[a-z][a-z0-9_]*$/', $name)) {
+            $this->printError('Nombre de migracion invalido. Use snake_case, ej: create_users_table');
             exit;
         }
 
-        $templateMigration = file_get_contents($this->templatesPath . 'migration.php');
-        $migrationPath = $this->migrationsPath;
-        $nameMigration = 'Database.php';
+        $file = $this->migrationsPath . date('Y_m_d_His') . "_{$name}.php";
 
-        // Check if migrations directory exists
-        if (!file_exists($migrationPath)) {
-            mkdir($migrationPath, 0777, true);
-        }
-
-        // Check if migration file already exists
-        if (file_exists($migrationPath . $nameMigration)) {
-            $text = "\n" . "The $nameMigration file already exists" . "\n";
-            print("\e[0;31m$text\e[0m");
+        if (glob($this->migrationsPath . '*_' . $name . '.php')) {
+            $this->printError("Ya existe una migracion con el nombre {$name}");
             exit;
         }
 
-        // Create migration file
-        file_put_contents($migrationPath . $nameMigration, $templateMigration);
+        if (!is_dir($this->migrationsPath)) {
+            mkdir($this->migrationsPath, 0777, true);
+        }
 
-        $text = "\n" . "Migration file created successfully." . "\n";
-        print("\e[0;34m$text\e[0m");
+        $template = file_get_contents($this->templatesPath . 'migration.stub');
+
+        //si el nombre es create_X_table o update_X_table prefillamos el nombre de la tabla
+        if (preg_match('/^create_(.+)_table$/', $name, $matches)) {
+            $template = str_replace('{{table}}', $matches[1], $template);
+        }
+
+        file_put_contents($file, $template);
+
+        $this->printSuccess('Migracion creada: ' . basename($file));
+    }
+
+    private function makeSeeder()
+    {
+        $name = $this->command2;
+
+        if ($name === '' || !preg_match('/^[a-zA-Z][a-zA-Z0-9_]*$/', $name)) {
+            $this->printError('Nombre de seeder invalido. Ej: php cronos make:seeder UserSeeder');
+            exit;
+        }
+
+        $class = str_replace(' ', '', ucwords(str_replace(['_', '-'], ' ', $name)));
+        if (!str_ends_with($class, 'Seeder')) {
+            $class .= 'Seeder';
+        }
+
+        $seedersPath = dirname(__DIR__) . '/../App/Seeders/';
+        $file = $seedersPath . $class . '.php';
+
+        if (!is_dir($seedersPath)) {
+            mkdir($seedersPath, 0777, true);
+        }
+
+        if (file_exists($file)) {
+            $this->printError("El archivo {$class}.php ya existe");
+            exit;
+        }
+
+        $template = file_get_contents($this->templatesPath . 'seeder.stub');
+        $template = str_replace('{{class}}', $class, $template);
+
+        file_put_contents($file, $template);
+
+        $this->printSuccess('Seeder creado: ' . basename($file));
     }
 
     private function migrate()
     {
-        $migrationFile = $this->migrationsPath . 'Database.php';
+        (new Migrator)->runPending();
+    }
 
-        if (!file_exists($migrationFile)) {
-            $text = "\n" . "Migration file not found. Create it first with: make:migration database" . "\n";
-            print("\e[0;31m$text\e[0m");
+    private function migrateRollback()
+    {
+        $steps = is_numeric($this->command2) ? (int) $this->command2 : 1;
+        (new Migrator)->rollback($steps);
+    }
+
+    private function migrateStatus()
+    {
+        $migrator = new Migrator;
+        $status = $migrator->status();
+
+        echo "\n" . str_pad('Migracion', 55) . ' | Lote';
+        echo "\n" . str_repeat('-', 55) . ' | -----' . "\n";
+
+        foreach ($status as $row) {
+            $batch = $row['batch'] === null ? "\e[0;33mPendiente\e[0m" : $row['batch'];
+            echo str_pad($row['migration'], 55) . ' | ' . $batch . "\n";
+        }
+
+        echo "\n";
+    }
+
+    private function migrateFresh()
+    {
+        (new Migrator)->fresh();
+    }
+
+    private function migrateRefresh()
+    {
+        (new Migrator)->refresh();
+    }
+
+    private function dbSeed()
+    {
+        $seederFile = dirname(__DIR__) . '/../App/Seeders/DatabaseSeeder.php';
+
+        if (!file_exists($seederFile)) {
+            $this->printError('No existe App/Seeders/DatabaseSeeder.php. Créalo con: php cronos make:seeder DatabaseSeeder');
             exit;
         }
 
-        require_once $migrationFile;
+        require_once $seederFile;
 
-        $migration = new \App\Migrations\Database();
-        $migration->migrate();
+        $seederClass = 'App\Seeders\DatabaseSeeder';
+
+        if (!class_exists($seederClass)) {
+            $this->printError('La clase App\Seeders\DatabaseSeeder no existe');
+            exit;
+        }
+
+        (new $seederClass)->run();
+
+        $this->printSuccess('Seed completado.');
     }
 
     private function controller()
     {
-        $templateController = file_get_contents($this->templatesPath . 'controller.php');
+        $templateController = file_get_contents($this->templatesPath . 'controller.stub');
         $controllerPath = $this->controllerPath;
         $nameController = ucfirst($this->command2) . '.php';
 
@@ -163,7 +290,7 @@ class ConsoleCLI
 
     private function model()
     {
-        $templateModel = file_get_contents($this->templatesPath . 'model.php');
+        $templateModel = file_get_contents($this->templatesPath . 'model.stub');
         $modelPath = $this->modelPath;
         $nameModel = ucfirst($this->command2) . '.php';
 
@@ -199,7 +326,7 @@ class ConsoleCLI
 
     private function middleware()
     {
-        $templateMiddleware = file_get_contents($this->templatesPath . 'middleware.php');
+        $templateMiddleware = file_get_contents($this->templatesPath . 'middleware.stub');
         $middlewarePath = $this->middlewarePath;
         $nameMiddleware = ucfirst($this->command2) . '.php';
 

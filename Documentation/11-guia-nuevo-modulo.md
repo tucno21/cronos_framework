@@ -37,20 +37,31 @@ class Product extends Model
 
 ## 2. Crear la Tabla en la Base de Datos
 
-Editar `App/Migrations/Database.php` y agregar:
+Generar la migración y editar el stub con el Schema Builder:
+
+```bash
+php cronos make:migration create_products_table
+```
+
+En el archivo generado (`App/Migrations/..._create_products_table.php`):
 
 ```php
-$this->pdo->exec("
-    CREATE TABLE IF NOT EXISTS products (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        description TEXT,
-        price DECIMAL(10, 2) NOT NULL,
-        stock INT DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-");
+public function up(): void
+{
+    Schema::create('products', function ($table) {
+        $table->id();
+        $table->string('name');
+        $table->text('description')->nullable();
+        $table->decimal('price', 10, 2);
+        $table->integer('stock')->default(0);
+        $table->timestamps();
+    });
+}
+
+public function down(): void
+{
+    Schema::dropIfExists('products');
+}
 ```
 
 Ejecutar la migracion:
@@ -58,6 +69,8 @@ Ejecutar la migracion:
 ```bash
 php cronos migrate
 ```
+
+> Ver la referencia completa del Schema Builder y comandos en: **[14 - Migraciones y Seeders](14-migraciones-y-seeders.md)**.
 
 ## 3. Crear el Controlador
 

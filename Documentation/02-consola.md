@@ -32,25 +32,45 @@ php cronos make:middleware Name
 
 ### Generar Migracion
 
-Crea el archivo `App/Migrations/Database.php`. **Primero configure los datos en el archivo .env**.
+Crea un archivo de migracion timestamped en `App/Migrations/`. Si el nombre sigue el patron `create_NOMBRE_table`, el stub rellena el nombre de la tabla automaticamente.
 
 ```bash
-php cronos make:migration database
+php cronos make:migration create_users_table
+# genera: App/Migrations/2026_09_03_HHMMSS_create_users_table.php
+
+php cronos make:migration add_phone_to_users_table
+# genera el stub con el placeholder {{table}} para editar a mano
 ```
 
 | Situacion | Resultado |
 |---|---|
-| Archivo no existe | Crea `App/Migrations/Database.php` con plantilla |
-| Archivo ya existe | Error: no sobreescribe |
-| Argumento diferente a `database` | Error |
+| Nombre en snake_case valido | Crea el archivo con plantilla `up()/down()` |
+| Nombre invalido (espacios, mayusculas, vacio) | Error |
+| Ya existe otra migracion con ese nombre | Error: no sobreescribe |
 
-El archivo generado incluye tablas `users` y `blogs` como ejemplo. Debe modificar las tablas segun su proyecto. La plantilla usa `DROP TABLE IF EXISTS` (destruye datos, usar con cuidado).
+**Primero configure los datos de MySQL en el archivo `.env`**.
 
-### Ejecutar Migracion
+### Generar Seeder
 
 ```bash
-php cronos migrate
+php cronos make:seeder UserSeeder
+php cronos make:seeder User   # genera UserSeeder.php (agrega el sufijo automaticamente)
 ```
+
+Crea el archivo en `App/Seeders/`. El seeder `DatabaseSeeder` es el punto de entrada de `db:seed`.
+
+### Ejecutar Migraciones y Seeds
+
+```bash
+php cronos migrate            # ejecuta solo las migraciones pendientes
+php cronos migrate:rollback   # revierte el ultimo lote (acepta steps: rollback 3)
+php cronos migrate:status     # tabla de estado por migracion
+php cronos migrate:fresh      # ELIMINA todas las tablas y vuelve a migrar (destructivo)
+php cronos migrate:refresh    # rollback total + migrate
+php cronos db:seed            # ejecuta App/Seeders/DatabaseSeeder.php
+```
+
+> Ver la documentacion completa del Schema Builder, estructura de migraciones y seeders en: **[14 - Migraciones y Seeders](14-migraciones-y-seeders.md)**.
 
 ## Ejemplos de Archivos Generados
 
@@ -108,58 +128,44 @@ class NameMiddleware implements Middleware
 }
 ```
 
-**Migracion generada (plantilla base):**
+**Migracion generada (stub con clase anonima):**
 ```php
 <?php
 
-namespace App\Migrations;
+use Cronos\Database\Migration;
+use Cronos\Database\Schema;
 
-use Cronos\Database\DatabaseMigrate;
-
-class Database extends DatabaseMigrate
+return new class extends Migration
 {
-    public function migrate()
+    public function up(): void
     {
-        if (!$this->connect()) {
-            return false;
-        }
+        Schema::create('users', function ($table) {
+            $table->id();
+            $table->string('name');
+            $table->timestamps();
+        });
+    }
 
-        try {
-            echo "\nIniciando migracion...\n";
+    public function down(): void
+    {
+        Schema::dropIfExists('users');
+    }
+};
+```
 
-            $this->pdo->exec("DROP TABLE IF EXISTS `blogs`;");
-            $this->pdo->exec("DROP TABLE IF EXISTS `users`;");
+**Seeder generado:**
+```php
+<?php
 
-            $this->pdo->exec("
-                CREATE TABLE IF NOT EXISTS `users` (
-                    `id` INT AUTO_INCREMENT PRIMARY KEY,
-                    `name` VARCHAR(60),
-                    `email` VARCHAR(60),
-                    `password` VARCHAR(60),
-                    `created_at` TIMESTAMP NULL DEFAULT NULL,
-                    `updated_at` TIMESTAMP NULL DEFAULT NULL
-                );
-            ");
+namespace App\Seeders;
 
-            $this->pdo->exec("
-                CREATE TABLE IF NOT EXISTS `blogs` (
-                    `id` INT AUTO_INCREMENT PRIMARY KEY,
-                    `title` VARCHAR(100),
-                    `slug` VARCHAR(150),
-                    `content` TEXT,
-                    `user_id` INT,
-                    `created_at` TIMESTAMP NULL DEFAULT NULL,
-                    `updated_at` TIMESTAMP NULL DEFAULT NULL,
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-                );
-            ");
+use Cronos\Database\Seeder;
 
-            echo "\nMigracion completada exitosamente.\n";
-            return true;
-        } catch (\PDOException $e) {
-            echo "\nError en la migracion: " . $e->getMessage() . "\n";
-            return false;
-        }
+class UserSeeder extends Seeder
+{
+    public function run(): void
+    {
+        //
     }
 }
 ```

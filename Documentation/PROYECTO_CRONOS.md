@@ -6,7 +6,7 @@ Cronos Framework es un mini-framework PHP inspirado en Laravel, diseñado espec�
 
 La filosofía de diseño de Cronos se centra en la simplicidad y el aprendizaje: implementa los patrones fundamentales de Laravel (enrutamiento, controladores, modelos con ORM básico, sistema de vistas, middleware, validación y sesiones) pero de manera simplificada. Por ejemplo, su sistema de vistas es un motor de plantillas personalizado que compila directivas tipo Blade a PHP puro, su ORM soporta relaciones básicas (hasOne, hasMany, belongsTo, belongsToMany) y consultas encadenadas, y su sistema de enrutamiento imita la sintaxis de Laravel con apoyo para parámetros dinámicos y grupos.
 
-Cronos simplifica aspectos avanzados de Laravel: no implementa Service Providers complejos, no tiene sistema de eventos, no soporta colas, jobs o notificaciones, y su sistema de migraciones es básico (un solo archivo Database.php). Sin embargo, mantiene la filosofía de Laravel en cuanto a separación de responsabilidades, uso de contenedor de dependencias simple, y estructura de carpetas convencional. El framework incluye un CLI propio para generar controladores, modelos, middleware y migraciones, similar a Artisan de Laravel.
+Cronos simplifica aspectos avanzados de Laravel: no implementa Service Providers complejos, no tiene sistema de eventos, no soporta colas, jobs o notificaciones. Su sistema de migraciones usa archivos timestamped individuales con un Schema Builder propio (dialecto MySQL) e historial por lotes en la tabla `migrations`, ademas de seeders; ver documentacion completa en [14 - Migraciones y Seeders](14-migraciones-y-seeders.md). Sin embargo, mantiene la filosofía de Laravel en cuanto a separación de responsabilidades, uso de contenedor de dependencias simple, y estructura de carpetas convencional. El framework incluye un CLI propio para generar controladores, modelos, middleware, migraciones y seeders, similar a Artisan de Laravel.
 
 El framework está diseñado para ser educativo y funcional, permitiendo a los desarrolladores comprender cómo funciona un framework MVC mientras construyen aplicaciones reales. Incluye funcionalidades como autenticación de sesión y JWT API, validación robusta con múltiples reglas, sistema de middleware en cadena, y un motor de plantillas con directivas personalizables.
 
@@ -46,8 +46,10 @@ cronos_framework/
 │   │   ├── CorsMiddleware.php    # Middleware para manejo de CORS (Cross-Origin Resource Sharing)
 │   │   ├── ThrottleMiddleware.php # Middleware de rate limiting (limitación de peticiones)
 │   │   └── LogRequestMiddleware.php # Middleware para logging de todas las peticiones HTTP
-│   ├── Migrations/               # Migraciones de base de datos
-│   │   └── Database.php          # Archivo único de migraciones
+│   ├── Migrations/               # Migraciones timestamped (una por archivo, orden por nombre)
+│   │   └── 2026_09_03_000001_create_users_table.php
+│   ├── Seeders/                  # Seeders de datos de prueba
+│   │   └── DatabaseSeeder.php    # Punto de entrada de db:seed
 │   ├── Providers/                # Service Providers
 │   │   └── RouteServiceProvider.php # Provider que carga las rutas
 │   ├── Help/                     # Clases auxiliares
@@ -402,8 +404,14 @@ cronos_framework/
   - `make:controller name folderName(optional)` - Genera controlador
   - `make:model name folderName(optional)` - Genera modelo
   - `make:middleware name` - Genera middleware
-  - `make:migration database` - Genera archivo de migración
-  - `migrate` - Ejecuta las migraciones
+  - `make:migration name` - Genera migración timestamped (ej: `create_users_table`)
+  - `make:seeder name` - Genera seeder en `App/Seeders`
+  - `migrate` - Ejecuta solo las migraciones pendientes
+  - `migrate:rollback [steps]` - Revierte el último lote (o N lotes)
+  - `migrate:status` - Estado de cada migración
+  - `migrate:fresh` - Elimina todas las tablas y vuelve a migrar (destructivo)
+  - `migrate:refresh` - Rollback total + migrate
+  - `db:seed` - Ejecuta `App/Seeders/DatabaseSeeder.php`
 - **Cómo se usa:** Desde terminal: `php cronos make:controller UserController`
 - **Equivalente en Laravel:** `Illuminate\Console\Application` (Artisan)
 
@@ -983,8 +991,7 @@ $avgRating = Product::select('rating')->avg();
 - ✅ Route model binding básico
 
 **NO soportado:**
-- ❌ Migrations (solo un archivo Database.php manual)
-- ❌ Factories y Seeders
+- ❌ Factories
 - ❌ Scopes
 - ❌ Accessors y Mutators
 - ❌ Casting de tipos automáticos
@@ -1909,7 +1916,8 @@ Para agregar un nuevo módulo completo (ej: "Products"):
    - `resources/views/products/edit.php`
 
 4. **Crear migración:**
-   - Editar `App/Migrations/Database.php` y agregar tabla `products`
+    - `php cronos make:migration create_products_table` y editar el `up()/down()` con el Schema Builder (ver [14 - Migraciones y Seeders](14-migraciones-y-seeders.md))
+    - `php cronos migrate`
 
 5. **Registrar rutas:**
    - En `routes/web.php` agregar las rutas del módulo
@@ -2304,8 +2312,9 @@ Route::get('/api/data', [ApiController::class, 'index'])
 - **Conexión configurada:** Desde .env y config/database.php
 - **Prepared statements:** Protección contra SQL injection
 - **Soporte UTF-8:** Configuración charset utf8mb4
-- **Migraciones básicas:** Archivo único Database.php
-- **Archivos involucrados:** `System/Database/DatabaseDriver.php`, `System/Database/PdoDriver.php`, `App/Migrations/Database.php`
+- **Migraciones:** Archivos timestamped individuales con Schema Builder + historial en tabla `migrations`
+- **Seeders:** `App/Seeders/` ejecutados con `db:seed`
+- **Archivos involucrados:** `System/Database/DatabaseDriver.php`, `System/Database/PdoDriver.php`, `System/Database/Schema.php`, `System/Database/Blueprint.php`, `System/Database/Migrator.php`, `App/Migrations/`, `App/Seeders/`
 
 ### Autenticación
 - **Autenticación web:** Sesión con session()->attempt()
@@ -2335,94 +2344,56 @@ Route::get('/api/data', [ApiController::class, 'index'])
 - **Generador de controladores:** make:controller
 - **Generador de modelos:** make:model
 - **Generador de middlewares:** make:middleware
-- **Generador de migraciones:** make:migration
-- **Ejecución de migraciones:** migrate
-- **Archivos involucrados:** `cronos`, `System/ConsoleCLI/ConsoleCLI.php`, `System/ConsoleCLI/templates/*`
+- **Generador de migraciones:** make:migration (timestamped, con stub up()/down())
+- **Generador de seeders:** make:seeder
+- **Ejecución de migraciones:** migrate, migrate:rollback, migrate:status, migrate:fresh, migrate:refresh
+- **Ejecución de seeds:** db:seed
+- **Archivos involucrados:** `cronos`, `System/ConsoleCLI/ConsoleCLI.php`, `System/ConsoleCLI/templates/*.stub`
 
-#### make:migration — Ejemplo Completo
+#### Migraciones — Resumen
 
-El comando `make:migration` genera el archivo `App/Migrations/Database.php`. A diferencia de Laravel, este framework usa un solo archivo para todas las migraciones.
+Las migraciones son archivos individuales timestamped en `App/Migrations/` que retornan una clase anónima con `up()` y `down()`, usando el Schema Builder propio (`Cronos\Database\Schema` + `Blueprint`, dialecto MySQL). El historial se guarda en la tabla `migrations` por lotes (`batch`).
 
-**Comando:**
+**Comandos:**
 ```bash
-php cronos make:migration database
+php cronos make:migration create_products_table   # genera el archivo timestamped
+php cronos migrate                                # ejecuta solo lo pendiente
+php cronos migrate:status                         # estado por migración
+php cronos migrate:rollback                       # revierte el último lote
+php cronos migrate:fresh                          # ELIMINA todas las tablas y migra de cero (destructivo)
+php cronos make:seeder ProductSeeder              # genera seeder
+php cronos db:seed                                # ejecuta DatabaseSeeder
 ```
 
-**Comportamiento:**
-
-| Situación | Resultado |
-|------------|-----------|
-| Archivo no existe | ✅ Crea `App/Migrations/Database.php` con plantilla |
-| Archivo ya existe | ❌ Error: "The Database.php file already exists" (NO sobreescribe) |
-| Argumento ≠ `database` | ❌ Error: "Invalid migration command. Use: make:migration database" |
-
-**Ejecutar migración:**
-```bash
-php cronos migrate
-```
-
-**Archivo generado (plantilla base):**
+**Archivo generado (stub):**
 ```php
 <?php
 
-namespace App\Migrations;
+use Cronos\Database\Migration;
+use Cronos\Database\Schema;
 
-use Cronos\Database\DatabaseMigrate;
-
-class Database extends DatabaseMigrate
+return new class extends Migration
 {
-    public function migrate()
+    public function up(): void
     {
-        if (!$this->connect()) {
-            return false;
-        }
-
-        try {
-            echo "\nIniciando migración...\n";
-            
-            $this->pdo->exec("DROP TABLE IF EXISTS `blogs`;");
-            $this->pdo->exec("DROP TABLE IF EXISTS `users`;");
-            
-            $this->pdo->exec("
-                CREATE TABLE IF NOT EXISTS `users` (
-                    `id` INT AUTO_INCREMENT PRIMARY KEY,
-                    `name` VARCHAR(60),
-                    `email` VARCHAR(60),
-                    `password` VARCHAR(60),
-                    `created_at` TIMESTAMP NULL DEFAULT NULL,
-                    `updated_at` TIMESTAMP NULL DEFAULT NULL
-                );
-            ");
-            
-            $this->pdo->exec("
-                CREATE TABLE IF NOT EXISTS `blogs` (
-                    `id` INT AUTO_INCREMENT PRIMARY KEY,
-                    `title` VARCHAR(100),
-                    `sglu` VARCHAR(150),
-                    `content` TEXT,
-                    `user_id` INT,
-                    `created_at` TIMESTAMP NULL DEFAULT NULL,
-                    `updated_at` TIMESTAMP NULL DEFAULT NULL,
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-                );
-            ");
-            
-            echo "\nMigración completada exitosamente.\n";
-            return true;
-        } catch (\PDOException $e) {
-            echo "\nError en la migración: " . $e->getMessage() . "\n";
-            return false;
-        }
+        Schema::create('products', function ($table) {
+            $table->id();
+            $table->string('name');
+            $table->timestamps();
+        });
     }
-}
+
+    public function down(): void
+    {
+        Schema::dropIfExists('products');
+    }
+};
 ```
 
-**Consideraciones al editar el archivo:**
-- La plantilla incluye tablas `users` y `blogs` como ejemplo
-- La plantilla tiene `DROP TABLE IF EXISTS` (destruye datos - usar con cuidado)
-- Corregir error tipográfico: `sglu` → `slug`
-- El método es `migrate()` (no `up()` como en Laravel)
-- Agregar `ENGINE=InnoDB` y `CHARSET=utf8mb4` para mejor compatibilidad
+**Consideraciones:**
+- El método es `up()`/`down()` como en Laravel, pero la clase SIEMPRE es anónima retornada con `return`
+- El orden de ejecución es el orden alfabético del archivo (prefijo timestamp)
+- La API del Schema se parece a Laravel pero NO es Laravel: ver limitaciones en [14 - Migraciones y Seeders](14-migraciones-y-seeders.md)
 
 <!-- completado -->
 
@@ -2455,7 +2426,7 @@ class Database extends DatabaseMigrate
 | Enrutamiento | ✅ Completo | ✅ Básico pero funcional (GET, POST, PUT, PATCH, DELETE, grupos, nombres) |
 | Middleware | ✅ Completo | ✅ Implementado (en cadena, por ruta, por controlador, por grupo) |
 | ORM (Eloquent) | ✅ Muy completo | ⚠️ Parcial (CRUD básico, query builder, relaciones, sin scopes, sin casting) |
-| Migraciones | ✅ Sistema completo | ⚠️ Básico (solo archivo único Database.php manual) |
+| Migraciones | ✅ Sistema completo | ✅ Timestamped con Schema Builder (solo MySQL, sin `change()`, sin transacciones) |
 | Autenticación | ✅ Completa (Auth, Guards, Providers) | ⚠️ Básica (sesión y JWT sin Guards ni Providers) |
 | Validación | ✅ Muy completa | ✅ Implementada con reglas principales |
 | Vistas (Blade) | ✅ Muy completo | ✅ Básico pero funcional (directivas principales, layouts, componentes) |
@@ -2467,7 +2438,7 @@ class Database extends DatabaseMigrate
 | Notificaciones | ✅ Completo | ❌ No implementado |
 | Broadcasting | ✅ Completo | ❌ No implementado |
 | Factories | ✅ Completo | ❌ No implementado |
-| Seeders | ✅ Completo | ❌ No implementado |
+| Seeders | ✅ Completo (con Faker y factories) | ✅ Básico (clases propias con PDO, sin Faker) |
 | Soft Deletes | ✅ Implementado | ❌ No implementado |
 | Scopes | ✅ Implementado | ❌ No implementado |
 | Accessors/Mutators | ✅ Implementado | ❌ No implementado |
@@ -2560,20 +2531,30 @@ class Database extends DatabaseMigrate
    }
    ```
 
-3. **Crear la tabla en la BD** (editar `App/Migrations/Database.php`):
-   ```php
-   $this->pdo->exec("
-       CREATE TABLE IF NOT EXISTS products (
-           id INT AUTO_INCREMENT PRIMARY KEY,
-           name VARCHAR(255) NOT NULL,
-           description TEXT,
-           price DECIMAL(10, 2) NOT NULL,
-           stock INT DEFAULT 0,
-           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-   ");
-   ```
+3. **Crear la tabla en la BD** (generar migración con Schema Builder):
+    ```bash
+    php cronos make:migration create_products_table
+    php cronos migrate
+    ```
+    Y en el archivo generado (`App/Migrations/..._create_products_table.php`):
+    ```php
+    public function up(): void
+    {
+        Schema::create('products', function ($table) {
+            $table->id();
+            $table->string('name');
+            $table->text('description')->nullable();
+            $table->decimal('price', 10, 2);
+            $table->integer('stock')->default(0);
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('products');
+    }
+    ```
 
 4. **Ejecutar migración:**
    ```bash
@@ -2777,7 +2758,7 @@ class Database extends DatabaseMigrate
 
 2. **Relaciones sin eager loading:** Las relaciones se cargan lazy. No hay `with()` para eager loading, así que ten cuidado con el problema N+1 queries.
 
-3. **Solo un archivo de migración:** A diferencia de Laravel, este framework usa un solo archivo `App/Migrations/Database.php` para todas las migraciones. No generas archivos de migración individuales.
+3. **Migraciones timestamped:** Cada migración es un archivo individual en `App/Migrations/` que retorna una clase anónima con `up()/down()`. A diferencia de Laravel NO hay `change()`, `renameColumn()`, transacciones por migración, ni soporte multi-dialecto (solo MySQL). Detalles y limitaciones en [14 - Migraciones y Seeders](14-migraciones-y-seeders.md).
 
 4. **No hay Service Providers avanzados:** Solo hay `boot` y `runtime`. No hay `register`, `booted`, etc. Los providers deben implementar el método `registerServices()`.
 

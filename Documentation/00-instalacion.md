@@ -20,7 +20,8 @@
 │   ├── 📁 Controllers/       # Controladores de la aplicacion
 │   ├── 📁 Middlewares/       # Middlewares personalizados
 │   ├── 📁 Models/            # Modelos de la aplicacion
-│   ├── 📁 Migrations/        # Migraciones (archivo unico Database.php)
+│   ├── 📁 Migrations/        # Migraciones timestamped (una por archivo)
+│   ├── 📁 Seeders/           # Seeders de datos de prueba
 │   ├── 📁 Providers/         # Service Providers
 │   ├── 📁 Help/              # Clases auxiliares (imagenes, archivos, enlaces)
 │   └── 📁 Library/           # Librerias personalizadas (JWT)
