@@ -5,7 +5,42 @@ namespace Cronos\Model;
 use Cronos\Database\DatabaseDriver;
 
 /**
+ * Modelo base del ORM de Cronos.
+ *
+ * Uso estatico (facade): Usuario::where(...)->get(), Usuario::find(1), etc.
+ * Cada cadena de llamadas crea su propio QueryBuilder, por lo que las
+ * consultas de un modelo nunca contaminan las de otro.
+ *
  * @phpstan-consistent-constructor
+ *
+ * API de consulta (compatible con versiones anteriores):
+ *
+ * @method static QueryBuilder select(string ...$select)
+ * @method static QueryBuilder join(string $table, string $first, string $operator, string $second)
+ * @method static QueryBuilder where(string $columna, string|int $operadorOvalor, string|int|null $valor = null)
+ * @method static QueryBuilder andWhere(string $columna, string|int $operadorOvalor, string|int|null $valor = null)
+ * @method static QueryBuilder orWhere(string $columna, string|int $operadorOvalor, string|int|null $valor = null)
+ * @method static QueryBuilder whereConcat(string $columna, string|int $operadorOvalor, string|int|null $valor = null)
+ * @method static QueryBuilder whereBetween(string $columna, string|int $valor1, string|int $valor2)
+ * @method static QueryBuilder whereIn(string $columna, array $valores)
+ * @method static QueryBuilder whereNotIn(string $columna, array $valores)
+ * @method static QueryBuilder whereNull(string $columna)
+ * @method static QueryBuilder whereNotNull(string $columna)
+ * @method static QueryBuilder orderBy(string $column, string $direction = 'ASC')
+ * @method static QueryBuilder limit(int $limit)
+ * @method static QueryBuilder offset(int $offset)
+ * @method static QueryBuilder with(string ...$relations)
+ * @method static QueryBuilder update(array|object $data)
+ * @method static QueryBuilder delete()
+ * @method static ModelCollection|null get()
+ * @method static self|null first()
+ * @method static self|null firstNotHidden()
+ * @method static int count()
+ * @method static int|float|string max()
+ * @method static int|float|string min()
+ * @method static int|float|string sum()
+ * @method static int|float|string avg()
+ * @method static array dd()
  */
 abstract class Model
 {
@@ -18,29 +53,32 @@ abstract class Model
     protected string $created = 'created_at';
     protected string $updated = 'updated_at';
 
+    //CASTS OPT-IN: convierten tipos al hidratar desde la BD (todo llega como
+    //string de PDO). Sin casts, el comportamiento es identico al anterior.
+    protected array $casts = [];
+
     //GUARDAR LOS ATRIBUTOS PARA CREATE, UPDATE
     protected array $attributes = [];
 
-
-    //DATOS PARA LA QUERY
-    protected static string $selects = '*';
-    protected static  array $joins = [];
-
-    protected static  array $wheres = [];
-    protected static  array $andOrWheres = [];
-    protected static  bool $boolWhere = false;
-    protected static  bool $boolWhereBetween = false;
-    protected static  bool $boolWhereConcat = false;
-
-    protected static  array $orderBys = [];
-    protected static  ?int $limit = null;
-    protected static  array $values = [];
+    //RELACIONES CARGADAS (eager o lazy) sobre la instancia
+    protected array $relations = [];
 
     private static ?DatabaseDriver $db = null;
+
+    private static int $transactionLevel = 0;
 
     public static function setDB(DatabaseDriver $db): void
     {
         self::$db = $db;
+    }
+
+    public static function db(): DatabaseDriver
+    {
+        if (self::$db === null) {
+            throw new \Error('No hay conexion de base de datos. Llame a Model::setDB() primero.');
+        }
+
+        return self::$db;
     }
 
     public function getTable(): string
@@ -53,19 +91,66 @@ abstract class Model
         return $this->primaryKey;
     }
 
+    public function hasTimestamps(): bool
+    {
+        return $this->timestamps;
+    }
+
+    public function getCreatedAtColumn(): string
+    {
+        return $this->created;
+    }
+
+    public function getUpdatedAtColumn(): string
+    {
+        return $this->updated;
+    }
+
+    //******************************************************************
+    // ACCESO A ATRIBUTOS Y RELACIONES
+    //******************************************************************
+
     public function __get(string $property)
     {
-        // Verifica si la propiedad existe en el arreglo de atributos
+        //Verifica si la propiedad existe en el arreglo de atributos
         if (array_key_exists($property, $this->attributes)) {
             return $this->attributes[$property];
         }
-        return null; // Devuelve null si la propiedad no existe
+
+        //Relacion ya cargada (cache de la instancia)
+        if (array_key_exists($property, $this->relations)) {
+            return $this->relations[$property];
+        }
+
+        //Carga perezosa (lazy) de la relacion la primera vez que se accede
+        if (method_exists($this, $property)) {
+            $value = $this->{$property}()->get();
+            $this->relations[$property] = $value;
+
+            return $value;
+        }
+
+        return null; //Devuelve null si la propiedad no existe
     }
 
     public function __set(string $name, mixed $value)
     {
-        // Verifica si la propiedad existe en el arreglo de atributos
         $this->attributes[$name] = $value;
+    }
+
+    public function setRelation(string $name, mixed $value): void
+    {
+        $this->relations[$name] = $value;
+    }
+
+    public function getRelation(string $name): mixed
+    {
+        return $this->relations[$name] ?? null;
+    }
+
+    public function relationLoaded(string $name): bool
+    {
+        return array_key_exists($name, $this->relations);
     }
 
     protected function setAttributes(array $data): void
@@ -75,7 +160,43 @@ abstract class Model
         }
     }
 
-    private function validateModel(): void
+    /**
+     * Crea una instancia del modelo a partir de una fila de la BD
+     * aplicando los casts definidos.
+     */
+    public static function hydrate(array $row): static
+    {
+        $model = new static();
+        $model->setAttributes($row);
+        $model->applyCasts();
+
+        return $model;
+    }
+
+    private function applyCasts(): void
+    {
+        foreach ($this->casts as $attribute => $type) {
+            if (!array_key_exists($attribute, $this->attributes)) {
+                continue;
+            }
+
+            $value = $this->attributes[$attribute];
+
+            $this->attributes[$attribute] = match ($type) {
+                'int', 'integer' => $value === null ? null : (int) $value,
+                'float', 'double' => $value === null ? null : (float) $value,
+                'bool', 'boolean' => $value === null ? null : (bool) $value,
+                'string' => $value === null ? null : (string) $value,
+                default => $value,
+            };
+        }
+    }
+
+    //******************************************************************
+    // VALIDACIONES INTERNAS DEL MODELO
+    //******************************************************************
+
+    public function validateModel(): void
     {
         //verificar que $table no esté vacía
         if (empty($this->table)) {
@@ -93,11 +214,11 @@ abstract class Model
         }
     }
 
-    //verificar que $attributes todos esten dentro de $fillable
-    private function validateAttributes(): void
+    //verificar que todos los atributos esten dentro de $fillable
+    public function validateColumns(array $data): void
     {
-        foreach ($this->attributes as $key => $value) {
-            if (!in_array($key, $this->fillable)) {
+        foreach (array_keys($data) as $key) {
+            if (!in_array($key, $this->fillable, true)) {
                 throw new \Error('El atributo ' . $key . ' no está permitido en el modelo ' . static::class);
             }
         }
@@ -112,7 +233,6 @@ abstract class Model
             }
         }
     }
-
 
     private function addTimestamps(string $type = 'created'): void
     {
@@ -137,14 +257,27 @@ abstract class Model
     public function toArray(): array
     {
         $this->hiddenAttibutes();
-        return $this->attributes;
+
+        $data = $this->attributes;
+
+        //incluir SOLO las relaciones explicitamente cargadas (with() o acceso previo)
+        foreach ($this->relations as $name => $relation) {
+            $data[$name] = $relation instanceof ModelCollection
+                ? $relation->toArray()
+                : ($relation instanceof Model ? $relation->toArray() : $relation);
+        }
+
+        return $data;
     }
 
     public function toObject(): object
     {
-        $this->hiddenAttibutes();
-        return (object)$this->attributes;
+        return (object) $this->toArray();
     }
+
+    //******************************************************************
+    // ESCRITURA (CREATE, UPDATE, DELETE)
+    //******************************************************************
 
     public static function create(array|object $data): self|null
     {
@@ -159,7 +292,7 @@ abstract class Model
 
         //realizar validaciones
         $model->validateModel();
-        $model->validateAttributes();
+        $model->validateColumns($data);
         $model->validateFillableOnAttibutes();
 
         //agregar registros de tiempo
@@ -169,10 +302,12 @@ abstract class Model
         $sql = "INSERT INTO {$model->table} (" . implode(',', array_keys($model->attributes)) . ") VALUES (" . implode(',', array_fill(0, count($model->attributes), '?')) . ")";
         $param = array_values($model->attributes);
 
-        $responseInt = self::$db->statementC_U_D($sql, $param);
+        $responseInt = self::db()->statementC_U_D($sql, $param);
         if ($responseInt > 0) {
             //agregar el id del registro creado al arreglo $attributes
-            $model->attributes[$model->primaryKey] = self::$db->lastInsertId();
+            $model->attributes[$model->primaryKey] = self::db()->lastInsertId();
+            $model->applyCasts();
+
             return $model;
         }
 
@@ -192,7 +327,7 @@ abstract class Model
 
         //realizar validaciones
         $model->validateModel();
-        $model->validateAttributes();
+        $model->validateColumns($data);
 
         //agregar registros de tiempo
         $model->addTimestamps('updated');
@@ -209,9 +344,15 @@ abstract class Model
 
         $sql .= implode(', ', $updateFields);
         $sql .= " WHERE {$model->primaryKey} = ?";
+
+        //los modelos con SoftDeletes no actualizan registros ya eliminados
+        if ($model->usesSoftDeletes()) {
+            $sql .= " AND {$model->getDeletedAtColumn()} IS NULL";
+        }
+
         $param[] = $id;
 
-        $rows = self::$db->statementC_U_D($sql, $param);
+        $rows = self::db()->statementC_U_D($sql, $param);
 
         if ($rows > 0) {
             $model->attributes[$model->primaryKey] = $id;
@@ -224,599 +365,239 @@ abstract class Model
     public static function delete(int|string $id): bool
     {
         $model = new static();
+        $model->validateModel();
+
+        //soft delete: marca eliminado_en en lugar de borrar la fila
+        if ($model->usesSoftDeletes()) {
+            $columna = $model->getDeletedAtColumn();
+            $sql = "UPDATE {$model->table} SET {$columna} = ? WHERE {$model->primaryKey} = ? AND {$columna} IS NULL";
+
+            return self::db()->statementC_U_D($sql, [date('Y-m-d H:i:s'), $id]) > 0;
+        }
+
         $sql = "DELETE FROM {$model->table} WHERE {$model->primaryKey} = ?";
         $param = [$id];
-        $rows = self::$db->statementC_U_D($sql, $param);
-        return $rows > 0;
+
+        return self::db()->statementC_U_D($sql, $param) > 0;
     }
 
-    public static function select(string ...$select): self
+    /**
+     * Elimina fisicamente el registro (ignora SoftDeletes).
+     */
+    public static function forceDelete(int|string $id): bool
     {
-        //unir los elementos del array $select con una coma
-        $select = implode(", ", $select);
-        self::$selects = $select;
+        $model = new static();
+        $model->validateModel();
 
-        return new static;
+        $sql = "DELETE FROM {$model->table} WHERE {$model->primaryKey} = ?";
+
+        return self::db()->statementC_U_D($sql, [$id]) > 0;
     }
 
-    public static function join(string $table, string $first, string $operator, string $second): self
+    /**
+     * Recupera un registro con soft delete (eliminado_en vuelve a NULL).
+     */
+    public static function restore(int|string $id): bool
     {
-        // Validaciones
-        if (empty($table)) {
-            throw new \Error('Debe proveer el nombre de la tabla para el join');
+        $model = new static();
+        $model->validateModel();
+
+        if (!$model->usesSoftDeletes()) {
+            throw new \Error('El modelo ' . static::class . ' no usa el trait SoftDeletes');
         }
 
-        if (empty($first) || empty($operator) || empty($second)) {
-            throw new \Error('Debe proveer las condiciones para el join');
-        }
+        $columna = $model->getDeletedAtColumn();
+        $sql = "UPDATE {$model->table} SET {$columna} = NULL WHERE {$model->primaryKey} = ? AND {$columna} IS NOT NULL";
 
-        // Sanitizar nombre de tabla y columnas
-        $table =
-
-            // Armar join
-            $join = "JOIN $table ON $first $operator $second";
-
-        // Guardarlo
-        self::$joins[] = $join;
-
-        // Retornar instancia
-        return new static;
+        return self::db()->statementC_U_D($sql, [$id]) > 0;
     }
 
-    public static function where(string $columna, string|int $operadorOvalor, string|int|null $valor = null): self
+    //******************************************************************
+    // LECTURA SIMPLE (POR CLAVE PRIMARIA O TABLA COMPLETA)
+    //******************************************************************
+
+    public static function find(int|string $id): self|null
     {
-        // Validaciones
-        if (empty($columna)) {
-            throw new \Error('Debe proveer el nombre de la columna para la condición WHERE');
+        $model = new static();
+        $model->validateModel();
+
+        $sql = "SELECT * FROM {$model->table} WHERE {$model->primaryKey} = ?";
+
+        //los modelos con SoftDeletes no ven registros eliminados
+        if ($model->usesSoftDeletes()) {
+            $sql .= " AND {$model->getDeletedAtColumn()} IS NULL";
         }
 
-        if (empty($operadorOvalor)) {
-            throw new \Error('Debe proveer el segundo parametro para la condición WHERE');
-        }
+        $result = self::db()->statement($sql, [$id]);
 
-        self::$boolWhere = true;
-
-        if (is_null($valor)) {
-            self::$wheres[] = "$columna = ?";
-            self::$values[] = $operadorOvalor;
-        } else {
-            self::$wheres[] = "$columna $operadorOvalor ?";
-            self::$values[] = $valor;
-        }
-
-        return new static;
-    }
-
-    public static function orderBy(string $column, string $direction = 'ASC'): self
-    {
-        // Validar columna
-        if (empty($column)) {
-            throw new \Error('Debe proveer el nombre de la columna para ordenar');
-        }
-
-        // Validar direction
-        $direction = strtoupper($direction);
-        if (!in_array($direction, ['ASC', 'DESC'])) {
-            throw new \Error('Dirección de orden inválida');
-        }
-
-        // Armar cláusula order by
-        $orderBy = "$column $direction";
-
-        // Guardar
-        self::$orderBys[] = $orderBy;
-
-        // Retornar instancia
-        return new static;
-    }
-
-    public static function limit(int $limit): self
-    {
-        // Validar límite
-        if ($limit <= 0) {
-            throw new \Error('El límite debe ser mayor a 0');
-        }
-
-        // Guardar límite
-        self::$limit = $limit;
-
-        // Retornar instancia
-        return new static;
-    }
-
-
-    public static function andWhere(string $columna, string|int $operadorOvalor, string|int|null $valor = null): self
-    {
-        if (empty($columna)) {
-            throw new \Error('Debe proveer el nombre de la columna para la condición WHERE');
-        }
-
-        if (empty($operadorOvalor)) {
-            throw new \Error('Debe proveer el segundo parámetro para la condición WHERE');
-        }
-
-        if (empty(self::$wheres)) {
-            throw new \Error('no existe el metodo where() o debe estar antes');
-        }
-
-        if (is_null($valor)) {
-            self::$andOrWheres[] = "AND $columna = ?";
-            self::$values[] = $operadorOvalor;
-        } else {
-            self::$andOrWheres[] = "AND $columna $operadorOvalor ?";
-            self::$values[] = $valor;
-        }
-
-        return new static;
-    }
-
-    public static function orWhere(string $columna, string|int $operadorOvalor, string|int|null $valor = null): self
-    {
-        if (empty($columna)) {
-            throw new \Error('Debe proveer el nombre de la columna para la condición WHERE');
-        }
-
-        if (empty($operadorOvalor)) {
-            throw new \Error('Debe proveer el segundo parámetro para la condición WHERE');
-        }
-
-        if (empty(self::$wheres)) {
-            throw new \Error('no existe el metodo where() o debe estar antes');
-        }
-
-        if (is_null($valor)) {
-            self::$andOrWheres[] = "OR $columna = ?";
-            self::$values[] = $operadorOvalor;
-        } else {
-            self::$andOrWheres[] = "OR $columna $operadorOvalor ?";
-            self::$values[] = $valor;
-        }
-
-        return new static;
-    }
-
-    public static function whereConcat(string $columna, string|int $operadorOvalor, string|int|null $valor = null): self
-    {
-        if (empty($columna)) {
-            throw new \Error('Debe proveer el nombre de la columna para la condición WHERE');
-        }
-
-        self::$boolWhereConcat = true;
-
-        if (is_null($valor)) {
-            self::$wheres[] = "CONCAT($columna) = ?";
-            self::$values[] = $operadorOvalor;
-        } else {
-            self::$wheres[] = "CONCAT($columna) $operadorOvalor ?";
-            self::$values[] = $valor;
-        }
-        return new static;
-    }
-
-    public static function whereBetween(string $columna, string|int $valor1, string|int $valor2): self
-    {
-        if (empty($columna)) {
-            throw new \Error('Debe proveer el nombre de la columna para la condición WHERE');
-        }
-
-        self::$boolWhereBetween = true;
-
-        self::$wheres[] = "$columna BETWEEN ? AND ?";
-        self::$values[] = $valor1;
-        self::$values[] = $valor2;
-
-        return new static;
-    }
-
-    private function createQuery(string $type): string
-    {
-        // Query
-        if ($type === 'max') {
-            $sql = 'SELECT MAX(' .  self::$selects . ') FROM ' . $this->table;
-        } else if ($type === 'min') {
-            $sql = 'SELECT MIN(' .  self::$selects . ') FROM ' . $this->table;
-        } else if ($type === 'avg') {
-            $sql = 'SELECT AVG(' .  self::$selects . ') FROM ' . $this->table;
-        } else if ($type === 'sum') {
-            $sql = 'SELECT SUM(' .  self::$selects . ') FROM ' . $this->table;
-        } else {
-            $sql = 'SELECT ' .  self::$selects . ' FROM ' . $this->table;
-        }
-
-        // Joins
-        if (!empty(self::$joins)) {
-            $sql .= ' ' . implode(' ', self::$joins);
-        }
-
-        // Wheres
-        if (!empty(self::$wheres)) {
-
-            if (self::$boolWhere && self::$boolWhereBetween) {
-                throw new \Error('el metodo where() no puede estar con el metodo whereBetween()');
-            }
-
-            if (self::$boolWhere && self::$boolWhereConcat) {
-                throw new \Error('el metodo where() no puede estar con el metodo whereConcat()');
-            }
-
-            if (self::$boolWhereConcat && self::$boolWhereBetween) {
-                throw new \Error('el metodo whereConcat() no puede estar con el metodo whereBetween()');
-            }
-
-            if (self::$boolWhere) {
-                $sql .= ' WHERE ' . implode(' AND ', self::$wheres);
-            }
-
-            if (self::$boolWhereBetween) {
-                $sql .= ' WHERE ' . implode(' ', self::$wheres);
-            }
-
-            if (self::$boolWhereConcat) {
-                $sql .= ' WHERE ' . implode(' ', self::$wheres);
-            }
-
-            if (!empty(self::$andOrWheres)) {
-                //agregamos los and or al final
-                $sql .= ' ' . implode(' ', self::$andOrWheres);
-            }
-        }
-
-        // Order bys
-        if (!empty(self::$orderBys)) {
-            $sql .= ' ORDER BY ' . implode(', ', self::$orderBys);
-        }
-
-        // Limit
-        if (self::$limit && $type === 'get') {
-            $sql .= ' LIMIT ' . self::$limit;
-        } else if ($type === 'first') {
-            $sql .= ' LIMIT 1';
-        }
-
-        return $sql;
-    }
-
-    private function resetProperties()
-    {
-        //Resetear propiedades estáticas
-        self::$selects = '*';
-        self::$joins = [];
-        self::$wheres = [];
-        self::$andOrWheres = [];
-        self::$boolWhere = false;
-        self::$boolWhereBetween = false;
-        self::$boolWhereConcat = false;
-        self::$orderBys = [];
-        self::$limit = null;
-        self::$values = [];
-    }
-
-    private function executeQuery(string $query): array|object
-    {
-        $statement = self::$db->statement($query, self::$values);
-        return $statement;
-    }
-
-    protected static function customQuery(string $query, array|object $data = []): array|object
-    {
-        if (is_object($data)) {
-            $data = (array) $data;
-        }
-
-        $statement = self::$db->statement($query, $data);
-        return $statement;
-    }
-
-    public function get(): ModelCollection|null
-    {
-        $sql = $this->createQuery('get');
-
-        $result = $this->executeQuery($sql);
-        if (count($result) == 0) {
-            $this->resetProperties();
+        if (count($result) === 0) {
             return null;
         }
 
-        $arrayModels = array_map([static::class, 'createModelFromResult'], $result);
-
-        //Resetear propiedades estáticas
-        $this->resetProperties();
-
-        return new ModelCollection($arrayModels);
-    }
-
-    public function first(): self|null
-    {
-        $sql = $this->createQuery('first');
-
-        $result = $this->executeQuery($sql);
-        if (count($result) == 0) {
-            $this->resetProperties();
-            return null;
-        }
-
-        //Resetear propiedades estáticas
-        $this->resetProperties();
-
-        return self::createModelFromResult($result[0]);
-    }
-
-    public function max(): int|float|string
-    {
-
-        $selects = self::$selects;
-        if ($selects == '*') {
-            throw new \Error("no agrego ninguna columna para obtener el valor maximo Model::select('columna')->max()");
-        }
-        $selectsArray = explode(", ", $selects);
-        if (count($selectsArray) !== 1) {
-            throw new \Error("solo se puede obtener el valor maximo de una columna Model::select('columna')->max()");
-        }
-
-        $sql = $this->createQuery('max');
-
-        $result = $this->executeQuery($sql);
-
-        $result = (array) $result[0];
-
-        //Resetear propiedades estáticas
-        $this->resetProperties();
-
-        return $result["MAX($selects)"];
-    }
-
-    public function min(): int|float|string
-    {
-        $selects = self::$selects;
-        if ($selects == '*') {
-            throw new \Error("no agrego ninguna columna para obtener el valor minimo Model::select('columna')->min()");
-        }
-        $selectsArray = explode(", ", $selects);
-        if (count($selectsArray) !== 1) {
-            throw new \Error("solo se puede obtener el valor minimo de una columna Model::select('columna')->min()");
-        }
-        $sql = $this->createQuery('min');
-        $result = $this->executeQuery($sql);
-        $result = (array) $result[0];
-        //Resetear propiedades estáticas
-        $this->resetProperties();
-        return $result["MIN($selects)"];
-    }
-
-    public function sum(): int|float|string
-    {
-        $selects = self::$selects;
-        if ($selects == '*') {
-            throw new \Error("no agrego ninguna columna para obtener el valor suma Model::select('columna')->sum()");
-        }
-        $selectsArray = explode(", ", $selects);
-        if (count($selectsArray) !== 1) {
-            throw new \Error("solo se puede obtener el valor suma de una columna Model::select('columna')->sum()");
-        }
-        $sql = $this->createQuery('sum');
-        $result = $this->executeQuery($sql);
-        $result = (array) $result[0];
-        //Resetear propiedades estáticas
-        $this->resetProperties();
-        return $result["SUM($selects)"];
-    }
-
-    public function avg(): int|float|string
-    {
-        $selects = self::$selects;
-        if ($selects == '*') {
-            throw new \Error("no agrego ninguna columna para obtener el valor promedio Model::select('columna')->avg()");
-        }
-        $selectsArray = explode(", ", $selects);
-        if (count($selectsArray) !== 1) {
-            throw new \Error("solo se puede obtener el valor promedio de una columna Model::select('columna')->avg()");
-        }
-        $sql = $this->createQuery('avg');
-        $result = $this->executeQuery($sql);
-        $result = (array) $result[0];
-        //Resetear propiedades estáticas
-        $this->resetProperties();
-        return $result["AVG($selects)"];
-    }
-
-    // Agregar este método en la clase Model
-    public static function dd(): array
-    {
-        $model = new static();
-        $sql = $model->createQuery('get');
-        $bindings = self::$values;
-
-        // Formatear SQL con bindings aplicados
-        $debugSql = $sql;
-        foreach ($bindings as $value) {
-            $value = is_string($value)
-                ? "'" . addslashes($value) . "'"
-                : (is_null($value) ? 'NULL' : $value);
-            $debugSql = preg_replace('/\?/', $value, $debugSql, 1);
-        }
-
-        $data = [
-            'sql_raw' => $sql,
-            'sql_debug' => $debugSql,
-            'bindings' => $bindings,
-            'model' => static::class
-        ];
-
-        // ¡Resetear propiedades después de construir la consulta!
-        $model->resetProperties();
-
-        return $data;
-    }
-
-    private static function createModelFromResult(array $result): self
-    {
-        $model = new static();
-        $model->setAttributes($result);
-        return $model;
+        return static::hydrate((array) $result[0]);
     }
 
     public static function all(): ModelCollection|null
     {
         $model = new static();
+        $model->validateModel();
+
         $sql = "SELECT * FROM {$model->table}";
-        $result = $model->executeQuery($sql);
-        if (count($result) == 0) {
-            $model->resetProperties();
+        $values = [];
+
+        //los modelos con SoftDeletes no ven registros eliminados
+        if ($model->usesSoftDeletes()) {
+            $columna = $model->getDeletedAtColumn();
+            $sql .= " WHERE {$columna} IS NULL";
+        }
+
+        $result = self::db()->statement($sql, $values);
+
+        if (count($result) === 0) {
             return null;
         }
 
-        $arrayModels = array_map([static::class, 'createModelFromResult'], $result);
-        //Resetear propiedades estáticas
-        $model->resetProperties();
+        $arrayModels = array_map([static::class, 'hydrate'], $result);
+
         return new ModelCollection($arrayModels);
     }
 
-    public static function find(int|string $id): self|null
+    //******************************************************************
+    // SOFT DELETES
+    //******************************************************************
+
+    public function usesSoftDeletes(): bool
     {
-        self::$values = [$id];
-        $model = new static();
-        $sql = "SELECT * FROM {$model->table} WHERE {$model->primaryKey} = ?";
-        $result = $model->executeQuery($sql);
-        if (count($result) == 0) {
-            $model->resetProperties();
-            return null;
-        }
-        //Resetear propiedades estáticas
-        $model->resetProperties();
-        return self::createModelFromResult($result[0]);
+        return in_array(SoftDeletes::class, self::classUsesRecursive(static::class), true);
     }
 
-    public function firstNotHidden(): self|null
+    public function getDeletedAtColumn(): string
     {
-        $sql = $this->createQuery('first');
-        $result = $this->executeQuery($sql);
-        if (count($result) == 0) {
-            $this->resetProperties();
-            return null;
-        }
-        $model = new static();
-        $model->resetProperties();
-        return self::createModelFromResult($result[0]);
+        return property_exists($this, 'deletedAt') ? $this->deletedAt : 'eliminado_en';
     }
 
+    private static function classUsesRecursive(string $class): array
+    {
+        $uses = class_uses($class) ?: [];
 
-    public function hasOne(string $related, ?string $foreignKey = null, string $localKey = 'id')
+        foreach (class_parents($class) ?: [] as $parent) {
+            $uses = array_merge($uses, class_uses($parent) ?: []);
+        }
+
+        foreach (array_unique($uses) as $trait) {
+            $uses = array_merge($uses, class_uses($trait) ?: []);
+        }
+
+        return array_unique($uses);
+    }
+
+    //******************************************************************
+    // TRANSACCIONES
+    //******************************************************************
+
+    /**
+     * Ejecuta el callback dentro de una transaccion.
+     * Si el callback lanza una excepcion, se hace rollback y se re-lanza.
+     * Las llamadas anidadas participan de la transaccion externa.
+     */
+    public static function transaction(callable $callback): mixed
+    {
+        $topLevel = self::$transactionLevel === 0;
+
+        if ($topLevel) {
+            self::db()->beginTransaction();
+        }
+
+        self::$transactionLevel++;
+
+        try {
+            $result = $callback();
+
+            if ($topLevel) {
+                self::db()->commit();
+            }
+
+            self::$transactionLevel--;
+
+            return $result;
+        } catch (\Throwable $e) {
+            self::$transactionLevel--;
+
+            if ($topLevel) {
+                self::db()->rollBack();
+            }
+
+            throw $e;
+        }
+    }
+
+    //******************************************************************
+    // ACCESO AL QUERY BUILDER
+    //******************************************************************
+
+    /**
+     * Crea un QueryBuilder nuevo para este modelo.
+     * Cada consulta tiene su propio builder: el estado nunca se comparte.
+     */
+    public function newQuery(): QueryBuilder
+    {
+        return new QueryBuilder(static::class);
+    }
+
+    public function __call(string $method, array $arguments): mixed
+    {
+        return $this->newQuery()->{$method}(...$arguments);
+    }
+
+    public static function __callStatic(string $method, array $arguments): mixed
+    {
+        return (new static())->newQuery()->{$method}(...$arguments);
+    }
+
+    /**
+     * Consulta cruda parametrizada (compatible con versiones anteriores).
+     */
+    public static function customQuery(string $query, array|object $data = []): array|object
+    {
+        if (is_object($data)) {
+            $data = (array) $data;
+        }
+
+        return self::db()->statement($query, $data);
+    }
+
+    //******************************************************************
+    // RELACIONES
+    //******************************************************************
+
+    public function hasOne(string $related, ?string $foreignKey = null, string $localKey = 'id'): HasOne
     {
         $instance = new $related;
         $foreignKey = $foreignKey ?: $this->table . '_id';
+
         return new HasOne($instance, $this, $foreignKey, $localKey);
     }
 
     public function hasMany(string $related, ?string $foreignKey = null, string $localKey = 'id'): HasMany
     {
         $foreignKey = $foreignKey ?: $this->table . '_id';
+
         return new HasMany(new $related(), $this, $foreignKey, $localKey);
     }
 
     public function belongsTo(string $related, ?string $foreignKey = null, string $ownerKey = 'id'): BelongsTo
     {
         $foreignKey = $foreignKey ?: (new $related)->primaryKey;
+
         return new BelongsTo(new $related(), $this, $foreignKey, $ownerKey);
     }
 
-    public function belongsToMany(string $related, string $pivotTable, string $foreignPivotKey, string $relatedPivotKey): BelongsToMany
-    {
+    public function belongsToMany(
+        string $related,
+        string $pivotTable,
+        string $foreignPivotKey,
+        string $relatedPivotKey
+    ): BelongsToMany {
         return new BelongsToMany(new $related(), $this, $pivotTable, $foreignPivotKey, $relatedPivotKey);
-    }
-}
-
-class HasOne
-{
-    protected $related;
-    protected $parent;
-    protected $foreignKey;
-    protected $localKey;
-
-    public function __construct(Model $related, Model $parent, string $foreignKey, string $localKey)
-    {
-        $this->related = $related;
-        $this->parent = $parent;
-        $this->foreignKey = $foreignKey;
-        $this->localKey = $localKey;
-    }
-
-    public function get()
-    {
-        return $this->related->where($this->foreignKey, $this->parent->{$this->localKey})->first();
-    }
-}
-
-class HasMany
-{
-    protected Model $related;
-    protected Model $parent;
-    protected string $foreignKey;
-    protected string $localKey;
-
-    public function __construct(Model $related, Model $parent, string $foreignKey, string $localKey)
-    {
-        $this->related = $related;
-        $this->parent = $parent;
-        $this->foreignKey = $foreignKey;
-        $this->localKey = $localKey;
-    }
-
-    public function get(): ?\Cronos\Model\ModelCollection
-    {
-        return $this->related->where($this->foreignKey, $this->parent->{$this->localKey})->get();
-    }
-}
-
-class BelongsTo
-{
-    protected Model $related;
-    protected Model $parent;
-    protected string $foreignKey;
-    protected string $ownerKey;
-
-    public function __construct(Model $related, Model $parent, string $foreignKey, string $ownerKey)
-    {
-        $this->related = $related;
-        $this->parent = $parent;
-        $this->foreignKey = $foreignKey;
-        $this->ownerKey = $ownerKey;
-    }
-
-    public function get(): ?Model
-    {
-        return $this->related->where($this->ownerKey, $this->parent->{$this->foreignKey})->first();
-    }
-}
-
-class BelongsToMany
-{
-    protected Model $related;
-    protected Model $parent;
-    protected string $pivotTable;
-    protected string $foreignPivotKey;
-    protected string $relatedPivotKey;
-
-    public function __construct(Model $related, Model $parent, string $pivotTable, string $foreignPivotKey, string $relatedPivotKey)
-    {
-        $this->related = $related;
-        $this->parent = $parent;
-        $this->pivotTable = $pivotTable;
-        $this->foreignPivotKey = $foreignPivotKey;
-        $this->relatedPivotKey = $relatedPivotKey;
-    }
-
-    public function get(): ?\Cronos\Model\ModelCollection
-    {
-        $this->related->join(
-            $this->pivotTable,
-            $this->related->getTable() . '.' . $this->related->getPrimaryKey(),
-            '=',
-            $this->pivotTable . '.' . $this->relatedPivotKey
-        )->where(
-            $this->pivotTable . '.' . $this->foreignPivotKey,
-            $this->parent->{$this->parent->getPrimaryKey()}
-        );
-
-        return $this->related->get();
     }
 }

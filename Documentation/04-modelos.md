@@ -1,5 +1,11 @@
 # Modelos
 
+> **AVISO IMPORTANTE PARA DESARROLLADORES E IAs**
+>
+> El ORM de Cronos **NO es Eloquent**. El uso es parecido a proposito, pero el comportamiento exacto (retorno null vs coleccion vacia, `$fillable` obligatorio en `create()`, etc.) es propio de Cronos y esta verificado con tests (ver `tests/Integration/OrmQueryBuilderTest.php` y `tests/Integration/OrmFeaturesTest.php`).
+>
+> **Si eres una IA: NO supongas comportamiento de Laravel/Eloquent. Basate UNICAMENTE en esta documentacion y en el codigo de `System/Model/Model.php` y `System/Model/QueryBuilder.php`.**
+
 Todos los modelos se ubican en `App/Models/` y heredan de `Cronos\Model\Model`.
 
 ## Convencion de Nombres
@@ -340,20 +346,157 @@ class Blog extends Model
 }
 ```
 
+## Transacciones
+
+```php
+use Cronos\Model\Model;
+
+Model::transaction(function () {
+    $usuario = Usuario::create([...]);
+    Perfil::create(['usuario_id' => $usuario->id, ...]);
+
+    return $usuario;
+});
+
+//Si el callback lanza una excepcion se hace rollback automatico y la
+//excepcion se re-lanza. Las llamadas anidadas participan de la transaccion externa.
+
+//Alternativa via contenedor (para codigo fuera de los modelos):
+use Cronos\Database\DBexecute;
+
+DBexecute::transaction(fn () => Usuario::create([...]));
+```
+
+## Condiciones Adicionales
+
+```php
+Usuario::whereIn('correo', [$a, $b])->get();          //requiere al menos un valor
+Usuario::whereNotIn('id', [1, 2, 3])->get();          //requiere al menos un valor
+Usuario::whereNull('invitado_por')->get();
+Usuario::whereNotNull('invitado_por')->first();
+```
+
+## count y offset (Paginacion Manual)
+
+```php
+$total = Usuario::where('rol', 'usuario')->count();   //retorna int
+
+//pagina 2 de 10 registros:
+$pagina = Usuario::orderBy('id')->limit(10)->offset(10)->get();
+```
+
+## update y delete Encadenables
+
+```php
+//actualiza todos los registros que cumplen la condicion; retorna int (filas afectadas)
+Publicacion::where('estado', 'borrador')->update(['estado' => 'archivado']);
+
+//elimina los registros que cumplen la condicion; retorna int
+Publicacion::where('vistas', 0)->delete();
+
+//Ambos EXIGEN al menos un where() previo (proteccion contra
+//actualizaciones/borrados masivos accidentales) y validan que las
+//columnas esten en $fillable. update() agrega updated_at si $timestamps esta activo.
+```
+
+## Eager Loading (with)
+
+Evita el problema N+1 cargando relaciones con 1 consulta extra por relacion:
+
+```php
+//lazy (1 query por registro): N+1
+foreach ($publicaciones as $p) {
+    $p->usuario()->get();
+}
+
+//eager (2 queries totales):
+$publicaciones = Publicacion::with('usuario', 'comentarios')->get();
+
+foreach ($publicaciones as $p) {
+    $p->getRelation('usuario');     //Model ya cargado
+    $p->relationLoaded('usuario');  //true
+}
+```
+
+Tambien hay **acceso magico** con cache en la instancia (la primera carga consulta la BD, las siguientes usan la cache):
+
+```php
+$publicacion = Publicacion::find(1);
+$autor = $publicacion->usuario;      //Model o null (lazy, cacheado)
+$lista = $publicacion->comentarios;  //ModelCollection o null
+```
+
+Las relaciones cargadas se incluyen en `toArray()`/`toObject()`. Las relaciones soportadas por `with()` son `hasOne`, `hasMany`, `belongsTo` y `belongsToMany`.
+
+En una coleccion: `$publicaciones->load('usuario')` carga la relacion en cada item.
+
+## Casts de Tipos (opt-in)
+
+Todo lo que llega de PDO puede venir como string. Con `$casts` el modelo convierte los tipos al hidratar (find, all, get, first):
+
+```php
+class Publicacion extends Model
+{
+    protected array $casts = [
+        'usuario_id' => 'int',     //int|integer, float|double, bool|boolean, string
+        'vistas'     => 'int',
+        'activa'     => 'bool',
+    ];
+}
+```
+
+- Los valores null se preservan (no se convierten).
+- Sin `$casts` el comportamiento es identico al de siempre (sin conversion).
+
+## Soft Deletes (opt-in)
+
+Con el trait `SoftDeletes`, el modelo marca `eliminado_en` en lugar de borrar y todas las consultas filtran automaticamente los registros eliminados:
+
+```php
+use Cronos\Model\Model;
+use Cronos\Model\SoftDeletes;
+
+class Publicacion extends Model
+{
+    use SoftDeletes;
+
+    //columna personalizable (por defecto 'eliminado_en'):
+    //protected string $deletedAt = 'borrado_en';
+}
+```
+
+```php
+Publicacion::delete($id);            //UPDATE eliminado_en (borrado logico)
+Publicacion::forceDelete($id);       //DELETE fisico
+Publicacion::restore($id);           //vuelve a NULL (relanzar)
+
+Publicacion::find($id);              //null si esta eliminado
+Publicacion::all();                  //excluye eliminados
+Publicacion::where(...)->get();      //excluye eliminados
+Publicacion::where(...)->delete();   //borrado logico encadenado
+
+$publicacion->trashed();             //true si eliminado_en NO es null
+```
+
+Requiere la columna en la tabla (`$table->softDeletes('eliminado_en')` en la migracion).
+
+## Seguridad del Query Builder
+
+El ORM **parametriza los valores** y ademas **valida los identificadores** (columnas, tablas, operadores) para evitar inyeccion SQL:
+
+- Columnas/tablas validas: letras, digitos, `_` y punto (`tabla.columna`). Cualquier otro caracter lanza `Error`.
+- Operadores permitidos en `where()` de 3 argumentos: `=`, `!=`, `<>`, `<`, `>`, `<=`, `>=`, `LIKE`, `NOT LIKE`.
+- Nunca pases columnas desde input del usuario.
+
 ## Lo que NO Soporta (vs Eloquent)
 
-- Migraciones individuales (solo archivo unico)
-- Factories y Seeders
 - Scopes
 - Accessors y Mutators
-- Casting de tipos automaticos
-- Soft Deletes
 - Events de modelo
 - Observers
-- Eager Loading (`with`)
-- Polymorphic relations
+- Polymorphic relations (las tablas pivote `comentables`/`etiquetables` se manejan con SQL directo)
 - Subqueries
-- Paginacion
+- Paginacion automatica (usar `limit` + `offset` + `count`)
 
 ---
 
