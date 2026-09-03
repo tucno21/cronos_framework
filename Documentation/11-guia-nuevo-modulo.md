@@ -153,18 +153,18 @@ class ProductController extends Controller
             return json(['status' => 'error', 'message' => $valid]);
         }
 
-        $product = Product::update($product->id, $request->all());
+        $product->update($request->all());
 
         return json([
             'status' => 'success',
             'message' => 'Producto actualizado',
-            'product' => $product
+            'product' => $product->refresh()
         ]);
     }
 
     public function destroy(Product $product)
     {
-        Product::delete($product->id);
+        $product->delete();
 
         return json([
             'status' => 'success',

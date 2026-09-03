@@ -105,18 +105,18 @@ class PublicacionController extends Controller
             ], 422);
         }
 
-        $actualizada = Publicacion::update($publicacion->id, $request->all());
+        $publicacion->update($request->all());
 
         return json([
             'status' => 'success',
             'message' => 'Publicacion actualizada correctamente',
-            'publicacion' => $actualizada ? $actualizada->toArray() : null,
+            'publicacion' => $publicacion->refresh()->toArray(),
         ]);
     }
 
     public function destroy(Publicacion $publicacion)
     {
-        $eliminada = Publicacion::delete($publicacion->id);
+        $eliminada = $publicacion->delete();
 
         return json([
             'status' => $eliminada ? 'success' : 'error',

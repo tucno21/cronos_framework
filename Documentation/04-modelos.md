@@ -2,7 +2,7 @@
 
 > **AVISO IMPORTANTE PARA DESARROLLADORES E IAs**
 >
-> El ORM de Cronos **NO es Eloquent**. El uso es parecido a proposito, pero el comportamiento exacto (retorno null vs coleccion vacia, `$fillable` obligatorio en `create()`, etc.) es propio de Cronos y esta verificado con tests (ver `tests/Integration/OrmQueryBuilderTest.php` y `tests/Integration/OrmFeaturesTest.php`).
+> El ORM de Cronos **NO es Eloquent**. El uso es parecido a proposito, pero el comportamiento exacto (retorno null vs coleccion vacia, `$fillable` obligatorio en `create()`, etc.) es propio de Cronos y esta verificado con tests (ver `tests/Integration/OrmQueryBuilderTest.php`, `tests/Integration/OrmFeaturesTest.php` y `tests/Integration/OrmEloquentStyleTest.php`).
 >
 > **Si eres una IA: NO supongas comportamiento de Laravel/Eloquent. Basate UNICAMENTE en esta documentacion y en el codigo de `System/Model/Model.php` y `System/Model/QueryBuilder.php`.**
 
@@ -40,6 +40,8 @@ class User extends Model
 
 ## CRUD Basico
 
+> **CAMBIO IMPORTANTE (estilo Eloquent)**: `update()`, `delete()`, `forceDelete()` y `restore()` ahora son **metodos de instancia**. Los antiguos estaticos `User::update($id, [...])`, `User::delete($id)`, `User::forceDelete($id)` y `User::restore($id)` **ya NO existen**.
+
 ### Guardar Datos
 
 ```php
@@ -52,29 +54,53 @@ $user = User::create([
 // Retorna el objeto guardado con el id
 ```
 
-### Actualizar Datos
+### Actualizar Datos (por instancia)
 
 ```php
-$user = User::update($id, [
+$user = User::find($id);
+$user->update([
     'name' => 'nuevo nombre',
     'email' => 'nuevo email'
 ]);
 
-// Retorna el objeto actualizado o false/"0" si falla
+// Retorna true si afecto filas. Los campos deben estar en $fillable.
+// Agrega updated_at si $timestamps esta activo. Respeta SoftDeletes.
 ```
 
-### Eliminar Datos
+### Eliminar Datos (por instancia)
 
 ```php
-User::delete($id);
+$user = User::find($id);
+$user->delete();          // true si afecto filas (soft delete si el modelo lo usa)
 
-// Retorna un booleano
+$user->forceDelete();     // DELETE fisico (ignora SoftDeletes)
+$user->restore();         // recupera un soft delete (requiere el trait)
+```
+
+### Guardar Cambios con save()
+
+```php
+//INSERT: instancia sin clave primaria
+$user = new User();
+$user->name = 'Nuevo';
+$user->email = 'nuevo@test.com';
+$user->password = 'secreto';
+$user->save();            //requiere TODOS los $fillable asignados
+
+//UPDATE: instancia ya cargada, SOLO envia los atributos modificados
+$user = User::find($id);
+$user->name = 'Editado';
+$user->save();            //UPDATE con solo las columnas cambiadas
+
+$user->refresh();         //relee los atributos desde la BD
+                          //lanza ModelNotFoundException si el registro ya no existe
 ```
 
 ### Buscar por ID
 
 ```php
-$user = User::find($id);
+$user = User::find($id);          //null si no existe
+$user = User::findOrFail($id);    //lanza ModelNotFoundException si no existe
 ```
 
 ### Obtener Todos
@@ -175,10 +201,35 @@ $user = User::where('email', 'test@test.com')->first();
 ## Funciones de Agregacion
 
 ```php
+//Estilo legacy (una sola columna via select):
 User::select('views')->max();
 User::select('views')->min();
 User::select('views')->sum();
 User::select('views')->avg();
+
+//Estilo directo (columna como argumento):
+User::sum('views');
+User::avg('views');
+User::max('views');
+User::min('views');
+```
+
+## Shortcuts Utiles
+
+```php
+//Valor de una columna del primer registro (null si no hay)
+$nombre = User::where('email', 'a@b.com')->value('name');
+
+//Existencia de registros (respeta SoftDeletes y wheres)
+User::where('rol', 'admin')->exists();        //bool
+User::where('rol', 'admin')->doesntExist();   //bool
+
+//Orden por created_at (o la columna indicada)
+User::latest()->first();                 //ORDER BY created_at DESC
+User::oldest('created_at')->first();     //ORDER BY created_at ASC
+
+//Sin resultados lanza ModelNotFoundException
+$primer = User::where('activo', 1)->firstOrFail();
 ```
 
 ## Ejemplos de Consultas
@@ -286,13 +337,25 @@ Las consultas que retornan multiples registros devuelven un `ModelCollection` co
 |---|---|---|
 | `map(callable $cb)` | Aplica funcion a cada elemento | `$collection->map(fn($b) => $b->title)` |
 | `filter(callable $cb)` | Filtra elementos con callback | `$collection->filter(fn($b) => $b->status === 'published')` |
-| `first()` | Primer elemento | `$blogs->first()` |
-| `last()` | Ultimo elemento | `$blogs->last()` |
+| `first(?callable $cb)` | Primer elemento (o el primero que cumpla) | `$blogs->first(fn($b) => $b->vistas > 10)` |
+| `last(?callable $cb)` | Ultimo elemento (o el ultimo que cumpla) | `$blogs->last()` |
 | `count()` | Cantidad de elementos | `$blogs->count()` |
+| `each(callable $cb)` | Ejecuta callback por item, retorna la coleccion | `$blogs->each(fn($b) => ...)` |
+| `values()` | Reindexa (0,1,2...) | `$blogs->filter(...)->values()` |
+| `contains($key, $val)` | Si contiene un valor o cumple un callback | `$blogs->contains('slug', 'x')` / `$blogs->contains(fn($b) => ...)` |
+| `sum(string $key)` | Suma una columna (null cuenta 0) | `$blogs->sum('vistas')` |
+| `avg(string $key)` | Promedio de una columna | `$blogs->avg('vistas')` |
+| `min(string $key)` | Minimo de una columna | `$blogs->min('vistas')` |
+| `max(string $key)` | Maximo de una columna | `$blogs->max('vistas')` |
+| `groupBy(string $key)` | Agrupa: `array<string, ModelCollection>` | `$blogs->groupBy('estado')['borrador']` |
+| `sortBy(string $key, bool $desc)` | Ordena por columna | `$blogs->sortBy('titulo')` |
+| `sortByDesc(string $key)` | Ordena descendente | `$blogs->sortByDesc('vistas')` |
 | `toArray()` | Convierte todos a array | `$blogs->toArray()` |
 | `toObject()` | Convierte todos a objeto | `$blogs->toObject()` |
-| `toJson()` | Convierte a JSON | `$blogs->toJson()` |
+| `toJson()` | Convierte a JSON (respeta $hidden) | `$blogs->toJson()` |
 | `pluck(string $key)` | Extrae una propiedad de todos | `$blogs->pluck('title')` |
+| `load(string ...$rel)` | Carga relaciones en cada item | `$blogs->load('usuario')` |
+| `isEmpty()` / `isNotEmpty()` | Vaciedad | `$blogs->isNotEmpty()` |
 | `getIterator()` | Iterador para foreach | `foreach ($col as $item) { ... }` |
 
 ## Ejemplo Real
@@ -438,15 +501,53 @@ Todo lo que llega de PDO puede venir como string. Con `$casts` el modelo convier
 class Publicacion extends Model
 {
     protected array $casts = [
-        'usuario_id' => 'int',     //int|integer, float|double, bool|boolean, string
-        'vistas'     => 'int',
-        'activa'     => 'bool',
+        'usuario_id' => 'int',               //int|integer, float|double|real, bool|boolean, string
+        'vistas'     => 'decimal:2',         //string con 2 decimales: "123.00"
+        'created_at' => 'datetime',          //DateTimeImmutable ('date' tambien existe)
+        'metadata'   => 'array',             //json_decode a array ('json' es equivalente)
     ];
 }
 ```
 
 - Los valores null se preservan (no se convierten).
+- `decimal:N` retorna un string formateado con N decimales (igual que Eloquent).
+- `datetime`/`date` retornan `DateTimeImmutable`.
 - Sin `$casts` el comportamiento es identico al de siempre (sin conversion).
+
+## Timestamps
+
+```php
+class User extends Model
+{
+    protected bool $timestamps = true;   //false: create()/save() no tocan timestamps
+
+    //columnas personalizables (por defecto las constantes del modelo base):
+    protected string $created = Model::CREATED_AT;  //'created_at'
+    protected string $updated = Model::UPDATED_AT;  //'updated_at'
+}
+```
+
+Con `$timestamps = false` los INSERT/UPDATE no incluyen `created_at` ni `updated_at`.
+
+## Prevencion de N+1 (preventLazyLoading)
+
+En desarrollo puedes bloquear el lazy loading para detectar consultas N+1:
+
+```php
+Model::preventLazyLoading();     //activa la deteccion (tipicamente en un provider o bootstrap)
+
+$publicacion = Publicacion::first();
+$publicacion->usuario;           //lanza Error: "Carga perezosa (N+1) bloqueada..."
+
+Publicacion::with('usuario')->first()->usuario;   //el eager loading SI funciona
+
+Model::preventLazyLoading(false); //desactiva
+Model::isLazyLoadingPrevented();  //consulta el estado
+```
+
+## toArray() y $hidden
+
+`toArray()`/`toObject()`/`toJson()` excluyen los campos de `$hidden` **sin destruir** los atributos de la instancia: serializar no altera el modelo, las llamadas repetidas dan el mismo resultado y el modelo sigue siendo utilizable despues (`update()`, `save()`, etc.). Los modelos anidados en relaciones aplican su propio `$hidden`.
 
 ## Soft Deletes (opt-in)
 
@@ -460,25 +561,35 @@ class Publicacion extends Model
 {
     use SoftDeletes;
 
-    //columna personalizable (por defecto 'eliminado_en'):
+    //columna personalizable (por defecto la constante DELETED_AT = 'eliminado_en'):
     //protected string $deletedAt = 'borrado_en';
 }
 ```
 
 ```php
-Publicacion::delete($id);            //UPDATE eliminado_en (borrado logico)
-Publicacion::forceDelete($id);       //DELETE fisico
-Publicacion::restore($id);           //vuelve a NULL (relanzar)
+//POR INSTANCIA (estilo Eloquent):
+$publicacion = Publicacion::find($id);
+$publicacion->delete();          //UPDATE eliminado_en (borrado logico); $publicacion->trashed() pasa a true
+$publicacion->forceDelete();     //DELETE fisico
+$publicacion->restore();         //vuelve a NULL; trashed() pasa a false
 
+//POR CONSULTA (encadenables):
+Publicacion::where('vistas', 0)->delete();              //borrado logico; retorna int
+Publicacion::onlyTrashed()->where('id', $id)->restore(); //restaura; retorna int
+Publicacion::withTrashed()->where('id', $id)->delete();  //borrado FISICO aunque haya trait
+
+//CONSULTAS:
 Publicacion::find($id);              //null si esta eliminado
 Publicacion::all();                  //excluye eliminados
 Publicacion::where(...)->get();      //excluye eliminados
-Publicacion::where(...)->delete();   //borrado logico encadenado
+Publicacion::withTrashed()->get();   //incluye eliminados
+Publicacion::onlyTrashed()->get();   //SOLO eliminados
 
 $publicacion->trashed();             //true si eliminado_en NO es null
 ```
 
-Requiere la columna en la tabla (`$table->softDeletes('eliminado_en')` en la migracion).
+- `withTrashed()`/`onlyTrashed()`/`restore()` en un modelo sin el trait lanzan `Error`.
+- Requiere la columna en la tabla (`$table->softDeletes('eliminado_en')` en la migracion).
 
 ## Seguridad del Query Builder
 
@@ -491,10 +602,13 @@ El ORM **parametriza los valores** y ademas **valida los identificadores** (colu
 ## Lo que NO Soporta (vs Eloquent)
 
 - Scopes
-- Accessors y Mutators
+- Accessors y Mutators (solo casts de tipo)
 - Events de modelo
 - Observers
-- Polymorphic relations (las tablas pivote `comentables`/`etiquetables` se manejan con SQL directo)
+- `whereHas()` / `has()` / `withCount()`
+- Eager loading anidado (`with('a.b')`) ni closures en `with()`
+- `attach()` / `detach()` / `sync()` en pivotes (solo lectura de la relacion N:M)
+- Relaciones `hasManyThrough` y morfologicas (`morphOne`/`morphMany`/`morphTo`; las tablas `comentables`/`etiquetables` se manejan con SQL directo)
 - Subqueries
 - Paginacion automatica (usar `limit` + `offset` + `count`)
 

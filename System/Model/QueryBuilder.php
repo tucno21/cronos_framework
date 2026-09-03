@@ -47,6 +47,12 @@ final class QueryBuilder
     /** @var string[] nombres de relaciones a cargar con with() */
     private array $eager = [];
 
+    //SOFT DELETES A NIVEL CONSULTA (estilo Laravel)
+    //withTrashed(): incluye registros borrados; onlyTrashed(): solo borrados
+    private bool $withTrashed = false;
+
+    private bool $onlyTrashed = false;
+
     public function __construct(string $modelClass)
     {
         $this->modelClass = $modelClass;
@@ -354,6 +360,60 @@ final class QueryBuilder
         return $this;
     }
 
+    /**
+     * Incluye los registros con soft delete en la consulta.
+     * En el DELETE de la consulta pasa a borrar fisicamente.
+     */
+    public function withTrashed(): self
+    {
+        $this->requireSoftDeletes('withTrashed()');
+        $this->withTrashed = true;
+        $this->onlyTrashed = false;
+
+        return $this;
+    }
+
+    /**
+     * La consulta devuelve SOLO los registros con soft delete.
+     */
+    public function onlyTrashed(): self
+    {
+        $this->requireSoftDeletes('onlyTrashed()');
+        $this->onlyTrashed = true;
+        $this->withTrashed = false;
+
+        return $this;
+    }
+
+    /**
+     * Recupera (eliminado_en = NULL) los registros que cumplen las
+     * condiciones de la consulta. Requiere al menos un where().
+     *
+     * @return int cantidad de filas restauradas
+     */
+    public function restore(): int
+    {
+        $this->requireSoftDeletes('restore()');
+
+        if (empty($this->wheres)) {
+            throw new \Error('restore() requiere al menos una condicion where() para evitar restaurar toda la tabla');
+        }
+
+        $columna = $this->model->getDeletedAtColumn();
+        $sql = "UPDATE {$this->model->getTable()} SET {$columna} = NULL" . $this->buildWhereSql() . " AND {$columna} IS NOT NULL";
+
+        return Model::db()->statementC_U_D($sql, $this->values);
+    }
+
+    private function requireSoftDeletes(string $metodo): void
+    {
+        $this->model->validateModel();
+
+        if (!$this->model->usesSoftDeletes()) {
+            throw new \Error("El modelo {$this->modelClass} no usa el trait SoftDeletes, no puede usar {$metodo}");
+        }
+    }
+
     //******************************************************************
     // METODOS TERMINALES (ejecutan la consulta)
     //******************************************************************
@@ -399,6 +459,20 @@ final class QueryBuilder
         return $this->first();
     }
 
+    /**
+     * Igual que first() pero lanza ModelNotFoundException si no hay resultados.
+     */
+    public function firstOrFail(): Model
+    {
+        $model = $this->first();
+
+        if ($model === null) {
+            throw new ModelNotFoundException('No hay resultados de consulta para el modelo ' . $this->modelClass);
+        }
+
+        return $model;
+    }
+
     public function count(): int
     {
         $this->model->validateModel();
@@ -417,24 +491,95 @@ final class QueryBuilder
         return (int) ((array) $result[0])['COUNT(*)'];
     }
 
-    public function max(): int|float|string
+    public function max(?string $column = null): int|float|string
     {
-        return $this->aggregate('max', 'maximo');
+        return $this->aggregate('max', 'maximo', $column);
     }
 
-    public function min(): int|float|string
+    public function min(?string $column = null): int|float|string
     {
-        return $this->aggregate('min', 'minimo');
+        return $this->aggregate('min', 'minimo', $column);
     }
 
-    public function sum(): int|float|string
+    public function sum(?string $column = null): int|float|string
     {
-        return $this->aggregate('sum', 'suma');
+        return $this->aggregate('sum', 'suma', $column);
     }
 
-    public function avg(): int|float|string
+    public function avg(?string $column = null): int|float|string
     {
-        return $this->aggregate('avg', 'promedio');
+        return $this->aggregate('avg', 'promedio', $column);
+    }
+
+    /**
+     * Devuelve el valor de una columna del primer registro de la consulta.
+     * Ejemplo: Usuario::where('correo', $correo)->value('id')
+     */
+    public function value(string $column): mixed
+    {
+        $this->validateIdentifier($column, 'VALUE');
+
+        $this->model->validateModel();
+        $this->applySoftDeleteFilter();
+
+        $sql = "SELECT {$column} FROM {$this->model->getTable()}";
+
+        if (!empty($this->joins)) {
+            $sql .= ' ' . implode(' ', $this->joins);
+        }
+
+        $sql .= $this->buildWhereSql() . ' LIMIT 1';
+
+        $result = $this->execute($sql);
+
+        if (count($result) === 0) {
+            return null;
+        }
+
+        return ((array) $result[0])[$column] ?? null;
+    }
+
+    /**
+     * Indica si la consulta tiene al menos un resultado.
+     */
+    public function exists(): bool
+    {
+        $this->model->validateModel();
+        $this->applySoftDeleteFilter();
+
+        $sql = 'SELECT 1 AS cronos_exists FROM ' . $this->model->getTable();
+
+        if (!empty($this->joins)) {
+            $sql .= ' ' . implode(' ', $this->joins);
+        }
+
+        $sql .= $this->buildWhereSql() . ' LIMIT 1';
+
+        return count($this->execute($sql)) > 0;
+    }
+
+    /**
+     * Indica si la consulta no tiene ningun resultado.
+     */
+    public function doesntExist(): bool
+    {
+        return !$this->exists();
+    }
+
+    /**
+     * Atajo de orderBy($column, 'DESC'). Por defecto created_at.
+     */
+    public function latest(string $column = 'created_at'): self
+    {
+        return $this->orderBy($column, 'DESC');
+    }
+
+    /**
+     * Atajo de orderBy($column, 'ASC'). Por defecto created_at.
+     */
+    public function oldest(string $column = 'created_at'): self
+    {
+        return $this->orderBy($column, 'ASC');
     }
 
     /**
@@ -476,7 +621,8 @@ final class QueryBuilder
 
     /**
      * Elimina los registros que cumplen las condiciones de la consulta.
-     * Si el modelo usa SoftDeletes, marca eliminado_en en lugar de borrar.
+     * Si el modelo usa SoftDeletes, marca eliminado_en en lugar de borrar,
+     * salvo que la consulta tenga withTrashed() (borrado fisico).
      *
      * Ejemplo: Publicacion::where('estado', 'borrador')->delete()
      *
@@ -492,9 +638,12 @@ final class QueryBuilder
 
         $table = $this->model->getTable();
 
-        if ($this->model->usesSoftDeletes()) {
+        $borradoFisico = !$this->model->usesSoftDeletes() || $this->withTrashed;
+
+        if (!$borradoFisico) {
             $columna = $this->model->getDeletedAtColumn();
-            $sql = "UPDATE {$table} SET {$columna} = ?" . $this->buildWhereSql() . " AND {$columna} IS NULL";
+            $marcaViva = $this->onlyTrashed ? 'IS NOT NULL' : 'IS NULL';
+            $sql = "UPDATE {$table} SET {$columna} = ?" . $this->buildWhereSql() . " AND {$columna} {$marcaViva}";
 
             return Model::db()->statementC_U_D($sql, array_merge([date('Y-m-d H:i:s')], $this->values));
         }
@@ -612,24 +761,46 @@ final class QueryBuilder
         return (array) Model::db()->statement($sql, $this->values);
     }
 
-    private function aggregate(string $type, string $nombre): int|float|string
+    private function aggregate(string $type, string $nombre, ?string $column = null): int|float|string
     {
-        if ($this->selects === '*') {
-            throw new \Error("no agrego ninguna columna para obtener el valor {$nombre} Model::select('columna')->{$type}()");
-        }
+        if ($column !== null) {
+            //estilo Laravel: Usuario::sum('id')
+            $this->validateIdentifier($column, 'AGGREGATE');
+            $expresion = $column;
+        } else {
+            //estilo legacy: Usuario::select('id')->sum()
+            if ($this->selects === '*') {
+                throw new \Error("no agrego ninguna columna para obtener el valor {$nombre} Model::select('columna')->{$type}()");
+            }
 
-        $selectsArray = explode(', ', $this->selects);
-        if (count($selectsArray) !== 1) {
-            throw new \Error("solo se puede obtener el valor {$nombre} de una columna Model::select('columna')->{$type}()");
+            $selectsArray = explode(', ', $this->selects);
+            if (count($selectsArray) !== 1) {
+                throw new \Error("solo se puede obtener el valor {$nombre} de una columna Model::select('columna')->{$type}()");
+            }
+
+            $expresion = $this->selects;
         }
 
         $this->model->validateModel();
         $this->applySoftDeleteFilter();
 
-        $result = $this->execute($this->buildSelectSql($type));
+        $sql = 'SELECT ' . strtoupper($type) . "({$expresion}) FROM {$this->model->getTable()}";
+
+        if (!empty($this->joins)) {
+            $sql .= ' ' . implode(' ', $this->joins);
+        }
+
+        $sql .= $this->buildWhereSql();
+
+        $result = $this->execute($sql);
+
+        if (count($result) === 0) {
+            return 0;
+        }
+
         $row = (array) $result[0];
 
-        return $row[strtoupper($type) . "({$this->selects})"];
+        return $row[strtoupper($type) . "({$expresion})"] ?? 0;
     }
 
     private function applySoftDeleteFilter(): void
@@ -638,7 +809,20 @@ final class QueryBuilder
             return;
         }
 
-        $this->wheres[] = $this->model->getDeletedAtColumn() . ' IS NULL';
+        $columna = $this->model->getDeletedAtColumn();
+
+        if ($this->onlyTrashed) {
+            $this->wheres[] = "{$columna} IS NOT NULL";
+            $this->boolWhere = true;
+
+            return;
+        }
+
+        if ($this->withTrashed) {
+            return;
+        }
+
+        $this->wheres[] = "{$columna} IS NULL";
         $this->boolWhere = true;
     }
 

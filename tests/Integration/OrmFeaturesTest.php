@@ -436,7 +436,7 @@ class OrmFeaturesTest extends OrmTestCase
             $this->assertFalse($publicacion->trashed());
 
             //delete() marca eliminado_en en lugar de borrar
-            $this->assertTrue(PublicacionBorrable::delete($id));
+            $this->assertTrue($publicacion->delete());
 
             //oculto para el modelo con SoftDeletes
             $this->assertNull(PublicacionBorrable::find($id));
@@ -449,11 +449,11 @@ class OrmFeaturesTest extends OrmTestCase
             $this->assertNotNull($crudo->eliminado_en);
 
             //restore() lo vuelve visible
-            $this->assertTrue(PublicacionBorrable::restore($id));
+            $this->assertTrue($publicacion->restore());
             $this->assertNotNull(PublicacionBorrable::find($id));
 
             //forceDelete() borra fisicamente
-            $this->assertTrue(PublicacionBorrable::forceDelete($id));
+            $this->assertTrue($publicacion->forceDelete());
             $this->assertNull(Publicacion::find($id));
         });
     }
@@ -494,18 +494,22 @@ class OrmFeaturesTest extends OrmTestCase
             ]);
 
             $id = $publicacion->id;
-            PublicacionBorrable::delete($id);
+            $publicacion->delete();
 
-            $this->assertNull(PublicacionBorrable::update($id, ['titulo' => 'No Debe Aplicar']));
+            $this->assertFalse($publicacion->update(['titulo' => 'No Debe Aplicar']));
         });
     }
 
     public function testRestoreSinTraitLanzaError(): void
     {
-        $this->expectException(\Error::class);
-        $this->expectExceptionMessage('no usa el trait SoftDeletes');
+        $this->rollbackAfter(function () {
+            $usuario = $this->crearUsuario();
 
-        Usuario::restore(1);
+            $this->expectException(\Error::class);
+            $this->expectExceptionMessage('no usa el trait SoftDeletes');
+
+            $usuario->restore();
+        });
     }
 
     public function testSanitizacionDeIdentificadores(): void

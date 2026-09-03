@@ -694,14 +694,14 @@ class DashboardController extends Controller
 
     public function update(Request $request, Blog $blog)
     {
-        // Validación y actualización
-        $blog = Blog::update($blog->id, $request->all());
-        return json(['status' => 'success', 'blog' => $blog]);
+        // Validación y actualización (estilo instancia)
+        $blog->update($request->all());
+        return json(['status' => 'success', 'blog' => $blog->refresh()]);
     }
 
     public function destroy(Blog $blog)
     {
-        Blog::delete($blog->id);
+        $blog->delete();
         return json(['status' => 'success']);
     }
 }
@@ -2640,18 +2640,18 @@ return new class extends Migration
                return json(['status' => 'error', 'message' => $valid]);
            }
            
-           $product = Product::update($product->id, $request->all());
-           
-           return json([
-               'status' => 'success',
-               'message' => 'Producto actualizado',
-               'product' => $product
-           ]);
-       }
-       
-       public function destroy(Product $product)
-       {
-           Product::delete($product->id);
+            $product->update($request->all());
+            
+            return json([
+                'status' => 'success',
+                'message' => 'Producto actualizado',
+                'product' => $product->refresh()
+            ]);
+        }
+        
+        public function destroy(Product $product)
+        {
+            $product->delete();
            
            return json([
                'status' => 'success',

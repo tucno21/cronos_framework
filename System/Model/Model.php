@@ -34,6 +34,7 @@ use Cronos\Database\DatabaseDriver;
  * @method static QueryBuilder delete()
  * @method static ModelCollection|null get()
  * @method static self|null first()
+ * @method static self firstOrFail()
  * @method static self|null firstNotHidden()
  * @method static int count()
  * @method static int|float|string max()
@@ -41,17 +42,32 @@ use Cronos\Database\DatabaseDriver;
  * @method static int|float|string sum()
  * @method static int|float|string avg()
  * @method static array dd()
+ *
+ * API de instancia (estilo Eloquent, sobre una fila ya cargada):
+ *
+ * @method bool update(array|object $data) actualiza esta fila por su clave primaria
+ * @method bool delete() elimina esta fila (soft delete si el modelo lo usa)
+ * @method bool forceDelete() elimina fisicamente esta fila
+ * @method bool restore() recupera esta fila con soft delete
  */
 abstract class Model
 {
+    //COLUMNAS DE TIMESTAMP POR DEFECTO (cada modelo puede sobreescribirlas
+    //con las propiedades $created y $updated)
+    public const CREATED_AT = 'created_at';
+    public const UPDATED_AT = 'updated_at';
+
+    //DETECCION DE N+1 (Model::preventLazyLoading() en desarrollo)
+    private static bool $preventLazyLoading = false;
+
     //DATOS BASICOS DEL MODELO DE LA TABLA
     protected string $table = '';
     protected string $primaryKey = '';
     protected array $fillable = [];
     protected array $hidden = [];
     protected bool $timestamps = false;
-    protected string $created = 'created_at';
-    protected string $updated = 'updated_at';
+    protected string $created = self::CREATED_AT;
+    protected string $updated = self::UPDATED_AT;
 
     //CASTS OPT-IN: convierten tipos al hidratar desde la BD (todo llega como
     //string de PDO). Sin casts, el comportamiento es identico al anterior.
@@ -59,6 +75,9 @@ abstract class Model
 
     //GUARDAR LOS ATRIBUTOS PARA CREATE, UPDATE
     protected array $attributes = [];
+
+    //ATRIBUTOS TAL COMO VINIERON DE LA BD (para detectar cambios en save())
+    protected array $original = [];
 
     //RELACIONES CARGADAS (eager o lazy) sobre la instancia
     protected array $relations = [];
@@ -79,6 +98,21 @@ abstract class Model
         }
 
         return self::$db;
+    }
+
+    /**
+     * Activa/desactiva la deteccion de N+1: al estar activa, acceder a una
+     * relacion no cargada lanza un Error en lugar de lanzar la consulta
+     * perezosa. Pensado para desarrollo (Laravel: Model::preventLazyLoading).
+     */
+    public static function preventLazyLoading(bool $prevent = true): void
+    {
+        self::$preventLazyLoading = $prevent;
+    }
+
+    public static function isLazyLoadingPrevented(): bool
+    {
+        return self::$preventLazyLoading;
     }
 
     public function getTable(): string
@@ -124,6 +158,13 @@ abstract class Model
 
         //Carga perezosa (lazy) de la relacion la primera vez que se accede
         if (method_exists($this, $property)) {
+            if (self::$preventLazyLoading) {
+                throw new \Error(
+                    "Carga perezosa (N+1) bloqueada para la relacion [{$property}] en " . static::class
+                    . ". Usa with('{$property}') o desactivala con Model::preventLazyLoading(false)."
+                );
+            }
+
             $value = $this->{$property}()->get();
             $this->relations[$property] = $value;
 
@@ -169,6 +210,7 @@ abstract class Model
         $model = new static();
         $model->setAttributes($row);
         $model->applyCasts();
+        $model->original = $model->attributes;
 
         return $model;
     }
@@ -180,16 +222,37 @@ abstract class Model
                 continue;
             }
 
-            $value = $this->attributes[$attribute];
-
-            $this->attributes[$attribute] = match ($type) {
-                'int', 'integer' => $value === null ? null : (int) $value,
-                'float', 'double' => $value === null ? null : (float) $value,
-                'bool', 'boolean' => $value === null ? null : (bool) $value,
-                'string' => $value === null ? null : (string) $value,
-                default => $value,
-            };
+            $this->attributes[$attribute] = $this->castValue($this->attributes[$attribute], (string) $type);
         }
+    }
+
+    /**
+     * Convierte un valor segun el tipo de cast definido en $casts.
+     * Tipos soportados: int, float, bool, string, datetime, date,
+     * array, json y decimal:N (string con N decimales, estilo Laravel).
+     * null siempre se preserva.
+     */
+    private function castValue(mixed $value, string $type): mixed
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if (str_starts_with($type, 'decimal:')) {
+            $decimales = (int) substr($type, 8);
+
+            return number_format((float) $value, $decimales, '.', '');
+        }
+
+        return match ($type) {
+            'int', 'integer' => (int) $value,
+            'float', 'double', 'real' => (float) $value,
+            'bool', 'boolean' => (bool) $value,
+            'string' => (string) $value,
+            'datetime', 'date' => new \DateTimeImmutable((string) $value),
+            'array', 'json' => json_decode((string) $value, true),
+            default => $value,
+        };
     }
 
     //******************************************************************
@@ -246,19 +309,20 @@ abstract class Model
         }
     }
 
-    // eliminar los atributos ocultos
-    private function hiddenAttibutes(): void
-    {
-        foreach ($this->hidden as $value) {
-            unset($this->attributes[$value]);
-        }
-    }
-
+    /**
+     * Serializa los atributos y las relaciones cargadas respetando $hidden.
+     * NO modifica los atributos de la instancia (las llamadas repetidas dan
+     * el mismo resultado y el modelo conserva sus valores internos).
+     */
     public function toArray(): array
     {
-        $this->hiddenAttibutes();
+        $data = [];
 
-        $data = $this->attributes;
+        foreach ($this->attributes as $key => $value) {
+            if (!in_array($key, $this->hidden, true)) {
+                $data[$key] = $value;
+            }
+        }
 
         //incluir SOLO las relaciones explicitamente cargadas (with() o acceso previo)
         foreach ($this->relations as $name => $relation) {
@@ -314,109 +378,239 @@ abstract class Model
         return null;
     }
 
-    public static function update(int|string $id, array|object $data): object|null
+    /**
+     * Actualiza esta instancia por su clave primaria (estilo Eloquent).
+     * Los datos deben estar dentro de $fillable.
+     *
+     *   $publicacion = Publicacion::find(78);
+     *   $publicacion->update(['titulo' => 'Nuevo']);
+     */
+    public function update(array|object $data): bool
     {
-        if (is_object($data)) {
-            $data = (array) $data;
+        return $this->updateThis(is_array($data) ? $data : (array) $data);
+    }
+
+    /**
+     * Elimina esta instancia por su clave primaria.
+     * Con SoftDeletes hace borrado logico; sin ellos, fisico.
+     */
+    public function delete(): bool
+    {
+        return $this->deleteThis();
+    }
+
+    /**
+     * Elimina fisicamente esta instancia (ignora SoftDeletes).
+     */
+    public function forceDelete(): bool
+    {
+        return $this->forceDeleteThis();
+    }
+
+    /**
+     * Recupera esta instancia con soft delete (eliminado_en vuelve a NULL).
+     */
+    public function restore(): bool
+    {
+        return $this->restoreThis();
+    }
+
+    //******************************************************************
+    // ESCRITURA POR INSTANCIA (estilo Eloquent)
+    //******************************************************************
+
+    /**
+     * Guarda el modelo: INSERT si no tiene clave primaria, UPDATE si ya
+     * la tiene. Devuelve true si la operacion afecto filas.
+     */
+    public function save(): bool
+    {
+        $pk = $this->attributes[$this->primaryKey] ?? null;
+
+        if ($pk === null) {
+            return $this->insertThis();
         }
 
-        //instancia de la clase hija
-        $model = new static();
+        //solo se envian los atributos que cambiaron desde la hidratacion
+        //los atributos no fillable no pueden pasar por validateColumns()
+        $dirty = [];
+        foreach ($this->attributes as $key => $value) {
+            if (!array_key_exists($key, $this->original) || $this->original[$key] !== $value) {
+                $dirty[$key] = $value;
+            }
+        }
+        unset($dirty[$this->primaryKey]);
 
-        $model->setAttributes($data);
+        if ($dirty === []) {
+            return true; //nada cambio
+        }
 
-        //realizar validaciones
-        $model->validateModel();
-        $model->validateColumns($data);
+        return $this->updateThis($dirty);
+    }
 
-        //agregar registros de tiempo
-        $model->addTimestamps('updated');
+    /**
+     * Refresca los atributos del modelo desde la BD (por su clave primaria).
+     * Lanza ModelNotFoundException si el registro ya no existe.
+     */
+    public function refresh(): static
+    {
+        $pk = $this->attributes[$this->primaryKey] ?? null;
 
-        // Construir la sentencia SQL de actualización
-        $sql = "UPDATE {$model->table} SET ";
-        $updateFields = [];
+        if ($pk === null) {
+            throw new \Error('El modelo ' . static::class . ' no tiene clave primaria para refrescar.');
+        }
+
+        $fresh = static::findOrFail($pk);
+
+        $this->attributes = $fresh->attributes;
+
+        return $this;
+    }
+
+    private function insertThis(): bool
+    {
+        $this->validateModel();
+        $this->validateColumns($this->attributes);
+        $this->validateFillableOnAttibutes();
+        $this->addTimestamps();
+
+        $sql = "INSERT INTO {$this->table} (" . implode(',', array_keys($this->attributes)) . ') VALUES ('
+            . implode(',', array_fill(0, count($this->attributes), '?')) . ')';
+        $param = array_values($this->attributes);
+
+        if (self::db()->statementC_U_D($sql, $param) > 0) {
+            $this->attributes[$this->primaryKey] = self::db()->lastInsertId();
+            $this->applyCasts();
+            $this->original = $this->attributes;
+
+            return true;
+        }
+
+        return false;
+    }
+
+    private function updateThis(array $data): bool
+    {
+        $pk = $this->attributes[$this->primaryKey] ?? null;
+
+        if ($pk === null) {
+            throw new \Error('El modelo ' . static::class . ' no tiene clave primaria. Use save() para crear el registro.');
+        }
+
+        $this->validateModel();
+        $this->validateColumns($data);
+        $this->addTimestamps('updated');
+
+        //si el modelo maneja timestamps, la columna updated_at se agrega al SET
+        if ($this->timestamps && !array_key_exists($this->updated, $data)) {
+            $data[$this->updated] = $this->attributes[$this->updated];
+        }
+
+        $sets = [];
         $param = [];
-
-        foreach ($model->attributes as $key => $value) {
-            $updateFields[] = "$key = ?";
+        foreach ($data as $key => $value) {
+            $sets[] = "{$key} = ?";
             $param[] = $value;
         }
 
-        $sql .= implode(', ', $updateFields);
-        $sql .= " WHERE {$model->primaryKey} = ?";
+        $sql = "UPDATE {$this->table} SET " . implode(', ', $sets) . " WHERE {$this->primaryKey} = ?";
 
         //los modelos con SoftDeletes no actualizan registros ya eliminados
-        if ($model->usesSoftDeletes()) {
-            $sql .= " AND {$model->getDeletedAtColumn()} IS NULL";
+        if ($this->usesSoftDeletes()) {
+            $sql .= " AND {$this->getDeletedAtColumn()} IS NULL";
         }
 
-        $param[] = $id;
+        $param[] = $pk;
 
-        $rows = self::db()->statementC_U_D($sql, $param);
+        if (self::db()->statementC_U_D($sql, $param) > 0) {
+            $this->setAttributes($data);
+            $this->applyCasts();
+            $this->original = $this->attributes;
 
-        if ($rows > 0) {
-            $model->attributes[$model->primaryKey] = $id;
-            return $model;
-        } else {
-            return null;
+            return true;
         }
+
+        return false;
     }
 
-    public static function delete(int|string $id): bool
+    private function deleteThis(): bool
     {
-        $model = new static();
-        $model->validateModel();
+        $pk = $this->attributes[$this->primaryKey] ?? null;
+
+        if ($pk === null) {
+            throw new \Error('El modelo ' . static::class . ' no tiene clave primaria para eliminar.');
+        }
+
+        $this->validateModel();
 
         //soft delete: marca eliminado_en en lugar de borrar la fila
-        if ($model->usesSoftDeletes()) {
-            $columna = $model->getDeletedAtColumn();
-            $sql = "UPDATE {$model->table} SET {$columna} = ? WHERE {$model->primaryKey} = ? AND {$columna} IS NULL";
+        if ($this->usesSoftDeletes()) {
+            $columna = $this->getDeletedAtColumn();
+            $marca = date('Y-m-d H:i:s');
+            $sql = "UPDATE {$this->table} SET {$columna} = ? WHERE {$this->primaryKey} = ? AND {$columna} IS NULL";
 
-            return self::db()->statementC_U_D($sql, [date('Y-m-d H:i:s'), $id]) > 0;
+            if (self::db()->statementC_U_D($sql, [$marca, $pk]) > 0) {
+                //la instancia refleja el borrado logico (estilo Eloquent)
+                $this->attributes[$columna] = $marca;
+
+                return true;
+            }
+
+            return false;
         }
 
-        $sql = "DELETE FROM {$model->table} WHERE {$model->primaryKey} = ?";
-        $param = [$id];
+        $sql = "DELETE FROM {$this->table} WHERE {$this->primaryKey} = ?";
 
-        return self::db()->statementC_U_D($sql, $param) > 0;
+        return self::db()->statementC_U_D($sql, [$pk]) > 0;
     }
 
-    /**
-     * Elimina fisicamente el registro (ignora SoftDeletes).
-     */
-    public static function forceDelete(int|string $id): bool
+    private function forceDeleteThis(): bool
     {
-        $model = new static();
-        $model->validateModel();
+        $pk = $this->attributes[$this->primaryKey] ?? null;
 
-        $sql = "DELETE FROM {$model->table} WHERE {$model->primaryKey} = ?";
+        if ($pk === null) {
+            throw new \Error('El modelo ' . static::class . ' no tiene clave primaria para eliminar.');
+        }
 
-        return self::db()->statementC_U_D($sql, [$id]) > 0;
+        $this->validateModel();
+
+        $sql = "DELETE FROM {$this->table} WHERE {$this->primaryKey} = ?";
+
+        return self::db()->statementC_U_D($sql, [$pk]) > 0;
     }
 
-    /**
-     * Recupera un registro con soft delete (eliminado_en vuelve a NULL).
-     */
-    public static function restore(int|string $id): bool
+    private function restoreThis(): bool
     {
-        $model = new static();
-        $model->validateModel();
-
-        if (!$model->usesSoftDeletes()) {
+        if (!$this->usesSoftDeletes()) {
             throw new \Error('El modelo ' . static::class . ' no usa el trait SoftDeletes');
         }
 
-        $columna = $model->getDeletedAtColumn();
-        $sql = "UPDATE {$model->table} SET {$columna} = NULL WHERE {$model->primaryKey} = ? AND {$columna} IS NOT NULL";
+        $pk = $this->attributes[$this->primaryKey] ?? null;
 
-        return self::db()->statementC_U_D($sql, [$id]) > 0;
+        if ($pk === null) {
+            throw new \Error('El modelo ' . static::class . ' no tiene clave primaria para restaurar.');
+        }
+
+        $this->validateModel();
+
+        $columna = $this->getDeletedAtColumn();
+        $sql = "UPDATE {$this->table} SET {$columna} = NULL WHERE {$this->primaryKey} = ? AND {$columna} IS NOT NULL";
+
+        if (self::db()->statementC_U_D($sql, [$pk]) > 0) {
+            //la instancia refleja la recuperacion (estilo Eloquent)
+            $this->attributes[$columna] = null;
+
+            return true;
+        }
+
+        return false;
     }
 
     //******************************************************************
     // LECTURA SIMPLE (POR CLAVE PRIMARIA O TABLA COMPLETA)
     //******************************************************************
 
-    public static function find(int|string $id): self|null
+    public static function find(int|string $id): static|null
     {
         $model = new static();
         $model->validateModel();
@@ -435,6 +629,22 @@ abstract class Model
         }
 
         return static::hydrate((array) $result[0]);
+    }
+
+    /**
+     * Igual que find() pero lanza ModelNotFoundException si no existe.
+     */
+    public static function findOrFail(int|string $id): static
+    {
+        $model = static::find($id);
+
+        if ($model === null) {
+            throw new ModelNotFoundException(
+                'No hay resultados para el modelo ' . static::class . ' con ' . (new static())->primaryKey . " = {$id}"
+            );
+        }
+
+        return $model;
     }
 
     public static function all(): ModelCollection|null
@@ -546,6 +756,10 @@ abstract class Model
 
     public function __call(string $method, array $arguments): mixed
     {
+        //save() y refresh() son metodos reales de instancia. update(),
+        //delete(), forceDelete() y restore() existen como estaticos pero
+        //PHP liga $this al invocarlos via ->, por lo que atendian ambos
+        //contextos sin pasar por aqui.
         return $this->newQuery()->{$method}(...$arguments);
     }
 
