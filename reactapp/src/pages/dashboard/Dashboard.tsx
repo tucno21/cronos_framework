@@ -3,12 +3,12 @@ import { BookOpen } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 
 const Dashboard = () => {
-  const user = useAuthStore((state) => state.user)
+  const usuario = useAuthStore((state) => state.usuario)
 
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-800">
-        Bienvenido, {user?.name ?? 'Usuario'}
+        Bienvenido, {usuario?.nombre ?? 'Usuario'}
       </h1>
       <p className="mt-1 text-gray-600">Este es el panel de administración.</p>
 

@@ -9,7 +9,7 @@ const navItems = [
 
 const DashboardLayout = () => {
   const navigate = useNavigate()
-  const user = useAuthStore((state) => state.user)
+  const usuario = useAuthStore((state) => state.usuario)
   const logout = useAuthStore((state) => state.logout)
 
   const handleLogout = async () => {
@@ -54,8 +54,8 @@ const DashboardLayout = () => {
               <User size={16} />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{user?.name ?? 'Usuario'}</p>
-              <p className="text-xs text-gray-400 capitalize">{user?.role ?? ''}</p>
+              <p className="text-sm font-medium truncate">{usuario?.nombre ?? 'Usuario'}</p>
+              <p className="text-xs text-gray-400 capitalize">{usuario?.rol ?? ''}</p>
             </div>
           </div>
           <button

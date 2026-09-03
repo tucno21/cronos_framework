@@ -12,12 +12,12 @@ const Login = () => {
   const loading = useAuthStore((state) => state.loading)
   const error = useAuthStore((state) => state.error)
 
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [correo, setCorreo] = useState('')
+  const [contrasena, setContrasena] = useState('')
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    const ok = await login(email, password)
+    const ok = await login(correo, contrasena)
     if (ok) {
       navigate('/dashboard')
     }
@@ -33,14 +33,14 @@ const Login = () => {
 
       <form onSubmit={handleSubmit}>
         <div className="mb-4">
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-            Email<span className="text-red-500 ml-0.5">*</span>
+          <label htmlFor="correo" className="block text-sm font-medium text-gray-700 mb-1">
+            Correo<span className="text-red-500 ml-0.5">*</span>
           </label>
           <input
             type="email"
-            id="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            id="correo"
+            value={correo}
+            onChange={(e) => setCorreo(e.target.value)}
             placeholder="Ingresa tu correo electrónico"
             required
             className={inputClass}
@@ -48,14 +48,14 @@ const Login = () => {
         </div>
 
         <div className="mb-4">
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="contrasena" className="block text-sm font-medium text-gray-700 mb-1">
             Contraseña<span className="text-red-500 ml-0.5">*</span>
           </label>
           <input
             type="password"
-            id="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            id="contrasena"
+            value={contrasena}
+            onChange={(e) => setContrasena(e.target.value)}
             placeholder="Ingresa tu contraseña"
             required
             className={inputClass}

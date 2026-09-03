@@ -4,19 +4,19 @@ namespace App\Models;
 
 use Cronos\Model\Model;
 
-class PersonalAccessToken extends Model
+class TokenAcceso extends Model
 {
-    protected string $table = 'personal_access_tokens';
+    protected string $table = 'tokens_acceso';
 
     protected string $primaryKey = 'id';
 
     protected array $fillable = [
-        'user_id',
-        'name',
+        'usuario_id',
+        'nombre',
         'token',
-        'abilities',
-        'last_used_at',
-        'expires_at',
+        'habilidades',
+        'ultimo_uso_en',
+        'expira_en',
     ];
 
     protected array $hidden = ['token'];
@@ -27,8 +27,8 @@ class PersonalAccessToken extends Model
 
     protected string $updated = 'updated_at';
 
-    public function user()
+    public function usuario()
     {
-        return $this->belongsTo(User::class, 'user_id');
+        return $this->belongsTo(Usuario::class, 'usuario_id');
     }
 }

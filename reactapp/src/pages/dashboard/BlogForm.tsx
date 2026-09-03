@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { ArrowLeft, Check } from 'lucide-react'
-import { createBlog, getBlog, updateBlog } from '../../services/blogService'
+import { createPublicacion, getPublicacion, updatePublicacion } from '../../services/blogService'
 
 const inputClass =
   'w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent'
@@ -11,10 +11,10 @@ const BlogForm = () => {
   const { slug } = useParams()
   const isEditing = Boolean(slug)
 
-  const [blogId, setBlogId] = useState<number | null>(null)
-  const [title, setTitle] = useState('')
+  const [publicacionId, setPublicacionId] = useState<number | null>(null)
+  const [titulo, setTitulo] = useState('')
   const [slugValue, setSlug] = useState('')
-  const [content, setContent] = useState('')
+  const [contenido, setContenido] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -22,15 +22,15 @@ const BlogForm = () => {
     if (!slug) return
     const load = async () => {
       try {
-        const data = await getBlog(slug)
+        const data = await getPublicacion(slug)
         if (data) {
-          setBlogId(data.id)
-          setTitle(data.title)
+          setPublicacionId(data.id)
+          setTitulo(data.titulo)
           setSlug(data.slug)
-          setContent(data.content)
+          setContenido(data.contenido)
         }
       } catch {
-        setError('Error al cargar el blog')
+        setError('Error al cargar la publicacion')
       }
     }
     load()
@@ -46,8 +46,8 @@ const BlogForm = () => {
       .replace(/\s+/g, '-')
       .replace(/-+/g, '-')
 
-  const handleTitleChange = (value: string) => {
-    setTitle(value)
+  const handleTituloChange = (value: string) => {
+    setTitulo(value)
     if (!isEditing) {
       setSlug(generateSlug(value))
     }
@@ -59,14 +59,14 @@ const BlogForm = () => {
     setError(null)
     try {
       if (isEditing) {
-        await updateBlog(blogId!, { title, slug: slugValue, content })
+        await updatePublicacion(publicacionId!, { titulo, slug: slugValue, contenido })
       } else {
-        await createBlog({ title, slug: slugValue, content })
+        await createPublicacion({ titulo, slug: slugValue, contenido })
       }
       navigate('/dashboard/blogs')
     } catch (err: any) {
       const msg = err.response?.data?.message
-      setError(Array.isArray(msg) ? msg.join(', ') : (msg ?? 'Error al guardar el blog'))
+      setError(Array.isArray(msg) ? msg.join(', ') : (msg ?? 'Error al guardar la publicacion'))
       setLoading(false)
     }
   }
@@ -82,7 +82,7 @@ const BlogForm = () => {
       </Link>
 
       <h1 className="text-2xl font-bold text-gray-800 mb-6">
-        {isEditing ? 'Editar Blog' : 'Crear Nuevo Blog'}
+        {isEditing ? 'Editar Publicacion' : 'Crear Nueva Publicacion'}
       </h1>
 
       {error && (
@@ -96,15 +96,15 @@ const BlogForm = () => {
         className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 space-y-5"
       >
         <div>
-          <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="titulo" className="block text-sm font-medium text-gray-700 mb-1">
             Título<span className="text-red-500 ml-0.5">*</span>
           </label>
           <input
             type="text"
-            id="title"
-            value={title}
-            onChange={(e) => handleTitleChange(e.target.value)}
-            placeholder="Ingresa el título del blog"
+            id="titulo"
+            value={titulo}
+            onChange={(e) => handleTituloChange(e.target.value)}
+            placeholder="Ingresa el título de la publicación"
             required
             className={inputClass}
           />
@@ -130,14 +130,14 @@ const BlogForm = () => {
         </div>
 
         <div>
-          <label htmlFor="content" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="contenido" className="block text-sm font-medium text-gray-700 mb-1">
             Contenido<span className="text-red-500 ml-0.5">*</span>
           </label>
           <textarea
-            id="content"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="Escribe el contenido de tu blog..."
+            id="contenido"
+            value={contenido}
+            onChange={(e) => setContenido(e.target.value)}
+            placeholder="Escribe el contenido de tu publicación..."
             required
             rows={8}
             className={`${inputClass} resize-y`}
@@ -158,7 +158,7 @@ const BlogForm = () => {
             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
           >
             <Check size={16} />
-            {loading ? 'Guardando...' : isEditing ? 'Actualizar Blog' : 'Guardar Blog'}
+            {loading ? 'Guardando...' : isEditing ? 'Actualizar' : 'Guardar'}
           </button>
         </div>
       </form>

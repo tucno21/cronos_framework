@@ -1,37 +1,39 @@
 import { api } from '../lib/api'
 
-export interface Blog {
+export interface Publicacion {
   id: number
-  user_id: number
-  title: string
+  usuario_id: number
+  titulo: string
   slug: string
-  content: string
-  name?: string
+  contenido: string
+  nombre_autor?: string
+  estado?: string
+  vistas?: number
   created_at?: string
   updated_at?: string
 }
 
-export const getBlogs = async (): Promise<Blog[]> => {
+export const getPublicaciones = async (): Promise<Publicacion[]> => {
   const { data } = await api.get('blogs')
-  return data.blogs ?? []
+  return data.publicaciones ?? []
 }
 
-export const getBlog = async (slug: string): Promise<Blog | null> => {
+export const getPublicacion = async (slug: string): Promise<Publicacion | null> => {
   const { data } = await api.get(`blogs/${slug}`)
-  return data.blog ?? null
+  return data.publicacion ?? null
 }
 
-export const createBlog = async (payload: Pick<Blog, 'title' | 'slug' | 'content'>) => {
+export const createPublicacion = async (payload: Pick<Publicacion, 'titulo' | 'slug' | 'contenido'>) => {
   const { data } = await api.post('blogs', payload)
   return data
 }
 
-export const updateBlog = async (id: number, payload: Pick<Blog, 'title' | 'slug' | 'content'>) => {
+export const updatePublicacion = async (id: number, payload: Pick<Publicacion, 'titulo' | 'slug' | 'contenido'>) => {
   const { data } = await api.put(`blogs/${id}`, payload)
   return data
 }
 
-export const deleteBlog = async (id: number) => {
+export const deletePublicacion = async (id: number) => {
   const { data } = await api.delete(`blogs/${id}`)
   return data
 }

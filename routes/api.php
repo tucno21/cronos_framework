@@ -2,7 +2,7 @@
 
 use Cronos\Routing\Route;
 use App\Controllers\AuthController;
-use App\Controllers\BlogController;
+use App\Controllers\PublicacionController;
 use App\Middlewares\AuthApiMiddleware;
 
 Route::post('/register', [AuthController::class, 'register']);
@@ -12,9 +12,9 @@ Route::group(['middleware' => [AuthApiMiddleware::class]], function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
 
-    Route::get('/blogs', [BlogController::class, 'index']);
-    Route::post('/blogs', [BlogController::class, 'store']);
-    Route::get('/blogs/{blog:slug}', [BlogController::class, 'show']);
-    Route::put('/blogs/{blog}', [BlogController::class, 'update']);
-    Route::delete('/blogs/{blog}', [BlogController::class, 'destroy']);
+    Route::get('/blogs', [PublicacionController::class, 'index']);
+    Route::post('/blogs', [PublicacionController::class, 'store']);
+    Route::get('/blogs/{publicacion:slug}', [PublicacionController::class, 'show']);
+    Route::put('/blogs/{publicacion}', [PublicacionController::class, 'update']);
+    Route::delete('/blogs/{publicacion}', [PublicacionController::class, 'destroy']);
 });

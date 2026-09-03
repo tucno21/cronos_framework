@@ -5,7 +5,7 @@ namespace Cronos\Model;
 /**
  * @phpstan-consistent-constructor
  */
-class ModelCollection
+class ModelCollection implements \IteratorAggregate, \Countable
 {
     protected array $items = [];
 
@@ -42,7 +42,7 @@ class ModelCollection
         return $data;
     }
 
-    public function getIterator()
+    public function getIterator(): \ArrayIterator
     {
         return new \ArrayIterator($this->items);
     }

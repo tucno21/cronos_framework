@@ -12,14 +12,14 @@ const Register = () => {
   const loading = useAuthStore((state) => state.loading)
   const error = useAuthStore((state) => state.error)
 
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
+  const [nombre, setNombre] = useState('')
+  const [correo, setCorreo] = useState('')
+  const [contrasena, setContrasena] = useState('')
+  const [confirmarContrasena, setConfirmarContrasena] = useState('')
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    const ok = await register(name, email, password, confirmPassword)
+    const ok = await register(nombre, correo, contrasena, confirmarContrasena)
     if (ok) {
       navigate('/dashboard')
     }
@@ -35,14 +35,14 @@ const Register = () => {
 
       <form onSubmit={handleSubmit}>
         <div className="mb-4">
-          <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="nombre" className="block text-sm font-medium text-gray-700 mb-1">
             Nombre<span className="text-red-500 ml-0.5">*</span>
           </label>
           <input
             type="text"
-            id="name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            id="nombre"
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
             placeholder="Ingresa tu nombre"
             required
             className={inputClass}
@@ -50,14 +50,14 @@ const Register = () => {
         </div>
 
         <div className="mb-4">
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-            Email<span className="text-red-500 ml-0.5">*</span>
+          <label htmlFor="correo" className="block text-sm font-medium text-gray-700 mb-1">
+            Correo<span className="text-red-500 ml-0.5">*</span>
           </label>
           <input
             type="email"
-            id="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            id="correo"
+            value={correo}
+            onChange={(e) => setCorreo(e.target.value)}
             placeholder="Ingresa tu correo electrónico"
             required
             className={inputClass}
@@ -65,14 +65,14 @@ const Register = () => {
         </div>
 
         <div className="mb-4">
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="contrasena" className="block text-sm font-medium text-gray-700 mb-1">
             Contraseña<span className="text-red-500 ml-0.5">*</span>
           </label>
           <input
             type="password"
-            id="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            id="contrasena"
+            value={contrasena}
+            onChange={(e) => setContrasena(e.target.value)}
             placeholder="Crea una contraseña"
             required
             className={inputClass}
@@ -80,14 +80,14 @@ const Register = () => {
         </div>
 
         <div className="mb-4">
-          <label htmlFor="confirm_password" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="confirmar_contrasena" className="block text-sm font-medium text-gray-700 mb-1">
             Confirmar Contraseña<span className="text-red-500 ml-0.5">*</span>
           </label>
           <input
             type="password"
-            id="confirm_password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
+            id="confirmar_contrasena"
+            value={confirmarContrasena}
+            onChange={(e) => setConfirmarContrasena(e.target.value)}
             placeholder="Confirma tu contraseña"
             required
             className={inputClass}

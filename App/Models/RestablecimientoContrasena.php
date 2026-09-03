@@ -4,27 +4,22 @@ namespace App\Models;
 
 use Cronos\Model\Model;
 
-class Tag extends Model
+class RestablecimientoContrasena extends Model
 {
-    protected string $table = 'tags';
+    protected string $table = 'restablecimientos_contrasena';
 
     protected string $primaryKey = 'id';
 
     protected array $fillable = [
-        'name',
-        'slug',
+        'correo',
+        'token',
     ];
 
-    protected array $hidden = [];
+    protected array $hidden = ['token'];
 
     protected bool $timestamps = false;
 
     protected string $created = 'created_at';
 
     protected string $updated = 'updated_at';
-
-    public function posts()
-    {
-        return $this->belongsToMany(Post::class, 'post_tag', 'tag_id', 'post_id');
-    }
 }

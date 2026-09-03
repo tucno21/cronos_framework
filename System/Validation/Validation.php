@@ -464,7 +464,7 @@ class Validation
     {
         $value = self::searchInput($nameInput);
 
-        if ($value !== '') {
+        if (!empty($value)) {
             if (count($params) === 2) {
                 $model = $params[0];
                 $colum = $params[1];
@@ -480,6 +480,11 @@ class Validation
 
     private static function getByColumn(string $model, string $column, mixed $value)
     {
+        //campo ausente o vacio: sin consulta a la BD
+        if (is_null($value) || $value === '') {
+            return null;
+        }
+
         $class = "App\\Models\\" . $model;
         return $class::where($column, $value)->firstNotHidden();
     }
@@ -488,7 +493,7 @@ class Validation
     {
         $value = self::searchInput($nameInput);
 
-        if ($value !== '') {
+        if (!empty($value)) {
             if (count($params) === 2) {
                 $model = $params[0];
                 $colum = $params[1];
@@ -506,7 +511,7 @@ class Validation
     {
         $value = self::searchInput($nameInput);
 
-        if ($value !== '') {
+        if (!empty($value)) {
             if (count($params) === 2) {
                 $colum = $params[1];
                 $model = $params[0];

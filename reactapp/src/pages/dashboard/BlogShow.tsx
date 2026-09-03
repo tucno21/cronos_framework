@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { ArrowLeft, User } from 'lucide-react'
-import { getBlog, type Blog } from '../../services/blogService'
+import { getPublicacion, type Publicacion } from '../../services/blogService'
 
 const BlogShow = () => {
   const { slug } = useParams()
-  const [blog, setBlog] = useState<Blog | null>(null)
+  const [blog, setBlog] = useState<Publicacion | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -14,7 +14,7 @@ const BlogShow = () => {
       if (!slug) return
       setLoading(true)
       try {
-        const data = await getBlog(slug)
+        const data = await getPublicacion(slug)
         if (!data) {
           setError('Blog no encontrado')
         } else {
@@ -64,7 +64,7 @@ const BlogShow = () => {
               <User size={12} />
             </div>
             <span>
-              Por <strong className="text-gray-600">{blog.name ?? 'Autor'}</strong>
+              Por <strong className="text-gray-600">{blog.nombre_autor ?? 'Autor'}</strong>
             </span>
             <span className="text-gray-200">·</span>
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[0.6875rem] font-semibold bg-blue-100 text-blue-700">
@@ -72,13 +72,13 @@ const BlogShow = () => {
             </span>
           </div>
           <h1 className="text-2xl font-bold text-gray-800 tracking-tight leading-snug">
-            {blog.title}
+            {blog.titulo}
           </h1>
         </div>
 
         <div className="px-8 py-6">
           <p className="text-base text-gray-600 leading-relaxed whitespace-pre-line">
-            {blog.content}
+            {blog.contenido}
           </p>
         </div>
 

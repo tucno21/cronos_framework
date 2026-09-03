@@ -3,7 +3,7 @@
 namespace App\Middlewares;
 
 use Closure;
-use App\Models\User;
+use App\Models\Usuario;
 use Cronos\Http\Request;
 use Cronos\Http\Response;
 use Cronos\Http\Middleware;
@@ -33,9 +33,9 @@ class TokenValidationMiddleware implements Middleware
         }
 
         $decoded = $jwt->decodeToken($token);
-        $user = User::find($decoded->sub);
+        $usuario = Usuario::find($decoded->sub);
 
-        if (!$user) {
+        if (!$usuario) {
             $data = [
                 'status' => 'error',
                 'message' => 'datos incorrectos',
@@ -50,7 +50,7 @@ class TokenValidationMiddleware implements Middleware
         }
 
         $request->expire = false;
-        $request->email = $user->email;
+        $request->correo = $usuario->correo;
 
         return $next($request);
     }

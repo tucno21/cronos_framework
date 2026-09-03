@@ -1,38 +1,38 @@
 import { create } from 'zustand'
 import { api } from '../lib/api'
 
-interface User {
+interface Usuario {
   id: number
-  name: string
-  email: string
-  role: string
+  nombre: string
+  correo: string
+  rol: string
 }
 
 interface AuthState {
-  user: User | null
+  usuario: Usuario | null
   token: string | null
   loading: boolean
   error: string | null
-  login: (email: string, password: string) => Promise<boolean>
-  register: (name: string, email: string, password: string, confirm_password: string) => Promise<boolean>
+  login: (correo: string, contrasena: string) => Promise<boolean>
+  register: (nombre: string, correo: string, contrasena: string, confirmar_contrasena: string) => Promise<boolean>
   fetchMe: () => Promise<boolean>
   logout: () => Promise<void>
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
-  user: JSON.parse(localStorage.getItem('user') ?? 'null'),
+  usuario: JSON.parse(localStorage.getItem('usuario') ?? 'null'),
   token: localStorage.getItem('token'),
   loading: false,
   error: null,
 
-  login: async (email, password) => {
+  login: async (correo, contrasena) => {
     set({ loading: true, error: null })
     try {
-      const { data } = await api.post('login', { email, password })
+      const { data } = await api.post('login', { correo, contrasena })
       if (data.status === 'success') {
         localStorage.setItem('token', data.token)
-        localStorage.setItem('user', JSON.stringify(data.user))
-        set({ user: data.user, token: data.token, loading: false })
+        localStorage.setItem('usuario', JSON.stringify(data.usuario))
+        set({ usuario: data.usuario, token: data.token, loading: false })
         return true
       }
       set({ error: data.message, loading: false })
@@ -44,19 +44,19 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  register: async (name, email, password, confirm_password) => {
+  register: async (nombre, correo, contrasena, confirmar_contrasena) => {
     set({ loading: true, error: null })
     try {
       const { data } = await api.post('register', {
-        name,
-        email,
-        password,
-        confirm_password,
+        nombre,
+        correo,
+        contrasena,
+        confirmar_contrasena,
       })
       if (data.status === 'success') {
         localStorage.setItem('token', data.token)
-        localStorage.setItem('user', JSON.stringify(data.user))
-        set({ user: data.user, token: data.token, loading: false })
+        localStorage.setItem('usuario', JSON.stringify(data.usuario))
+        set({ usuario: data.usuario, token: data.token, loading: false })
         return true
       }
       set({ error: data.message, loading: false })
@@ -72,15 +72,15 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const { data } = await api.get('me')
       if (data.status === 'success') {
-        localStorage.setItem('user', JSON.stringify(data.user))
-        set({ user: data.user, token: localStorage.getItem('token') })
+        localStorage.setItem('usuario', JSON.stringify(data.usuario))
+        set({ usuario: data.usuario, token: localStorage.getItem('token') })
         return true
       }
       return false
     } catch {
       localStorage.removeItem('token')
-      localStorage.removeItem('user')
-      set({ user: null, token: null })
+      localStorage.removeItem('usuario')
+      set({ usuario: null, token: null })
       return false
     }
   },
@@ -91,7 +91,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch {
     }
     localStorage.removeItem('token')
-    localStorage.removeItem('user')
-    set({ user: null, token: null })
+    localStorage.removeItem('usuario')
+    set({ usuario: null, token: null })
   },
 }))

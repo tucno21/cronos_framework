@@ -2,7 +2,7 @@
 
 namespace App\Controllers;
 
-use App\Models\User;
+use App\Models\Usuario;
 use App\Library\JWT\JWTAuth;
 use Cronos\Http\Request;
 use Cronos\Http\Controller;
@@ -13,10 +13,10 @@ class AuthController extends Controller
     public function register(Request $request, Hasher $hasher)
     {
         $valid = $this->validate($request->all(), [
-            'name' => 'required|string|min:3|max:100',
-            'email' => 'required|email|unique:User,email',
-            'password' => 'required|min:6|max:50|matches:confirm_password',
-            'confirm_password' => 'required|matches:password',
+            'nombre' => 'required|string|min:3|max:100',
+            'correo' => 'required|email|unique:Usuario,correo',
+            'contrasena' => 'required|min:6|max:50|matches:confirmar_contrasena',
+            'confirmar_contrasena' => 'required|matches:contrasena',
         ]);
 
         if ($valid !== true) {
@@ -27,28 +27,28 @@ class AuthController extends Controller
         }
 
         $data = $request->all();
-        $data->password = $hasher->hash($data->password);
-        unset($data->confirm_password);
+        $data->contrasena = $hasher->hash($data->contrasena);
+        unset($data->confirmar_contrasena);
 
-        $data->role = 'user';
+        $data->rol = 'usuario';
         $data->avatar = null;
-        $data->email_verified_at = null;
-        $data->remember_token = null;
+        $data->correo_verificado_en = null;
+        $data->token_recordar = null;
 
-        $user = User::create($data);
+        $usuario = Usuario::create($data);
 
         $jwt = new JWTAuth();
         $token = $jwt->generateToken([
-            'id' => $user->id,
-            'name' => $user->name,
-            'email' => $user->email,
-            'role' => $user->role,
+            'id' => $usuario->id,
+            'nombre' => $usuario->nombre,
+            'correo' => $usuario->correo,
+            'rol' => $usuario->rol,
         ]);
 
         return json([
             'status' => 'success',
             'message' => 'Usuario registrado correctamente',
-            'user' => $user,
+            'usuario' => $usuario,
             'token' => $token
         ], 201);
     }
@@ -56,8 +56,8 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $valid = $this->validate($request->all(), [
-            'email' => 'required|email|not_unique:User,email',
-            'password' => 'required|password_verify:User,email',
+            'correo' => 'required|email|not_unique:Usuario,correo',
+            'contrasena' => 'required|password_verify:Usuario,correo',
         ]);
 
         if ($valid !== true) {
@@ -67,20 +67,20 @@ class AuthController extends Controller
             ], 401);
         }
 
-        $user = User::where('email', $request->email)->first();
+        $usuario = Usuario::where('correo', $request->correo)->first();
 
         $jwt = new JWTAuth();
         $token = $jwt->generateToken([
-            'id' => $user->id,
-            'name' => $user->name,
-            'email' => $user->email,
-            'role' => $user->role,
+            'id' => $usuario->id,
+            'nombre' => $usuario->nombre,
+            'correo' => $usuario->correo,
+            'rol' => $usuario->rol,
         ]);
 
         return json([
             'status' => 'success',
             'message' => 'Login exitoso',
-            'user' => $user,
+            'usuario' => $usuario,
             'token' => $token
         ]);
     }
@@ -99,11 +99,11 @@ class AuthController extends Controller
             ], 401);
         }
 
-        $user = User::find($decoded->sub);
+        $usuario = Usuario::find($decoded->sub);
 
         return json([
             'status' => 'success',
-            'user' => $user
+            'usuario' => $usuario
         ]);
     }
 

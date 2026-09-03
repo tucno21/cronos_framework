@@ -4,16 +4,18 @@ namespace App\Models;
 
 use Cronos\Model\Model;
 
-class Category extends Model
+class Perfil extends Model
 {
-    protected string $table = 'categories';
+    protected string $table = 'perfiles';
 
     protected string $primaryKey = 'id';
 
     protected array $fillable = [
-        'name',
-        'slug',
-        'description',
+        'usuario_id',
+        'biografia',
+        'telefono',
+        'fecha_nacimiento',
+        'sitio_web',
     ];
 
     protected array $hidden = [];
@@ -24,8 +26,8 @@ class Category extends Model
 
     protected string $updated = 'updated_at';
 
-    public function posts()
+    public function usuario()
     {
-        return $this->hasMany(Post::class, 'category_id');
+        return $this->belongsTo(Usuario::class, 'usuario_id');
     }
 }

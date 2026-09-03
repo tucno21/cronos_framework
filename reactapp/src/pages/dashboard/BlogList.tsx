@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { FileText, Pencil, Plus, Trash2 } from 'lucide-react'
-import { deleteBlog, getBlogs, type Blog } from '../../services/blogService'
+import { deletePublicacion, getPublicaciones, type Publicacion } from '../../services/blogService'
 
 const BlogList = () => {
-  const [blogs, setBlogs] = useState<Blog[]>([])
+  const [blogs, setBlogs] = useState<Publicacion[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
@@ -14,7 +14,7 @@ const BlogList = () => {
   const loadBlogs = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await getBlogs()
+      const data = await getPublicaciones()
       setBlogs(data)
       setError(null)
     } catch {
@@ -32,7 +32,7 @@ const BlogList = () => {
     const term = search.toLowerCase()
     if (!term) return blogs
     return blogs.filter((b) =>
-      [b.title, b.slug, b.name].some((v) => v?.toLowerCase().includes(term)),
+      [b.titulo, b.slug, b.nombre_autor].some((v) => v?.toLowerCase().includes(term)),
     )
   }, [blogs, search])
 
@@ -43,14 +43,14 @@ const BlogList = () => {
   const handleDelete = async (id: number) => {
     if (!confirm('¿Seguro que deseas eliminar este blog?')) return
     try {
-      await deleteBlog(id)
+      await deletePublicacion(id)
       loadBlogs()
     } catch {
       setError('Error al eliminar el blog')
     }
   }
 
-  const headers = ['title', 'slug', 'name']
+  const headers = ['titulo', 'slug', 'autor']
 
   return (
     <div>
@@ -132,9 +132,9 @@ const BlogList = () => {
               ) : (
                 visible.map((blog) => (
                   <tr key={blog.id} className="border-t border-gray-100 hover:bg-gray-50">
-                    <td className="px-4 py-3 text-gray-800">{blog.title}</td>
+                    <td className="px-4 py-3 text-gray-800">{blog.titulo}</td>
                     <td className="px-4 py-3 text-gray-500">{blog.slug}</td>
-                    <td className="px-4 py-3 text-gray-500">{blog.name ?? '—'}</td>
+                    <td className="px-4 py-3 text-gray-500">{blog.nombre_autor ?? '—'}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <Link
