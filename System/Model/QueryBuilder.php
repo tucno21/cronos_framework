@@ -44,7 +44,12 @@ final class QueryBuilder
 
     private bool $boolWhereConcat = false;
 
-    /** @var string[] nombres de relaciones a cargar con with() */
+    /**
+     * Relaciones a cargar con with().
+     * Cada entrada: ['path' => 'usuario.perfil', 'constraint' => ?Closure]
+     *
+     * @var array<int, array{path: string, constraint: callable|null}>
+     */
     private array $eager = [];
 
     //SOFT DELETES A NIVEL CONSULTA (estilo Laravel)
@@ -341,23 +346,55 @@ final class QueryBuilder
     /**
      * Carga anticipada (eager loading) de relaciones para evitar el problema N+1.
      *
-     * Ejemplo: Publicacion::with('usuario', 'comentarios')->get()
+     * Plano:      Publicacion::with('usuario', 'comentarios')->get()
+     * Anidado:    Publicacion::with('usuario.perfil')->get()
+     * Con filtro: Publicacion::with(['comentarios' => fn($q) => $q->where('activo', 1)])->get()
+     *
+     * El closure recibe el QueryBuilder del modelo relacionado y NO debe
+     * terminarlo (sin get()/first()).
      */
-    public function with(string ...$relations): self
+    public function with(string|array ...$relations): self
     {
         foreach ($relations as $relation) {
-            if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $relation)) {
-                throw new \Error("Nombre de relacion no valido: {$relation}");
+            if (is_string($relation)) {
+                $this->assertRelationName($relation);
+                $this->eager[] = ['path' => $relation, 'constraint' => null];
+
+                continue;
             }
 
-            if (!method_exists($this->model, $relation)) {
-                throw new \Error("La relacion {$relation} no existe en el modelo {$this->modelClass}");
-            }
+            //array: lista simple ['usuario', 'comentarios'] o mapa con constraints
+            foreach ($relation as $clave => $valor) {
+                if (is_int($clave)) {
+                    //lista simple: ['usuario', 'comentarios']
+                    if (!is_string($valor)) {
+                        throw new \Error('with() solo acepta nombres de relacion como string en listas simples');
+                    }
 
-            $this->eager[] = $relation;
+                    $this->assertRelationName($valor);
+                    $this->eager[] = ['path' => $valor, 'constraint' => null];
+
+                    continue;
+                }
+
+                //mapa con constraint: ['comentarios' => fn($q) => ...]
+                if (!is_callable($valor)) {
+                    throw new \Error("El valor para la relacion {$clave} en with() debe ser un closure");
+                }
+
+                $this->assertRelationName((string) $clave);
+                $this->eager[] = ['path' => (string) $clave, 'constraint' => $valor];
+            }
         }
 
         return $this;
+    }
+
+    private function assertRelationName(string $relation): void
+    {
+        if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)*$/', $relation)) {
+            throw new \Error("Nombre de relacion no valido: {$relation}");
+        }
     }
 
     /**
@@ -827,7 +864,7 @@ final class QueryBuilder
     }
 
     //******************************************************************
-    // EAGER LOADING
+    // EAGER LOADING (anidado y con constraints)
     //******************************************************************
 
     /**
@@ -839,25 +876,121 @@ final class QueryBuilder
             return;
         }
 
-        foreach ($this->eager as $name) {
+        $this->loadTree($models, $this->buildRelationTree());
+    }
+
+    /**
+     * Convierte las rutas de with() en un arbol.
+     * Forma: nombre => [?Closure constraint, array hijos]
+     *
+     * @return array<string, array{0: callable|null, 1: array}>
+     */
+    private function buildRelationTree(): array
+    {
+        $tree = [];
+
+        foreach ($this->eager as $entry) {
+            $tree = $this->addToTree($tree, explode('.', $entry['path']), $entry['constraint']);
+        }
+
+        return $tree;
+    }
+
+    /**
+     * Inserta una ruta de relacion en el arbol (recursivo, sin referencias).
+     *
+     * @param array<string, array{0: callable|null, 1: array}> $tree
+     * @param string[] $segments
+     * @return array<string, array{0: callable|null, 1: array}>
+     */
+    private function addToTree(array $tree, array $segments, ?callable $constraint): array
+    {
+        $segment = array_shift($segments);
+        $nodo = $tree[$segment] ?? [null, []];
+
+        if ($segments === []) {
+            if ($constraint !== null) {
+                $nodo[0] = $constraint;
+            }
+        } else {
+            $nodo[1] = $this->addToTree($nodo[1], $segments, $constraint);
+        }
+
+        $tree[$segment] = $nodo;
+
+        return $tree;
+    }
+
+    /**
+     * Carga cada nivel del arbol de relaciones sobre los modelos.
+     *
+     * @param Model[] $models
+     * @param array<string, array{0: callable|null, 1: array}> $tree
+     */
+    private function loadTree(array $models, array $tree): void
+    {
+        foreach ($tree as $name => [$constraint, $hijos]) {
+            if (!method_exists($models[0], $name)) {
+                throw new \Error("La relacion {$name} no existe en el modelo " . get_class($models[0]));
+            }
+
             $relation = $models[0]->{$name}();
 
             if ($relation instanceof HasOne || $relation instanceof HasMany) {
-                $this->eagerLoadHasChildren($models, $name, $relation, $relation instanceof HasMany);
+                $this->eagerLoadHasChildren($models, $name, $relation, $relation instanceof HasMany, $constraint);
             } elseif ($relation instanceof BelongsTo) {
-                $this->eagerLoadBelongsTo($models, $name, $relation);
+                $this->eagerLoadBelongsTo($models, $name, $relation, $constraint);
             } elseif ($relation instanceof BelongsToMany) {
+                if ($constraint !== null) {
+                    throw new \Error("with() con closures no esta soportado para la relacion belongsToMany {$name}");
+                }
+
                 $this->eagerLoadBelongsToMany($models, $name, $relation);
             } else {
                 throw new \Error("La relacion {$name} no es soportada por with()");
+            }
+
+            if ($hijos !== []) {
+                $relacionados = $this->collectRelatedModels($models, $name);
+
+                if ($relacionados !== []) {
+                    $this->loadTree($relacionados, $hijos);
+                }
             }
         }
     }
 
     /**
+     * Reune los modelos relacionados ya cargados (para el siguiente nivel anidado).
+     *
+     * @param Model[] $models
+     * @return Model[]
+     */
+    private function collectRelatedModels(array $models, string $name): array
+    {
+        $relacionados = [];
+
+        foreach ($models as $model) {
+            $valor = $model->getRelation($name);
+
+            if ($valor instanceof Model) {
+                $relacionados[] = $valor;
+            } elseif ($valor instanceof ModelCollection) {
+                foreach ($valor as $item) {
+                    if ($item instanceof Model) {
+                        $relacionados[] = $item;
+                    }
+                }
+            }
+        }
+
+        return $relacionados;
+    }
+
+    /**
      * @param Model[] $models
      */
-    private function eagerLoadHasChildren(array $models, string $name, HasOne|HasMany $relation, bool $many): void
+    private function eagerLoadHasChildren(array $models, string $name, HasOne|HasMany $relation, bool $many, ?callable $constraint = null): void
     {
         $relatedClass = get_class($relation->getRelated());
         $foreignKey = $relation->getForeignKey();
@@ -873,7 +1006,13 @@ final class QueryBuilder
 
         $grouped = [];
         if ($keys !== []) {
-            $results = $relatedClass::whereIn($foreignKey, array_values($keys))->get();
+            $query = $relatedClass::whereIn($foreignKey, array_values($keys));
+
+            if ($constraint !== null) {
+                $constraint($query);
+            }
+
+            $results = $query->get();
 
             foreach ($results ?? [] as $row) {
                 $grouped[(string) $row->{$foreignKey}][] = $row;
@@ -889,7 +1028,7 @@ final class QueryBuilder
     /**
      * @param Model[] $models
      */
-    private function eagerLoadBelongsTo(array $models, string $name, BelongsTo $relation): void
+    private function eagerLoadBelongsTo(array $models, string $name, BelongsTo $relation, ?callable $constraint = null): void
     {
         $relatedClass = get_class($relation->getRelated());
         $foreignKey = $relation->getForeignKey();
@@ -905,7 +1044,13 @@ final class QueryBuilder
 
         $map = [];
         if ($keys !== []) {
-            $results = $relatedClass::whereIn($ownerKey, array_values($keys))->get();
+            $query = $relatedClass::whereIn($ownerKey, array_values($keys));
+
+            if ($constraint !== null) {
+                $constraint($query);
+            }
+
+            $results = $query->get();
 
             foreach ($results ?? [] as $row) {
                 $map[(string) $row->{$ownerKey}] = $row;

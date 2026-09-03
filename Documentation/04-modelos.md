@@ -481,6 +481,52 @@ foreach ($publicaciones as $p) {
 }
 ```
 
+### Eager Loading Anidado (dot notation)
+
+```php
+//publicacion -> usuario -> perfil (2 niveles)
+$publicacion = Publicacion::with('usuario.perfil')->first();
+$publicacion->usuario->getRelation('perfil')->biografia;
+
+//3 niveles
+Usuario::with('invitadoPor.perfil.telefono')->get();  //cada nivel debe existir como metodo
+
+//arbol: usuario carga perfil E invitadoPor, cada uno con 1 query
+Publicacion::with('usuario.perfil', 'usuario.invitadoPor')->get();
+
+//desde hasMany tambien
+Usuario::with('publicaciones.comentarios')->get();
+```
+
+Si una relacion anidada no existe como metodo en el modelo relacionado, lanza `Error` al ejecutar la consulta.
+
+### Constraints (closures) en with()
+
+El closure recibe el QueryBuilder del modelo relacionado y NO debe terminarlo (sin `get()`/`first()`):
+
+```php
+//filtrar la relacion cargada
+$usuario = Usuario::with(['publicaciones' => fn ($q) => $q->where('estado', 'publicado')])->first();
+$usuario->publicaciones;   //solo las publicadas
+
+//ordenar o limitar columnas
+Publicacion::with([
+    'comentarios' => fn ($q) => $q->orderBy('id', 'DESC'),
+    'usuario'     => fn ($q) => $q->select('id', 'nombre', 'correo'),
+])->get();
+
+//combinar constraints y anidado en el mismo arbol
+Publicacion::with([
+    'usuario' => fn ($q) => $q->where('rol', 'usuario'),
+    'usuario.perfil',
+])->get();
+
+//arrays mixtos: strings y closures juntos
+Usuario::with(['perfil', 'publicaciones' => fn ($q) => $q->latest()])->get();
+```
+
+> **Limitacion**: los closures NO estan soportados en relaciones `belongsToMany` (lanza `Error`). Los constraints no pueden usar `whereBetween()`/`whereConcat()` si agregan `where()` (mismas reglas del builder).
+
 Tambien hay **acceso magico** con cache en la instancia (la primera carga consulta la BD, las siguientes usan la cache):
 
 ```php
@@ -606,7 +652,7 @@ El ORM **parametriza los valores** y ademas **valida los identificadores** (colu
 - Events de modelo
 - Observers
 - `whereHas()` / `has()` / `withCount()`
-- Eager loading anidado (`with('a.b')`) ni closures en `with()`
+- Closures en `with()` para relaciones `belongsToMany` (el resto si las soporta)
 - `attach()` / `detach()` / `sync()` en pivotes (solo lectura de la relacion N:M)
 - Relaciones `hasManyThrough` y morfologicas (`morphOne`/`morphMany`/`morphTo`; las tablas `comentables`/`etiquetables` se manejan con SQL directo)
 - Subqueries

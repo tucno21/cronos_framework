@@ -29,7 +29,7 @@ use Cronos\Database\DatabaseDriver;
  * @method static QueryBuilder orderBy(string $column, string $direction = 'ASC')
  * @method static QueryBuilder limit(int $limit)
  * @method static QueryBuilder offset(int $offset)
- * @method static QueryBuilder with(string ...$relations)
+ * @method static QueryBuilder with(string|array ...$relations)
  * @method static QueryBuilder update(array|object $data)
  * @method static QueryBuilder delete()
  * @method static ModelCollection|null get()
