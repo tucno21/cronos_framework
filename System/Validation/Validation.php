@@ -28,6 +28,8 @@ class Validation
         if (is_object($inputs))
             $inputs = (array)$inputs;
 
+        //resetear los errores de la validacion anterior
+        self::$errors = [];
         self::$inputs = $inputs;
         self::$rules = $rules;
 
@@ -535,7 +537,7 @@ class Validation
     }
 
 
-    private static function validateRequiredFile(string $nameInput, string $rule)
+    private static function validateRequired_file(string $nameInput, string $rule)
     {
         $value = self::searchInput($nameInput);
 
@@ -545,7 +547,7 @@ class Validation
     }
 
 
-    private static function validateMaxSize(string $nameInput, string $rule, array $params)
+    private static function validateMax_size(string $nameInput, string $rule, array $params)
     {
         $value = self::searchInput($nameInput);
 

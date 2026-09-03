@@ -513,6 +513,7 @@ abstract class Model
 
         $result = $this->executeQuery($sql);
         if (count($result) == 0) {
+            $this->resetProperties();
             return null;
         }
 
@@ -530,6 +531,7 @@ abstract class Model
 
         $result = $this->executeQuery($sql);
         if (count($result) == 0) {
+            $this->resetProperties();
             return null;
         }
 
@@ -659,6 +661,7 @@ abstract class Model
         $sql = "SELECT * FROM {$model->table}";
         $result = $model->executeQuery($sql);
         if (count($result) == 0) {
+            $model->resetProperties();
             return null;
         }
 
@@ -675,6 +678,7 @@ abstract class Model
         $sql = "SELECT * FROM {$model->table} WHERE {$model->primaryKey} = ?";
         $result = $model->executeQuery($sql);
         if (count($result) == 0) {
+            $model->resetProperties();
             return null;
         }
         //Resetear propiedades estáticas
@@ -687,6 +691,7 @@ abstract class Model
         $sql = $this->createQuery('first');
         $result = $this->executeQuery($sql);
         if (count($result) == 0) {
+            $this->resetProperties();
             return null;
         }
         $model = new static();

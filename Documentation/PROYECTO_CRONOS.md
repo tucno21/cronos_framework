@@ -369,7 +369,7 @@ cronos_framework/
 - **Responsabilidad:** Sistema de validación de datos con múltiples reglas predefinidas
 - **Métodos principales:**
   - `validate(array|object $inputs, array $rules)` - Valida datos contra reglas
-- **Reglas soportadas:** required, email, url, alpha, alpha_dash, alpha_space, alpha_numeric, alpha_numeric_space, decimal, integer, is_natural, is_natural_no_zero, numeric, string, text, min, max, between, date, time, datetime, confirm, matches, slug, choice, unique, not_unique, password_verify, requiredFile, maxSize, type
+- **Reglas soportadas:** required, email, url, alpha, alpha_dash, alpha_space, alpha_numeric, alpha_numeric_space, decimal, integer, is_natural, is_natural_no_zero, numeric, string, text, min, max, between, date, time, datetime, confirm, matches, slug, choice, unique, not_unique, password_verify, required_file, max_size, type
 - **Cómo se usa:** Desde controladores con `$this->validate($request->all(), $rules)`
 - **Equivalente en Laravel:** `Illuminate\Validation\Validator`
 
@@ -765,7 +765,7 @@ class DashboardController extends Controller
     {
         $valid = $this->validate($request->all(), [
             'title' => 'required|string|min:3|max:100',
-            'slug' => 'required|slug|unique:Blog,slug',
+            'slug' => 'required|slug|unique:Publicacion,slug',|'slug' => 'required|slug|unique:Publicacion,slug',
             'content' => 'required|string|min:3|max:1000',
         ]);
 
@@ -2304,7 +2304,7 @@ Route::get('/api/data', [ApiController::class, 'index'])
 - **Validación de datos:** Múltiples reglas predefinidas
 - **Mensajes de error personalizables:** MessageError
 - **Integración con sesiones:** Auto-guardado de errores y old input
-- **Reglas soportadas:** required, email, url, alpha, alpha_dash, numeric, string, text, min, max, between, date, time, datetime, confirm, matches, slug, choice, unique, not_unique, password_verify, requiredFile, maxSize, type
+- **Reglas soportadas:** required, email, url, alpha, alpha_dash, numeric, string, text, min, max, between, date, time, datetime, confirm, matches, slug, choice, unique, not_unique, password_verify, required_file, max_size, type
 - **Archivos involucrados:** `System/Validation/Validation.php`, `System/Validation/MessageError.php`
 
 ### Base de Datos

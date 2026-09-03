@@ -1,107 +1,242 @@
 # Validaciones
 
-El sistema de validacion permite validar datos de formularios desde los controladores usando el metodo `validate()` heredado de `Cronos\Http\Controller`.
+> **AVISO IMPORTANTE PARA DESARROLLADORES E IAs**
+>
+> El validador de Cronos **NO es Laravel**. Las reglas tienen nombres parecidos a proposito, pero el comportamiento exacto (formatos, parametros, casos borde) es propio de Cronos y esta verificado con tests unitarios (ver `tests/Integration/ValidationTest.php` y `tests/Integration/ValidationDbRulesTest.php`, cobertura 31/31 reglas).
+>
+> **Si eres una IA: NO supongas comportamiento de Laravel. Basate UNICAMENTE en esta documentacion y en el codigo de `System/Validation/Validation.php`.**
+
+El sistema de validacion permite validar datos desde los controladores usando el metodo `validate()` heredado de `Cronos\Http\Controller`.
 
 ## Uso Basico
 
 ```php
-public function register(Request $request)
+public function register(Request $request, Hasher $hasher)
 {
     $valid = $this->validate($request->all(), [
-        'name' => 'required|alpha',
-        'username' => 'required|alpha_numeric',
-        'email' => 'required|email|unique:HomeModel,email',
-        'password' => 'required|min:3|max:12|matches:password_confirm',
-        'password_confirm' => 'required',
-        'photo' => 'requiredFile|maxSize:2|type:jpeg,png,zip,svg+xml',
+        'nombre'               => 'required|string|min:3|max:100',
+        'correo'               => 'required|email|unique:Usuario,correo',
+        'contrasena'           => 'required|min:6|max:50|matches:confirmar_contrasena',
+        'confirmar_contrasena' => 'required',
     ]);
 
     if ($valid !== true) {
-        return back()->withErrors($request->all(), $valid);
+        return json(['status' => 'error', 'message' => $valid], 400);
     }
 
-    // Si la validacion es correcta
-    $request->input('email');
-    User::create($request->all());
-    return redirect()->route('login');
+    // Si la validacion pasa (retorna true)
+    Usuario::create($request->all());
 }
 ```
 
-> **Nota**: `validate()` retorna `true` si pasa, o un array de errores si falla. No lanza excepciones.
+**Comportamiento exacto de `validate()`:**
+
+- Retorna `true` si TODO pasa.
+- Retorna los errores si algo falla: como **objeto** en la aplicacion (la constante `RESULT_TYPE` vale `'object'`, definida en `System/Helpers/variable.php`) o como **array** en los tests.
+- **NO lanza excepciones** por datos invalidos.
+- Cada llamada a `validate()` empieza con la lista de errores vacia (los errores NO se acumulan entre llamadas).
+- Con los inputs vacios retorna el string `'error'`.
+- Las reglas de BD (`unique`, `not_unique`, `password_verify`) **ignoran silenciosamente** los campos ausentes o vacios: quien reporta el campo faltante es `required`.
 
 ## Tabla de Validaciones
 
-| Validacion | Descripcion | Ejemplo |
+| Regla | Que valida (comportamiento exacto) | Ejemplo |
 |---|---|---|
-| `alpha` | Solo letras | `alpha` |
-| `alpha_space` | Solo letras y espacios | `alpha_space` |
-| `alpha_dash` | Solo letras, espacios y guiones | `alpha_dash` |
-| `alpha_numeric` | Solo letras y numeros | `alpha_numeric` |
-| `decimal` | Solo numeros decimales | `decimal` |
-| `integer` | Solo numeros enteros | `integer` |
-| `is_natural` | Solo numeros naturales | `is_natural` |
-| `is_natural_no_zero` | Solo numeros naturales sin cero | `is_natural_no_zero` |
-| `numeric` | Solo numeros | `numeric` |
-| `required` | Requerido, obligatorio | `required` |
-| `email` | Correo electronico | `email` |
-| `url` | Texto tipo URL | `url` |
-| `min:number` | Minimo de caracteres | `min:5` |
-| `max:number` | Maximo de caracteres | `max:5` |
-| `string` | Solo texto | `string` |
-| `confirm` | Comparar dos inputs iguales (agregar `_confirm` al segundo) | `confirm` |
-| `slug` | Texto tipo slug **aa-bb-cc** | `slug` |
-| `text` | Solo texto | `text` |
-| `choice:param` | El valor debe ser igual a param | `choice:table` |
-| `between:min,max` | Entre minimo y maximo de caracteres | `between:1,5` |
-| `datetime` | Fecha y hora **Y-m-d H:i:s** | `datetime` |
-| `time` | Hora **H:i:s** | `time` |
-| `date` | Fecha **Y-m-d** | `date` |
-| `matches:2inputs` | Comparar dos inputs | `matches:otro_input` |
-| `unique:model,column` | Unico en la tabla model y columna column | `unique:User,email` |
-| `not_unique:model,column` | No unico en la tabla model y columna column | `not_unique:User,email` |
-| `password_verify:model,column` | Verificar contrasena en la tabla | `password_verify:User,email` |
+| `required` | Campo presente y no vacio (un array con `name` vacio tambien falla) | `required` |
+| `alpha` | SOLO letras unicode, sin espacios ni numeros | `alpha` |
+| `alpha_dash` | Letras, numeros, guiones `-` y guiones bajos `_`. **NO permite espacios** | `alpha_dash` |
+| `alpha_space` | Letras y espacios. NO numeros | `alpha_space` |
+| `alpha_numeric` | Letras y numeros. NO espacios | `alpha_numeric` |
+| `alpha_numeric_space` | Letras, numeros y espacios | `alpha_numeric_space` |
+| `numeric` | Numero con signo opcional y punto decimal opcional: `-10`, `10.5` | `numeric` |
+| `decimal` | Digitos con punto decimal opcional, sin signo: `10`, `10.5`. Rechaza coma `10,5` | `decimal` |
+| `integer` | Entero con signo opcional: `-5`, `+5`, `5`. Rechaza `5.5` | `integer` |
+| `is_natural` | Entero sin signo, incluye el `0` | `is_natural` |
+| `is_natural_no_zero` | Entero sin signo **mayor que 0**, sin ceros a la izquierda | `is_natural_no_zero` |
+| `email` | Formato de correo (`FILTER_VALIDATE_EMAIL`) | `email` |
+| `url` | Formato de URL (`FILTER_VALIDATE_URL`) | `url` |
+| `min:X` | Longitud **minima en caracteres** (`mb_strlen`, multibyte) | `min:3` |
+| `max:X` | Longitud **maxima en caracteres** | `max:100` |
+| `between:min,max` | Longitud **entre** min y max, inclusive (en caracteres) | `between:2,4` |
+| `string` | Que el valor sea de tipo `string` (un `int` falla) | `string` |
+| `text` | Texto que contenga al menos un espacio o simbolo despues de texto: `'hola mundo'` pasa, `'hola'` falla. Para texto libre prefiere `string|min:3` | `text` |
+| `slug` | Formato slug: minusculas `a-z0-9` con guiones simples internos: `mi-post-1` | `slug` |
+| `date` | Fecha exacta en formato **`Y-m-d`** (rechaza fechas imposibles como `2026-13-45`) | `date` |
+| `datetime` | Fecha y hora exacta **`Y-m-d H:i:s`** | `datetime` |
+| `time` | Hora exacta **`H:i:s`** (rechaza `25:99:99`) | `time` |
+| `choice:valor1,valor2` | El valor debe estar DENTRO de la lista de valores permitidos (hasta 3) | `choice:admin,editor` |
+| `confirm` | Compara el campo con el input `{campo}_confirm` | `confirm` |
+| `matches:campo` | Compara el campo con OTRO input por nombre. Lanza excepcion si no recibe exactamente 1 parametro | `matches:correo` |
 
-## Validaciones para Archivos
+## Guia: Cuando Usar Cada Validacion
 
-| Validacion | Descripcion | Ejemplo |
-|---|---|---|
-| `requiredFile` | Archivo requerido | `requiredFile` |
-| `maxSize:number` | Tamanio maximo en bytes | `maxSize:1000` |
-| `type:param` | Tipo de archivo | `type:jpg,png` |
+### Regla de oro sobre campos opcionales
 
-## Consideraciones
+En Cronos **cualquier regla aplicada a un campo lo vuelve obligatorio de facto**: si el campo llega vacio o no llega, la regla falla (las unicas excepciones son `unique`, `not_unique` y `password_verify`, que ignoran campos ausentes). Consecuencia practica:
 
-### unique y not_unique
-
-La palabra `model` debe ser exactamente igual al nombre del modelo: `User`. La columna debe ser exactamente igual al nombre de la columna en la base de datos: `email`.
+- **Campo obligatorio**: declara sus reglas normalmente.
+- **Campo opcional**: NO lo incluyas en `$rules`; validalo manualmente solo si llego:
 
 ```php
-'email' => 'required|email|unique:User,email',
+$data = $request->all();
+
+if (!empty($data->telefono)) {
+    //validacion manual del campo opcional
+    if (!preg_match('/^[0-9\-\s]{7,20}$/', $data->telefono)) {
+        return json(['status' => 'error', 'message' => 'Telefono invalido'], 400);
+    }
+}
 ```
 
-Los modelos referenciados deben estar en la carpeta `App/Models/` (no en subcarpetas).
+### Recetas por tipo de campo
+
+| Tipo de campo | Reglas recomendadas |
+|---|---|
+| Nombre / apellido | `required\|string\|min:3\|max:100` |
+| Correo electronico | `required\|email\|max:191` (+ `unique:Usuario,correo` en registro) |
+| Contrasena | `required\|min:6\|max:50` (+ `matches:confirmar_contrasena` en registro) |
+| Confirmacion de contrasena | `required` (la comparacion la hace `matches` del campo principal) |
+| Usuario / nick | `required\|alpha_numeric\|min:3\|max:50` |
+| Telefono | `required\|numeric` (o `alpha_dash` si incluye guiones) |
+| Edad / cantidad | `required\|is_natural` (o `is_natural_no_zero` si no admite 0) |
+| Precio / monto | `required\|decimal` |
+| Slug (URL amigable) | `required\|slug` (+ `unique:Publicacion,slug`) |
+| Fecha (cumpleanos, vencimiento) | `required\|date` |
+| Fecha y hora (publicacion) | `required\|datetime` |
+| Hora | `required\|time` |
+| Titulo corto | `required\|string\|min:3\|max:255` |
+| Contenido largo / descripcion | `required\|string\|min:3` |
+| Rol / estado / categoria fija | `required\|choice:admin,editor,usuario` |
+| Sitio web | `required\|url` |
+| Direccion | `required\|alpha_numeric_space\|min:5\|max:255` |
+| Codigo / identificador alfanumerico | `required\|alpha_dash` |
+| Archivo de imagen | `required_file\|max_size:2\|type:png,jpg` |
+
+### Ejemplos de escenarios completos
+
+**Registro de usuario (API):**
+
+```php
+$valid = $this->validate($request->all(), [
+    'nombre'               => 'required|string|min:3|max:100',
+    'correo'               => 'required|email|max:191|unique:Usuario,correo',
+    'contrasena'           => 'required|min:6|max:50|matches:confirmar_contrasena',
+    'confirmar_contrasena' => 'required',
+]);
+```
+
+**Login (API):**
+
+```php
+$valid = $this->validate($request->all(), [
+    'correo'     => 'required|email|not_unique:Usuario,correo',
+    'contrasena' => 'required|password_verify:Usuario,correo',
+]);
+```
+
+**Perfil con foto (web, con archivo):**
+
+```php
+$valid = $this->validate($request->all(), [
+    'biografia'         => 'required|string|min:10',
+    'fecha_nacimiento'  => 'required|date',
+    'sitio_web'         => 'required|url',
+    'avatar'            => 'required_file|max_size:2|type:png,jpg',
+]);
+
+if ($valid !== true) {
+    return back()->withErrors($request->all(), $valid);
+}
+```
+
+**Creacion de publicacion con estado controlado:**
+
+```php
+$valid = $this->validate($request->all(), [
+    'titulo'    => 'required|string|min:3|max:255',
+    'slug'      => 'required|slug|unique:Publicacion,slug',
+    'contenido' => 'required|string|min:3',
+    'estado'    => 'required|choice:borrador,publicado,archivado',
+]);
+```
+
+## Reglas que Consultan la Base de Datos
+
+Estas 3 reglas requieren que el modelo exista en `App/Models/` (carpeta raiz, sin subcarpetas) y que la conexion de BD este configurada.
+
+### unique
+
+El valor NO debe existir ya en la BD (tipico de registro):
+
+```php
+'correo' => 'required|email|unique:Usuario,correo',
+```
+
+- `Usuario` es el **nombre corto del modelo** (resuelve a `App\Models\Usuario`).
+- `correo` es la columna de la tabla (en el esquema en espanol).
+- Si el correo ya existe agrega el error "El correo ya existe."
+
+### not_unique
+
+El valor DEBE existir en la BD (tipico de login, antes de verificar la contrasena):
+
+```php
+'correo' => 'required|email|not_unique:Usuario,correo',
+```
+
+- Si el correo NO existe agrega el error "El correo no existe en la BD."
 
 ### password_verify
 
+Verifica que el valor del campo coincida con el hash guardado en la BD:
+
 ```php
-'password' => 'required|password_verify:User,email',
+'contrasena' => 'required|password_verify:Usuario,correo',
 ```
 
-La palabra `model` es el nombre del modelo (`User`) y la palabra `column` esta relacionada al input `email`. El sistema busca el valor del input `email` en la base de datos y compara con el valor del input `password`.
+- Busca el registro usando el valor del input indicado en `column` (aqui `correo`) y compara el campo actual (`contrasena`) contra el hash con `password_verify()` de PHP.
+- Si el registro no existe la regla NO agrega error (ese caso lo cubre `not_unique`).
+- El hash debe estar generado con `password_hash()` de PHP (el proyecto usa `Hasher`/Bcrypt).
+
+## Validaciones para Archivos
+
+El valor del campo debe ser el array estilo `$_FILES` (con claves `name`, `size`, `type`):
+
+| Regla | Que valida (comportamiento exacto) | Ejemplo |
+|---|---|---|
+| `required_file` | El archivo llego (clave `name` no vacia) | `required_file` |
+| `max_size:X` | Tamanio maximo **en MEGABYTES** (`X * 1048576` bytes) | `max_size:2` |
+| `type:ext1,ext2` | El subtipo del MIME esta en la lista: `image/png` compara contra `png` | `type:png,jpg` |
+
+Ejemplo completo (el input `avatar` debe contener el array del archivo subido):
+
+```php
+$valid = $this->validate($request->all(), [
+    'avatar' => 'required_file|max_size:2|type:png,jpg',
+]);
+```
+
+## Mensajes de Error
+
+Los mensajes provienen de `System/Validation/MessageError.php`. Ejemplos reales:
+
+- `required` -> "El campo correo es obligatorio"
+- `unique` -> "El correo ya existe."
+- `not_unique` -> "El correo no existe en la BD."
 
 ## Mostrar Errores en las Vistas
 
-Si se uso `return back()->withErrors($dataInput, $errors)` en el controlador, en la vista se pueden usar:
+Si se uso `return back()->withErrors($request->all(), $valid)` en el controlador, en la vista se pueden usar:
 
 ```php
 // Saber si existe error en un campo
-ifError('name')
+ifError('correo')
 
 // Imprimir el error
-<?= error('name') ?>
+<?= error('correo') ?>
 
 // Mantener el valor anterior al recargar
-<?= old('name') ?>
+<?= old('correo') ?>
 ```
 
 ### Ejemplo Completo en una Vista
@@ -110,21 +245,38 @@ ifError('name')
 <div class="mb-3">
     <label class="form-label">Correo</label>
     <input
-        name="email"
+        name="correo"
         type="text"
-        class="form-control <?= ifError('email') ? 'is-invalid' : '' ?>"
-        value="<?= old('email') ?>"
+        class="form-control <?= ifError('correo') ? 'is-invalid' : '' ?>"
+        value="<?= old('correo') ?>"
     />
 
-    <?php if (ifError('email')) : ?>
+    <?php if (ifError('correo')) : ?>
     <div class="invalid-feedback">
-        <?= error('email') ?>
+        <?= error('correo') ?>
     </div>
     <?php endif; ?>
 </div>
 ```
 
 Tambien se puede usar la directiva `@error` en las vistas (ver [06-vistas.md](06-vistas.md)).
+
+## Errores en APIs (JSON)
+
+En controladores de API el patron habitual es devolver los errores en el JSON:
+
+```php
+if ($valid !== true) {
+    return json(['status' => 'error', 'message' => $valid], 400);
+}
+```
+
+## Cobertura de Tests
+
+Las 31 reglas tienen pruebas automaticas (paso y fallo):
+
+- `tests/Integration/ValidationTest.php` — reglas sin BD y reglas de archivos.
+- `tests/Integration/ValidationDbRulesTest.php` — `unique`, `not_unique` y `password_verify` contra la BD real (se marcan `skipped` si MySQL no esta disponible).
 
 ---
 
