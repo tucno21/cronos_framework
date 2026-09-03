@@ -19,7 +19,7 @@ define('DIR_IMG', DIR_PUBLIC . '/' . env('PATH_FILE_STORAGE', 'public') . '/');
  * obtener la ruta web de la aplicacion sin "/"
  */
 if (!function_exists('last_char')) {
-    function last_char($string)
+    function last_char(string $string): string
     {
         //extraer el ultimo letra de un string
         $slash = substr($string, -1);
@@ -40,7 +40,7 @@ if (!function_exists('base_url')) {
     /**
      * funcion url con parametros
      */
-    function base_url($parameters = null)
+    function base_url(?string $parameters = null): string
     {
         return base_url . $parameters;
     }

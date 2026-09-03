@@ -18,6 +18,9 @@ class SessionStorageServiceProvider implements ServiceProvider
                 SessionStorage::class,
                 PhpNativeSessionStorage::class
             ),
+            default => throw new \InvalidArgumentException(
+                'Driver de sesion no soportado: ' . configGet('session.storage', 'native')
+            ),
         };
     }
 }

@@ -11,16 +11,17 @@ use Cronos\Container\Container;
 use Cronos\Errors\HttpNotFoundException;
 use ReflectionUnionType;
 use ReflectionNamedType;
+use ReflectionType;
 
 class DependencyInjection
 {
     /**
      * Verifica si un tipo es builtin (primitivo), compatible con PHP 8.2 y 8.3.
      *
-     * @param mixed $type El tipo a verificar (puede ser null, ReflectionNamedType o ReflectionUnionType)
+     * @param ReflectionType|null $type El tipo a verificar (puede ser null, ReflectionNamedType o ReflectionUnionType)
      * @return bool True si es builtin, false en caso contrario
      */
-    private static function isBuiltinType($type): bool
+    private static function isBuiltinType(ReflectionType|null $type): bool
     {
         if ($type === null) {
             return true;
@@ -142,7 +143,7 @@ class DependencyInjection
         return $dependencies;
     }
 
-    public static function resolveParameters(Closure|array $callback, $routeParameters = [])
+    public static function resolveParameters(Closure|array $callback, array $routeParameters = [])
     {
         $methodOrFunction = is_array($callback)
             ? new ReflectionMethod($callback[0], $callback[1]) // array($controller, $method)
@@ -187,7 +188,7 @@ class DependencyInjection
                             $id = $routeParameters[$keyParam];
                             //buscamos el valor del parametro que viene de la ruta
                             //ejecutamos el metodo find del modelo
-                            $resolved = $className::find($id ?? 0);
+                            $resolved = $className::find($id);
                             if (is_null($resolved)) {
                                 throw new HttpNotFoundException();
                             }

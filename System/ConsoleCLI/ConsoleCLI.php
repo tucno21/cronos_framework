@@ -20,7 +20,7 @@ class ConsoleCLI
 
     protected string $migrationsPath;
 
-    public function __construct($data)
+    public function __construct(array $data)
     {
         $this->command1 = isset($data[1]) ? $data[1] : ''; //make
 

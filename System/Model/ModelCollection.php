@@ -2,16 +2,16 @@
 
 namespace Cronos\Model;
 
+/**
+ * @phpstan-consistent-constructor
+ */
 class ModelCollection
 {
     protected array $items = [];
 
-    //agregar un constructor
     public function __construct(array $items = [])
     {
         $this->items = $items;
-        //retornamos esta clase
-        return $this;
     }
 
     public function map(callable $callback): self

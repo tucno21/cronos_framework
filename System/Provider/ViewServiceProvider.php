@@ -18,6 +18,9 @@ class ViewServiceProvider implements ServiceProvider
                 View::class,
                 fn () => new CronosEngine(configGet('view.path'), configGet('view.cache'))
             ),
+            default => throw new \InvalidArgumentException(
+                'Motor de vistas no soportado: ' . configGet('view.engine', 'cronos')
+            ),
         };
     }
 }

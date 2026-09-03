@@ -105,7 +105,7 @@ class Session
     }
 
     //obtener un valor de una sesion
-    public function get(string $key, $default = null)
+    public function get(string $key, mixed $default = null)
     {
         return $this->storage->get($key, $default);
     }
@@ -116,7 +116,7 @@ class Session
         return $_SESSION;
     }
 
-    public function pull(string $key, $default = null)
+    public function pull(string $key, mixed $default = null)
     {
         //obtener el valor de una sesion
         $value = $this->storage->get($key, $default);

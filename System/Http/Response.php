@@ -108,7 +108,7 @@ class Response
             ->setContent(json_encode($json->getData()));
     }
 
-    public static function utf8ize($mixed)
+    public static function utf8ize(mixed $mixed): mixed
     {
         if (is_array($mixed)) {
             foreach ($mixed as $key => $value) {
@@ -168,7 +168,7 @@ class Response
         // ->setHeader("Location", $_SERVER['HTTP_REFERER']);
     }
 
-    public function with(string $key, $value, int $statusCode = 400): self
+    public function with(string $key, mixed $value, int $statusCode = 400): self
     {
         $this->setStatusCode($statusCode);
         session()->flash($key, $value);

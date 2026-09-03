@@ -15,6 +15,9 @@ class HasherServiceProvider implements ServiceProvider
             //si del archivo hashing.php se obtiene el valor de la clave 'hasher' es bcrypt
             //ejecutamos Hasher que es la interface y instanciamos Bcrypt que es la clase que implementa la interface
             "bcrypt" => Container::singleton(Hasher::class, Bcrypt::class),
+            default => throw new \InvalidArgumentException(
+                'Hasher no soportado: ' . configGet("hashing.hasher", "bcrypt")
+            ),
         };
     }
 }

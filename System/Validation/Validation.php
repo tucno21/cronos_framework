@@ -267,7 +267,7 @@ class Validation
     private static function validateRequired(string $nameInput, string $rule)
     {
         $value = self::searchInput($nameInput);
-        if (empty($value) || is_null($value)) {
+        if (empty($value)) {
             self::addError($nameInput, $rule);
         }
     }
@@ -289,14 +289,14 @@ class Validation
         }
     }
 
-    private static function validateMin(string $nameInput, string $rule, $params)
+    private static function validateMin(string $nameInput, string $rule, array $params)
     {
         $value = self::searchInput($nameInput);
 
         $length = mb_strlen((string) $value);
         if (count($params) === 1) {
             $min = (int)min($params);
-            if (!is_null($min) && $length < $min) {
+            if ($length < $min) {
                 self::addError($nameInput, 'min', [$min]);
             }
         } else {
@@ -304,14 +304,14 @@ class Validation
         }
     }
 
-    private static function validateMax(string $nameInput, string $rule, $params)
+    private static function validateMax(string $nameInput, string $rule, array $params)
     {
         $value = self::searchInput($nameInput);
 
         $length = mb_strlen((string) $value);
         if (count($params) === 1) {
             $max = (int)max($params);
-            if (!is_null($max) && $length > $max) {
+            if ($length > $max) {
                 self::addError($nameInput, 'max', [$max]);
             }
         } else {
@@ -340,14 +340,14 @@ class Validation
 
     ////////////////////////////////////////////////////////////////////////
 
-    private static function validateBetween(string $nameInput, string $rule, $params)
+    private static function validateBetween(string $nameInput, string $rule, array $params)
     {
         $value = self::searchInput($nameInput);
         $length = mb_strlen($value);
         if (count($params) === 2) {
             $min = (int)min($params);
             $max = (int)max($params);
-            if (!is_null($min) && !is_null($max) && ($length < $min || $length > $max)) {
+            if ($length < $min || $length > $max) {
                 self::addError($nameInput, 'between', [$min, $max]);
             }
         } else {
@@ -364,8 +364,8 @@ class Validation
 
         // getLastErrors puede retornar false o array
         $errors = \DateTime::getLastErrors();
-        $errorCount = is_array($errors) ? ($errors['error_count'] ?? 0) : 0;
-        $warningCount = is_array($errors) ? ($errors['warning_count'] ?? 0) : 0;
+        $errorCount = is_array($errors) ? $errors['error_count'] : 0;
+        $warningCount = is_array($errors) ? $errors['warning_count'] : 0;
 
         if ($date === false || $errorCount > 0 || $warningCount > 0) {
             self::addError($nameInput, 'datetime', [$format]);
@@ -381,8 +381,8 @@ class Validation
 
         // getLastErrors puede retornar false o array
         $errors = \DateTime::getLastErrors();
-        $errorCount = is_array($errors) ? ($errors['error_count'] ?? 0) : 0;
-        $warningCount = is_array($errors) ? ($errors['warning_count'] ?? 0) : 0;
+        $errorCount = is_array($errors) ? $errors['error_count'] : 0;
+        $warningCount = is_array($errors) ? $errors['warning_count'] : 0;
 
         if ($date === false || $errorCount > 0 || $warningCount > 0) {
             self::addError($nameInput, $rule, [$format]);
@@ -398,8 +398,8 @@ class Validation
 
         // getLastErrors puede retornar false o array
         $errors = \DateTime::getLastErrors();
-        $errorCount = is_array($errors) ? ($errors['error_count'] ?? 0) : 0;
-        $warningCount = is_array($errors) ? ($errors['warning_count'] ?? 0) : 0;
+        $errorCount = is_array($errors) ? $errors['error_count'] : 0;
+        $warningCount = is_array($errors) ? $errors['warning_count'] : 0;
 
         if ($date === false || $errorCount > 0 || $warningCount > 0) {
             self::addError($nameInput, $rule, [$format]);
@@ -416,7 +416,7 @@ class Validation
     }
 
 
-    private static function validateMatches(string $nameInput, string $rule, $params)
+    private static function validateMatches(string $nameInput, string $rule, array $params)
     {
         $value = self::searchInput($nameInput);
 
@@ -443,7 +443,7 @@ class Validation
         }
     }
 
-    private static function validateChoice(string $nameInput, string $rule, $params)
+    private static function validateChoice(string $nameInput, string $rule, array $params)
     {
         //busca que el numero sea lo que se dice en el controlador
         $value = self::searchInput($nameInput);
@@ -460,7 +460,7 @@ class Validation
     /**
      * revisar
      */
-    private static function validateUnique(string $nameInput, string $rule, $params)
+    private static function validateUnique(string $nameInput, string $rule, array $params)
     {
         $value = self::searchInput($nameInput);
 
@@ -478,13 +478,13 @@ class Validation
         }
     }
 
-    private static function getByColumn($model, $column, $value)
+    private static function getByColumn(string $model, string $column, mixed $value)
     {
         $class = "App\\Models\\" . $model;
         return $class::where($column, $value)->firstNotHidden();
     }
 
-    private static function validateNot_unique(string $nameInput, string $rule, $params)
+    private static function validateNot_unique(string $nameInput, string $rule, array $params)
     {
         $value = self::searchInput($nameInput);
 
@@ -502,7 +502,7 @@ class Validation
         }
     }
 
-    private static function validatePassword_verify(string $nameInput, string $rule, $params)
+    private static function validatePassword_verify(string $nameInput, string $rule, array $params)
     {
         $value = self::searchInput($nameInput);
 
@@ -534,20 +534,20 @@ class Validation
     {
         $value = self::searchInput($nameInput);
 
-        if (empty($value['name']) || is_null($value['name'])) {
+        if (empty($value['name'])) {
             self::addError($nameInput, $rule);
         }
     }
 
 
-    private static function validateMaxSize(string $nameInput, string $rule, $params)
+    private static function validateMaxSize(string $nameInput, string $rule, array $params)
     {
         $value = self::searchInput($nameInput);
 
         if (count($params) === 1) {
             $max = (int)max($params) * 1048576;
 
-            if (!is_null($max) && $value["size"] > $max) {
+            if ($value["size"] > $max) {
                 self::addError($nameInput, 'maxSize', [(int)max($params)]);
             }
         } else {
@@ -556,7 +556,7 @@ class Validation
     }
 
 
-    private static function validateType(string $nameInput, string $rule, $params)
+    private static function validateType(string $nameInput, string $rule, array $params)
     {
         $value = self::searchInput($nameInput);
         $fileType = $value["type"];

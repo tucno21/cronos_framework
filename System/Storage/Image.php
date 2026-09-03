@@ -11,17 +11,13 @@ class Image
 
     private string $extension;
 
-    private $originalWidth;
 
-    private $originalHeight;
-
-
-    public static function make($contentImage): self
+    public static function make(array $contentImage): self
     {
         return new self($contentImage);
     }
 
-    protected function __construct($image_path)
+    protected function __construct(array $image_path)
     {
         $this->extension = pathinfo($image_path['name'], PATHINFO_EXTENSION);
 
@@ -31,8 +27,6 @@ class Image
 
         $info = getimagesizefromstring($fileContent);
         $this->mime = $info['mime']; // image/jpeg
-        list($this->originalWidth, $this->originalHeight) = $info;
-
 
         // Crear un recurso de imagen en memoria para la imagen original
         switch ($this->mime) {
@@ -50,7 +44,7 @@ class Image
         }
     }
 
-    public function resize(int $width = null, int $height = null): self
+    public function resize(?int $width = null, ?int $height = null): self
     {
         $original_width = imagesx($this->image);
         $original_height = imagesy($this->image);
@@ -71,15 +65,12 @@ class Image
             $new_image = imagecreatetruecolor(intval($new_width), $height);
             imagecopyresampled($new_image, $this->image, 0, 0, 0, 0, intval($new_width), $height, $original_width, $original_height);
             $this->image = $new_image;
-
-            // Liberar los recursos de imagen en memoria
-            imagedestroy($new_image);
         }
 
         return $this;
     }
 
-    public function save(string $nameFile = null, string $nameFolder = null): string
+    public function save(?string $nameFile = null, ?string $nameFolder = null): string
     {
         $nameFolder = is_null($nameFolder) ? env('PATH_FILE_STORAGE', 'storage') : $nameFolder;
 
@@ -90,7 +81,7 @@ class Image
             mkdir($path, 0777, true);
         }
 
-        $nameImagen = is_null($nameFile) ? md5(uniqid(rand(), true)) : $nameFile;
+        $nameImagen = is_null($nameFile) ? md5(uniqid((string) rand(), true)) : $nameFile;
 
         $path = $path . '/' . $nameImagen . '.' . $this->extension;
 

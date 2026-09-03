@@ -10,7 +10,7 @@ interface SessionStorage
 
     public function id(): string;
 
-    public function get(string $key, $default = null);
+    public function get(string $key, mixed $default = null);
 
     public function set(string $key, mixed $value);
 

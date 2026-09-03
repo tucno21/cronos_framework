@@ -23,7 +23,7 @@ class PhpNativeSessionStorage implements SessionStorage
         return session_id();
     }
 
-    public function get(string $key, $default = null)
+    public function get(string $key, mixed $default = null)
     {
         return $_SESSION[$key] ?? $default;
     }

@@ -14,7 +14,7 @@ function singleton(string $class, string|callable|null $build = null)
     Container::singleton($class, $build);
 }
 
-function configGet(string $configuration, $default = null)
+function configGet(string $configuration, mixed $default = null)
 {
     return Config::get($configuration, $default);
 }
@@ -29,7 +29,7 @@ function cacheDirectory()
     return App::$root . '/storage/cache';
 }
 
-function env(string $variable, $default = null)
+function env(string $variable, mixed $default = null)
 {
     //obtener el valor de una variable de entorno del archivo .env
     return $_ENV[$variable] ?? $default;

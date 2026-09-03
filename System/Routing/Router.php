@@ -162,7 +162,7 @@ class Router
         }
     }
 
-    public function route(string $nameRoute, string|array $params = null)
+    public function route(string $nameRoute, string|array|null $params = null)
     {
         if (isset($this->nameRoute[$nameRoute])) {
             //comprobar si $nameRoute tiene llaves {} para agregarle los parametros

@@ -124,9 +124,9 @@ class Pipeline
      * @param callable $next El siguiente middleware o destino en la cadena
      * @return Closure El handler del middleware
      */
-    protected function createMiddlewareHandler($middleware, callable $next): Closure
+    protected function createMiddlewareHandler(mixed $middleware, callable $next): Closure
     {
-        return function ($request) use ($middleware, $next) {
+        return function (Request $request) use ($middleware, $next) {
             // Si el middleware es un closure, ejecutarlo directamente
             if ($middleware instanceof Closure) {
                 return $middleware($request, $next);

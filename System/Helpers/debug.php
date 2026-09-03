@@ -4,7 +4,7 @@ if (!function_exists('dd')) {
     /**
      * debugear sin continuar con otros codigos de linea
      */
-    function dd($variable)
+    function dd(mixed $variable): never
     {
         echo "<pre>";
         var_dump($variable);
@@ -18,7 +18,7 @@ if (!function_exists('d')) {
     /**
      * debugear continuando las lineas de codigo
      */
-    function d($variable)
+    function d(mixed $variable): void
     {
         echo "<pre>";
         var_dump($variable);

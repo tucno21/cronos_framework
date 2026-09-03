@@ -18,6 +18,9 @@ class DatabaseDriverServiceProvider implements ServiceProvider
                 DatabaseDriver::class,
                 PdoDriver::class
             ),
+            default => throw new \InvalidArgumentException(
+                'Conexion de base de datos no soportada: ' . configGet('database.connection', 'mysql')
+            ),
         };
     }
 }

@@ -22,7 +22,7 @@ class Config
     }
 
     //metodo para obtener el valor de una configuracion
-    public static function get(string $key, $default = null)
+    public static function get(string $key, mixed $default = null)
     {
         //$key = app.name
         //$key = app.config.name.estado

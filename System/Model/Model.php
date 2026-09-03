@@ -4,6 +4,9 @@ namespace Cronos\Model;
 
 use Cronos\Database\DatabaseDriver;
 
+/**
+ * @phpstan-consistent-constructor
+ */
 abstract class Model
 {
     //DATOS BASICOS DEL MODELO DE LA TABLA
@@ -40,7 +43,17 @@ abstract class Model
         self::$db = $db;
     }
 
-    public function __get($property)
+    public function getTable(): string
+    {
+        return $this->table;
+    }
+
+    public function getPrimaryKey(): string
+    {
+        return $this->primaryKey;
+    }
+
+    public function __get(string $property)
     {
         // Verifica si la propiedad existe en el arreglo de atributos
         if (array_key_exists($property, $this->attributes)) {
@@ -49,7 +62,7 @@ abstract class Model
         return null; // Devuelve null si la propiedad no existe
     }
 
-    public function __set($name, $value)
+    public function __set(string $name, mixed $value)
     {
         // Verifica si la propiedad existe en el arreglo de atributos
         $this->attributes[$name] = $value;
@@ -101,7 +114,7 @@ abstract class Model
     }
 
 
-    private function addTimestamps($type = 'created'): void
+    private function addTimestamps(string $type = 'created'): void
     {
         if ($this->timestamps) {
             if ($type == 'created') {
@@ -135,10 +148,6 @@ abstract class Model
 
     public static function create(array|object $data): self|null
     {
-        if (!is_object($data) && !is_array($data)) {
-            throw new \Error('los datos debe ser un array u objeto');
-        }
-
         if (is_object($data)) {
             $data = (array) $data;
         }
@@ -303,12 +312,6 @@ abstract class Model
 
     public static function limit(int $limit): self
     {
-        // dd($limit);
-        //comprobar si el limite es un numero entero
-        if (!is_int($limit)) {
-            throw new \Error("El limite debe ser un numero entero");
-        }
-
         // Validar límite
         if ($limit <= 0) {
             throw new \Error('El límite debe ser mayor a 0');
@@ -724,7 +727,7 @@ class HasOne
     protected $foreignKey;
     protected $localKey;
 
-    public function __construct($related, $parent, $foreignKey, $localKey)
+    public function __construct(Model $related, Model $parent, string $foreignKey, string $localKey)
     {
         $this->related = $related;
         $this->parent = $parent;
@@ -801,12 +804,12 @@ class BelongsToMany
     {
         $this->related->join(
             $this->pivotTable,
-            $this->related->table . '.' . $this->related->primaryKey,
+            $this->related->getTable() . '.' . $this->related->getPrimaryKey(),
             '=',
             $this->pivotTable . '.' . $this->relatedPivotKey
         )->where(
             $this->pivotTable . '.' . $this->foreignPivotKey,
-            $this->parent->{$this->parent->primaryKey}
+            $this->parent->{$this->parent->getPrimaryKey()}
         );
 
         return $this->related->get();

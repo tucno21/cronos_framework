@@ -37,7 +37,7 @@ class DatabaseMigrate
     /**
      * Carga las variables de entorno desde el archivo .env
      */
-    private function loadEnv($path)
+    private function loadEnv(string $path)
     {
         if (!file_exists($path)) {
             echo "\nArchivo .env no encontrado en: $path\n";
@@ -64,7 +64,7 @@ class DatabaseMigrate
     /**
      * Obtiene una variable de entorno con valor por defecto
      */
-    private function env($key, $default = null)
+    private function env(string $key, mixed $default = null)
     {
         $value = getenv($key);
         if ($value === false) {

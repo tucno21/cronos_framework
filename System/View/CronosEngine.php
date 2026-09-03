@@ -120,7 +120,7 @@ class CronosEngine implements View
 
     protected function compileExtends(string $content): string
     {
-        return preg_replace_callback('/@extends\((.*?)\)/', function ($matches) {
+        return preg_replace_callback('/@extends\((.*?)\)/', function (array $matches) {
             $parentView = trim($matches[1], "'\"");
             $parentFile = $this->viewDirectory . DIRECTORY_SEPARATOR . str_replace('.', DIRECTORY_SEPARATOR, $parentView) . '.php';
             if (!file_exists($parentFile)) {
@@ -165,7 +165,7 @@ class CronosEngine implements View
 
     protected function compileSections(string $content): string
     {
-        $content = preg_replace_callback('/@section\((.*?)\)(.*?)@endsection/s', function ($match) {
+        $content = preg_replace_callback('/@section\((.*?)\)(.*?)@endsection/s', function (array $match) {
             $sectionName = trim($match[1], '\'"');
             $sectionContent = trim($match[2]);
             // dd($sectionName);
@@ -179,7 +179,7 @@ class CronosEngine implements View
     }
     protected function compileYields(string $content): string
     {
-        $content = preg_replace_callback('/@yield\((.*?)\)/', function ($match) {
+        $content = preg_replace_callback('/@yield\((.*?)\)/', function (array $match) {
             $sectionName = trim($match[1], '\'"');
 
             return $this->sections[$sectionName] ?? '';
@@ -190,7 +190,7 @@ class CronosEngine implements View
 
     protected function compileForeach(string $content): string
     {
-        $contents = preg_replace_callback('/@foreach\((.*?)\)(.*?)@endforeach/s', function ($match) {
+        $contents = preg_replace_callback('/@foreach\((.*?)\)(.*?)@endforeach/s', function (array $match) {
             $foreach = trim($match[1]);
             $foreachContent = trim($match[2]);
 
@@ -202,7 +202,7 @@ class CronosEngine implements View
 
     protected function compileIf(string $content): string
     {
-        // $contents = preg_replace_callback('/@if\((.*?)\)(.*?)@endif/s', function ($match) {
+        // $contents = preg_replace_callback('/@if\((.*?)\)(.*?)@endif/s', function (array $match) {
         //     $if = trim($match[1]);
         //     $ifContent = trim($match[2]);
 
@@ -212,7 +212,7 @@ class CronosEngine implements View
         // return $contents;
 
         // Agregar la directiva @if
-        $content = preg_replace_callback('/@if\((.*?)\)/', function ($match) {
+        $content = preg_replace_callback('/@if\((.*?)\)/', function (array $match) {
             $condition = trim($match[1], '\'"');
             // dd($condition);
 
@@ -220,7 +220,7 @@ class CronosEngine implements View
         }, $content);
 
         // Agregar la directiva @elseif
-        $content = preg_replace_callback('/@elseif\((.*?)\)/', function ($match) {
+        $content = preg_replace_callback('/@elseif\((.*?)\)/', function (array $match) {
             $condition = trim($match[1], '\'"');
             // dd($condition);
 
@@ -238,7 +238,7 @@ class CronosEngine implements View
 
     protected function compileFor(string $content): string
     {
-        $contents = preg_replace_callback('/@for\((.*?)\)(.*?)@endfor/s', function ($match) {
+        $contents = preg_replace_callback('/@for\((.*?)\)(.*?)@endfor/s', function (array $match) {
             $for = trim($match[1]);
             $forContent = trim($match[2]);
 
@@ -250,7 +250,7 @@ class CronosEngine implements View
 
     protected function compileWhile(string $content): string
     {
-        $contents = preg_replace_callback('/@while\((.*?)\)(.*?)@endwhile/s', function ($match) {
+        $contents = preg_replace_callback('/@while\((.*?)\)(.*?)@endwhile/s', function (array $match) {
             $while = trim($match[1]);
             $whileContent = trim($match[2]);
 
@@ -262,7 +262,7 @@ class CronosEngine implements View
 
     protected function compileSwitch(string $content): string
     {
-        $contents = preg_replace_callback('/@switch\((.*?)\)(.*?)@endswitch/s', function ($match) {
+        $contents = preg_replace_callback('/@switch\((.*?)\)(.*?)@endswitch/s', function (array $match) {
             $switch = trim($match[1]);
             $switchContent = trim($match[2]);
 
@@ -274,7 +274,7 @@ class CronosEngine implements View
 
     protected function compileEmpty(string $content): string
     {
-        $contents = preg_replace_callback('/@empty\((.*?)\)(.*?)@endempty/s', function ($match) {
+        $contents = preg_replace_callback('/@empty\((.*?)\)(.*?)@endempty/s', function (array $match) {
             $empty = trim($match[1]);
             $emptyContent = trim($match[2]);
 
@@ -286,7 +286,7 @@ class CronosEngine implements View
 
     protected function compileIsset(string $content): string
     {
-        $contents = preg_replace_callback('/@isset\((.*?)\)(.*?)@endisset/s', function ($match) {
+        $contents = preg_replace_callback('/@isset\((.*?)\)(.*?)@endisset/s', function (array $match) {
             $isset = trim($match[1]);
             $issetContent = trim($match[2]);
 
@@ -306,7 +306,7 @@ class CronosEngine implements View
     protected function compileComponents(string $content): string
     {
         // Regex para capturar @component(...) ... @endcomponent
-        return preg_replace_callback('/@component\((.*?)(?:,\s*(.*?))?\)(.*?)@endcomponent/s', function ($matches) {
+        return preg_replace_callback('/@component\((.*?)(?:,\s*(.*?))?\)(.*?)@endcomponent/s', function (array $matches) {
             $componentView = trim($matches[1], "'\"");
             $paramsString = $matches[2] ?? '[]'; // Parámetros pasados al componente, por defecto un array vacío
             $componentContent = $matches[3]; // Contenido entre @component y @endcomponent
@@ -318,7 +318,7 @@ class CronosEngine implements View
 
             // Procesar los slots dentro del contenido del componente
             $slots = [];
-            $defaultSlotContent = preg_replace_callback('/@slot\((.*?)\)(.*?)@endslot/s', function ($slotMatches) use (&$slots) {
+            $defaultSlotContent = preg_replace_callback('/@slot\((.*?)\)(.*?)@endslot/s', function (array $slotMatches) use (&$slots) {
                 $slotName = trim($slotMatches[1], "'\"");
                 $slotContent = trim($slotMatches[2]);
                 $slots[$slotName] = $slotContent;
@@ -366,7 +366,7 @@ class CronosEngine implements View
         foreach (self::$customDirectives as $name => $handler) {
             // Regex para capturar @directiva(...) o @directiva
             $pattern = '/@' . preg_quote($name) . '(?:\((.*?)\))?/s';
-            $content = preg_replace_callback($pattern, function ($matches) use ($handler) {
+            $content = preg_replace_callback($pattern, function (array $matches) use ($handler) {
                 $arguments = isset($matches[1]) ? $matches[1] : ''; // Argumentos dentro de los paréntesis
                 return call_user_func($handler, $arguments);
             }, $content);
@@ -407,7 +407,7 @@ class CronosEngine implements View
      * Uso en vista:
      *   <form method="POST">
      *       @csrf
-     *       @method('PUT')
+     *       `@method('PUT')`
      *   </form>
      *
      * Resultado compilado:
@@ -430,17 +430,17 @@ class CronosEngine implements View
     /**
      * Compila @auth / @endauth y @guest / @endguest.
      *
-     * @auth     → muestra el bloque si hay usuario autenticado
-     * @guest    → muestra el bloque si NO hay usuario autenticado
+     * `@auth`     → muestra el bloque si hay usuario autenticado
+     * `@guest`    → muestra el bloque si NO hay usuario autenticado
      *
      * Uso en vista:
-     *   @auth
+     *   `@auth`
      *       <p>Bienvenido {{ $user->name }}</p>
-     *   @endauth
+     *   `@endauth`
      *
-     *   @guest
+     *   `@guest`
      *       <a href="/login">Iniciar sesión</a>
-     *   @endguest
+     *   `@endguest`
      *
      * ADAPTAR: Cambiar session()->hasUser() según el sistema de auth del proyecto.
      * Si usa $_SESSION['user'] directamente, cambiar la condición.
@@ -473,9 +473,9 @@ class CronosEngine implements View
      *
      * Uso en vista:
      *   <input name="email" type="email">
-     *   @error('email')
+     *   `@error('email')`
      *       <p class="text-red-600">{{ $message }}</p>
-     *   @enderror
+     *   `@enderror`
      *
      * Resultado compilado:
      *   <?php if ($__err = session()->error('email')): $message = $__err; ?>
@@ -511,12 +511,12 @@ class CronosEngine implements View
      * @stack renderiza todo el contenido acumulado de ese stack.
      *
      * Uso en vista hija:
-     *   @push('scripts')
+     *   `@push('scripts')`
      *       <script src="/js/mi-script.js"></script>
-     *   @endpush
+     *   `@endpush`
      *
      * Uso en layout:
-     *   @stack('scripts')
+     *   `@stack('scripts')`
      *
      * IMPORTANTE: El contenido de @push se captura en tiempo de compilación.
      * El @stack se reemplaza con todo el contenido acumulado de ese nombre.
@@ -563,11 +563,11 @@ class CronosEngine implements View
      * Compila @forelse / @empty / @endforelse.
      *
      * Uso en vista:
-     *   @forelse($blogs as $blog)
+     *   `@forelse($blogs as $blog)`
      *       <div>{{ $blog->title }}</div>
-     *   @empty
+     *   `@empty`
      *       <p>No hay blogs aún</p>
-     *   @endforelse
+     *   `@endforelse`
      *
      * Resultado compilado:
      *   <?php if (!empty($blogs)): foreach ($blogs as $blog): ?>
@@ -610,9 +610,9 @@ class CronosEngine implements View
      * Es el inverso de @if: muestra el bloque si la condición es FALSE.
      *
      * Uso en vista:
-     *   @unless(session()->hasUser())
+     *   `@unless(session()->hasUser())`
      *       <p>No estás autenticado</p>
-     *   @endunless
+     *   `@endunless`
      *
      * Resultado compilado:
      *   <?php if (!(session()->hasUser())): ?>
@@ -660,12 +660,12 @@ class CronosEngine implements View
     /**
      * Compila @dump($var) y @dd($var) para debug en plantillas.
      *
-     * @dump($var) → var_dump($var) y continúa
-     * @dd($var)   → var_dump($var) y detiene ejecución
+     * `@dump($var)` → var_dump($var) y continúa
+     * `@dd($var)`   → var_dump($var) y detiene ejecución
      *
      * Uso en vista:
-     *   @dump($blogs)
-     *   @dd($user)
+     *   `@dump($blogs)`
+     *   `@dd($user)`
      */
     protected function compileDebug(string $content): string
     {

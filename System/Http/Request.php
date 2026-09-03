@@ -106,7 +106,7 @@ class Request
         return preg_replace('/[^a-zA-Z0-9\-\_\[\]]/', '', $key);
     }
 
-    private function sanitizeValue($value)
+    private function sanitizeValue(mixed $value)
     {
         if (is_string($value)) {
             // Eliminar caracteres nullbyte y otros caracteres peligrosos
@@ -319,7 +319,7 @@ class Request
     }
 
     // Establecer la propiedad dinámica
-    public function __set(string $name, $value)
+    public function __set(string $name, mixed $value)
     {
         // Agregar la propiedad y su valor a los datos recibidos
         $this->data[$name] = $value;
@@ -448,7 +448,7 @@ class Request
             mkdir($path, 0777, true);
         }
 
-        $nameImagen = is_null($nameFile) ? md5(uniqid(rand(), true)) : $nameFile;
+        $nameImagen = is_null($nameFile) ? md5(uniqid((string) rand(), true)) : $nameFile;
         $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
 
         $path = $nameFolder . '/' . $nameImagen . '.' . $extension;
@@ -463,7 +463,7 @@ class Request
     public function isSecure(): bool
     {
         return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-            || $_SERVER['SERVER_PORT'] == 443
+            || ($_SERVER['SERVER_PORT'] ?? null) == 443
             || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] == 'https')
             || (!empty($_SERVER['HTTP_X_FORWARDED_SSL']) && $_SERVER['HTTP_X_FORWARDED_SSL'] == 'on');
     }
