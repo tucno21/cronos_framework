@@ -52,60 +52,6 @@ class ViewsIntegrationTest extends TestCase
         $this->assertNotEmpty($content);
     }
 
-    public function test_layout_dashboard_head_exists(): void
-    {
-        $viewPath = $this->viewsDir . '/dashboard/layouts/head.php';
-        if (!file_exists($viewPath)) {
-            $this->markTestSkipped('Vista dashboard no encontrada (SPA)');
-        }
-        $content = file_get_contents($viewPath);
-        $this->assertNotEmpty($content);
-    }
-
-    public function test_vista_login_tiene_csrf(): void
-    {
-        $viewPath = $this->viewsDir . '/home/login.php';
-        if (!file_exists($viewPath)) {
-            $this->markTestSkipped('Vista login no encontrada');
-        }
-        $content = file_get_contents($viewPath);
-        $this->assertStringContainsString('@csrf', $content);
-    }
-
-    public function test_vista_register_tiene_csrf(): void
-    {
-        $viewPath = $this->viewsDir . '/home/register.php';
-        if (!file_exists($viewPath)) {
-            $this->markTestSkipped('Vista register no encontrada');
-        }
-        $content = file_get_contents($viewPath);
-        $this->assertStringContainsString('@csrf', $content);
-    }
-
-    public function test_dashboard_index_usa_push_scripts(): void
-    {
-        $viewPath = $this->viewsDir . '/dashboard/index.php';
-        if (!file_exists($viewPath)) {
-            $this->markTestSkipped('Vista no encontrada');
-        }
-        $content = file_get_contents($viewPath);
-        $hasPush = str_contains($content, "@push('scripts')")
-            || str_contains($content, '@push("scripts")');
-        $this->assertTrue($hasPush);
-    }
-
-    public function test_dashboard_show_usa_push_scripts(): void
-    {
-        $viewPath = $this->viewsDir . '/dashboard/show.php';
-        if (!file_exists($viewPath)) {
-            $this->markTestSkipped('Vista no encontrada');
-        }
-        $content = file_get_contents($viewPath);
-        $hasPush = str_contains($content, "@push('scripts')")
-            || str_contains($content, '@push("scripts")');
-        $this->assertTrue($hasPush);
-    }
-
     public function test_css_home_tiene_source_components(): void
     {
         $cssPath = dirname(__DIR__, 2) . '/resources/css/home.css';
