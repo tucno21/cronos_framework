@@ -697,7 +697,7 @@ Un componente es un archivo en `resources/views/components/` con un CONTRATO de 
         <h3 class="tarjeta-titulo">{{ $titulo }}</h3>
     @endif
     <div class="tarjeta-cuerpo">
-        {{ $slot }}
+        {!! $slot !!}
     </div>
 </article>
 ```
@@ -713,12 +713,14 @@ Uso:
 {{-- <article class="tarjeta tarjeta-destacada mx-auto" id="ofertas-hoy"> --}}
 ```
 
+> **Regla de los slots:** el contenido de un slot llega al componente como HTML YA RENDERIZADO del padre (el padre decidio ahi si escapo sus datos con `{{ }}`). Para imprimirlo usa `{!! $slot !!}`. `{{ $slot }}` solo es correcto si el contenido es texto plano: con markup lo escapa y el usuario veria las etiquetas.
+
 ### 12.2 Contrato completo
 
 | Concepto | Detalle |
 |---|---|
 | `@props([...])` | primera instruccion del archivo, EN MODO HTML (nunca dentro de `<?php`). Array de `nombre` o `nombre => default`. Lo declarado se extrae como variable (con default si falta); lo NO declarado va a `$attributes` |
-| `{{ $slot }}` | contenido del tag (lo que no es un slot nombrado) |
+| `{{ $slot }}` / `{!! $slot !!}` | contenido del tag (lo que no es un slot nombrado). Llega como HTML renderizado del padre: para markup usar `{!! !!}`; `{{ }}` solo si es texto plano |
 | `<x-slot:nombre> ... </x-slot:nombre>` | slot nombrado: capturado en el scope del padre; tambien disponible como variable `$nombre` en el componente |
 | `:prop="$expr"` | binding: la expresion se evalua EN EL SCOPE DEL PADRE y llega SIN escapar |
 | `attr="texto"` | literal de texto; si el valor es EXACTAMENTE `{{ expr }}` se compila a `e(expr)` (llega escapado) |
@@ -737,9 +739,9 @@ Uso:
 {{-- componente: components/modal.php --}}
 @props(['id' => 'modal'])
 <div class="modal" id="{{ $id }}">
-    <header>{{ $encabezado }}</header>          {{-- slot nombrado como variable --}}
+    <header>{!! $encabezado !!}</header>          {{-- slot nombrado como variable (HTML del padre: crudo) --}}
     <div class="cuerpo">{{ $slot }}</div>       {{-- contenido por defecto --}}
-    <footer>{{ $__slots['pie'] ?? '' }}</footer> {{-- tambien via $__slots (compatibilidad) --}}
+    <footer>{!! $__slots['pie'] !!}</footer> {{-- tambien via $__slots (compatibilidad) --}}
 </div>
 
 {{-- uso --}}
@@ -793,6 +795,12 @@ $estilos = [...];
 
 {{-- BIEN: pasarla como prop, o usarla en el CONTENIDO del slot (ese si corre en el padre) --}}
 <x-saludo :usuario="$usuarioLogueado">Hola {{ $usuarioLogueado->nombre }}</x-saludo>
+
+{{-- MAL: imprimir un slot con markup usando {{ }} (lo escapa y el usuario ve las etiquetas) --}}
+<div>{{ $slot }}</div>                {{-- con <p>hola</p> dentro: sale &lt;p&gt;hola&lt;/p&gt; --}}
+
+{{-- BIEN: los slots llegan como HTML ya renderizado del padre (el padre escapo sus datos) --}}
+<div>{!! $slot !!}</div>
 
 {{-- MAL: componente con @extends --}}
 @extends('layouts.app')    {{-- un componente es un fragmento, nunca una pagina --}}
@@ -1225,6 +1233,7 @@ old()/error()/ifError() helpers de sesion
 <x-dynamic-component :component="$n" />
 @props(['a', 'b' => 'default'])                    PRIMERA linea, modo HTML
 {{ $slot }} / <x-slot:n>...</x-slot:n>             slot corre en scope del PADRE
+{!! $slot !!} para markup (llega como HTML del padre); {{ $slot }} solo texto plano
 {{ $attributes }} / $attributes->merge(['class' => 'base'])
                                                    archivo del componente: SOLO props+slots
 
