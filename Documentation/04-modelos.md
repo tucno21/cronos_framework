@@ -290,6 +290,51 @@ $data->toObject();
 return json($data);
 ```
 
+## has(), whereHas() y withCount()
+
+### Filtrar por existencia de relacion
+
+```php
+//publicaciones con AL MENOS 1 comentario (subconsulta EXISTS, sin N+1)
+$publicaciones = Publicacion::has('comentarios')->get();
+
+//con cantidad minima (operadores: =, !=, <>, >, >=, <, <=)
+$populares = Publicacion::has('comentarios', '>=', 3)->get();
+
+//con condiciones sobre la relacion
+$activas = Publicacion::whereHas('comentarios', fn ($q) => $q->where('activo', 1))->get();
+
+//combinar cantidad y condiciones
+$frecuentes = Publicacion::whereHas('comentarios', fn ($q) => $q->where('activo', 1), '>=', 5)->get();
+
+//funciona con todos los tipos de relacion
+Usuario::has('roles')->get();                                        //belongsToMany (via pivote)
+Comentario::whereHas('usuario', fn ($q) => $q->where('rol', 'admin'))->get();  //belongsTo
+```
+
+- El closure de `whereHas()` recibe el QueryBuilder del modelo relacionado y NO debe terminarlo (solo condiciones).
+- El filtro de soft deletes del modelo relacionado se aplica automaticamente en la subconsulta.
+
+### Conteos de relaciones (sin N+1)
+
+```php
+//1 consulta extra total: cada publicacion queda con comentarios_count (int)
+$publicaciones = Publicacion::withCount('comentarios')->get();
+$publicaciones->first()->comentarios_count;   //0 si no tiene
+
+//incluido en toArray()/toObject()/toJson()
+$publicaciones->first()->toArray()['comentarios_count'];
+
+//con condiciones sobre la relacion
+Usuario::withCount(['publicaciones' => fn ($q) => $q->where('estado', 'publicado')])->get();
+
+//combina con has()/whereHas()/with()/where() en la misma consulta
+Publicacion::has('comentarios')->withCount('comentarios')->with('usuario')->get();
+```
+
+- Funciona en `get()` y `first()`. El atributo se llama `{relacion}_count`.
+- Soporta hasOne/hasMany, belongsTo y belongsToMany.
+
 ## Consultas Personalizadas (SQL Directo)
 
 ```php
@@ -651,11 +696,10 @@ El ORM **parametriza los valores** y ademas **valida los identificadores** (colu
 - Accessors y Mutators (solo casts de tipo)
 - Events de modelo
 - Observers
-- `whereHas()` / `has()` / `withCount()`
 - Closures en `with()` para relaciones `belongsToMany` (el resto si las soporta)
 - `attach()` / `detach()` / `sync()` en pivotes (solo lectura de la relacion N:M)
 - Relaciones `hasManyThrough` y morfologicas (`morphOne`/`morphMany`/`morphTo`; las tablas `comentables`/`etiquetables` se manejan con SQL directo)
-- Subqueries
+- Subqueries en `where()` (las de `has()`/`whereHas()` son generadas por el ORM)
 - Paginacion automatica (usar `limit` + `offset` + `count`)
 
 ---

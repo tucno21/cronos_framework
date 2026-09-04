@@ -52,6 +52,13 @@ final class QueryBuilder
      */
     private array $eager = [];
 
+    /**
+     * Conteos de relaciones con withCount(): nombre => ?Closure constraint.
+     *
+     * @var array<string, callable|null>
+     */
+    private array $counts = [];
+
     //SOFT DELETES A NIVEL CONSULTA (estilo Laravel)
     //withTrashed(): incluye registros borrados; onlyTrashed(): solo borrados
     private bool $withTrashed = false;
@@ -469,6 +476,7 @@ final class QueryBuilder
         $models = array_map(fn (array $row): Model => $this->modelClass::hydrate($row), $result);
 
         $this->eagerLoadRelations($models);
+        $this->loadRelationCounts($models);
 
         return new ModelCollection($models);
     }
@@ -487,6 +495,7 @@ final class QueryBuilder
         $model = $this->modelClass::hydrate($result[0]);
 
         $this->eagerLoadRelations([$model]);
+        $this->loadRelationCounts([$model]);
 
         return $model;
     }
@@ -617,6 +626,342 @@ final class QueryBuilder
     public function oldest(string $column = 'created_at'): self
     {
         return $this->orderBy($column, 'ASC');
+    }
+
+    //******************************************************************
+    // EXISTENCIA DE RELACIONES (has / whereHas) Y CONTEOS (withCount)
+    //******************************************************************
+
+    /**
+     * Filtra los registros que tienen al menos $cantidad relaciones.
+     *
+     * Ejemplo: Publicacion::has('comentarios')->get()
+     */
+    public function has(string $relation, string $operador = '>=', int $cantidad = 1): self
+    {
+        return $this->whereHas($relation, null, $operador, $cantidad);
+    }
+
+    /**
+     * Filtra los registros cuya relacion cumple las condiciones del closure.
+     *
+     * Ejemplo: Publicacion::whereHas('comentarios', fn ($q) => $q->where('activo', 1))->get()
+     *
+     * El closure recibe el QueryBuilder del modelo relacionado y NO debe
+     * terminarlo; solo condiciones (where/whereNull/...). El filtro de soft
+     * deletes del modelo relacionado se aplica automaticamente.
+     */
+    public function whereHas(string $relation, ?callable $callback = null, string $operador = '>=', int $cantidad = 1): self
+    {
+        if (!method_exists($this->model, $relation)) {
+            throw new \Error("La relacion {$relation} no existe en el modelo {$this->modelClass}");
+        }
+
+        $operadorValido = strtoupper(trim($operador));
+        if (!in_array($operadorValido, ['=', '!=', '<>', '>', '>=', '<', '<='], true)) {
+            throw new \Error("Operador no permitido para has()/whereHas(): {$operador}");
+        }
+
+        $this->model->validateModel();
+
+        $relationObj = $this->model->{$relation}();
+        $parentTable = $this->model->getTable();
+
+        if ($relationObj instanceof HasOne || $relationObj instanceof HasMany) {
+            $related = $relationObj->getRelated();
+            $relatedTable = $related->getTable();
+            $inner = $this->innerWhereFragment($related, $callback);
+
+            $condicion = "{$relatedTable}.{$relationObj->getForeignKey()} = {$parentTable}.{$relationObj->getLocalKey()}"
+                . $this->suffixConInner($inner);
+
+            $this->pushHasCondition($relatedTable, $condicion, $operadorValido, $cantidad, $inner['values']);
+        } elseif ($relationObj instanceof BelongsTo) {
+            $related = $relationObj->getRelated();
+            $relatedTable = $related->getTable();
+            $inner = $this->innerWhereFragment($related, $callback);
+
+            $condicion = "{$relatedTable}.{$relationObj->getOwnerKey()} = {$parentTable}.{$relationObj->getForeignKey()}"
+                . $this->suffixConInner($inner);
+
+            $this->pushHasCondition($relatedTable, $condicion, $operadorValido, $cantidad, $inner['values']);
+        } elseif ($relationObj instanceof BelongsToMany) {
+            $related = $relationObj->getRelated();
+            $pivot = $relationObj->getPivotTable();
+            $from = "{$pivot} JOIN {$related->getTable()} ON {$related->getTable()}.{$related->getPrimaryKey()} = {$pivot}.{$relationObj->getRelatedPivotKey()}";
+            $inner = $this->innerWhereFragment($related, $callback);
+
+            $condicion = "{$pivot}.{$relationObj->getForeignPivotKey()} = {$parentTable}.{$this->model->getPrimaryKey()}"
+                . $this->suffixConInner($inner);
+
+            $this->pushHasCondition($from, $condicion, $operadorValido, $cantidad, $inner['values']);
+        } else {
+            throw new \Error("La relacion {$relation} no es soportada por has()/whereHas()");
+        }
+
+        $this->boolWhere = true;
+
+        return $this;
+    }
+
+    private function suffixConInner(array $inner): string
+    {
+        return $inner['sql'] !== '' ? " AND ({$inner['sql']})" : '';
+    }
+
+    /**
+     * Agrega la condicion EXISTS o COUNT de has()/whereHas().
+     *
+     * @param array<int, int|float|string> $innerValues
+     */
+    private function pushHasCondition(string $from, string $condicion, string $operador, int $cantidad, array $innerValues): void
+    {
+        $this->values = array_merge($this->values, $innerValues);
+
+        if ($operador === '>=' && $cantidad === 1) {
+            $this->wheres[] = "EXISTS (SELECT 1 FROM {$from} WHERE {$condicion})";
+
+            return;
+        }
+
+        $this->values[] = $cantidad;
+        $this->wheres[] = "(SELECT COUNT(*) FROM {$from} WHERE {$condicion}) {$operador} ?";
+    }
+
+    /**
+     * Compila las condiciones de un builder de relacion (constraint + soft
+     * deletes) a fragmento SQL y valores, para incrustarlo en subconsultas.
+     *
+     * @return array{sql: string, values: array}
+     */
+    private function innerWhereFragment(Model $related, ?callable $callback): array
+    {
+        $inner = $related->newQuery();
+        $inner->applySoftDeleteFilter();
+
+        if ($callback !== null) {
+            $callback($inner);
+        }
+
+        return $inner->toWhereFragment();
+    }
+
+    /**
+     * Compila las condiciones actuales a fragmento SQL (sin el WHERE inicial)
+     * y sus valores. Uso interno de has()/whereHas()/withCount().
+     *
+     * @return array{sql: string, values: array}
+     */
+    public function toWhereFragment(): array
+    {
+        $sql = $this->buildWhereSql();
+
+        return [
+            'sql' => $sql === '' ? '' : substr($sql, 7),
+            'values' => $this->values,
+        ];
+    }
+
+    /**
+     * Agrega a cada modelo el atributo {relacion}_count con la cantidad de
+     * registros relacionados (en 1 consulta por relacion, sin N+1).
+     *
+     * Ejemplos:
+     *   Publicacion::withCount('comentarios')->get()
+     *   Usuario::withCount(['publicaciones' => fn ($q) => $q->where('estado', 'publicado')])->get()
+     */
+    public function withCount(string|array ...$relations): self
+    {
+        foreach ($relations as $relation) {
+            if (is_string($relation)) {
+                $this->assertRelationName($relation);
+                $this->counts[$relation] = null;
+
+                continue;
+            }
+
+            foreach ($relation as $clave => $valor) {
+                if (is_int($clave)) {
+                    if (!is_string($valor)) {
+                        throw new \Error('withCount() solo acepta nombres de relacion como string en listas simples');
+                    }
+
+                    $this->assertRelationName($valor);
+                    $this->counts[$valor] = null;
+
+                    continue;
+                }
+
+                if (!is_callable($valor)) {
+                    throw new \Error("El valor para la relacion {$clave} en withCount() debe ser un closure");
+                }
+
+                $this->assertRelationName((string) $clave);
+                $this->counts[(string) $clave] = $valor;
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * Ejecuta los conteos de withCount() sobre los modelos ya hidratados.
+     *
+     * @param Model[] $models
+     */
+    private function loadRelationCounts(array $models): void
+    {
+        if (empty($this->counts) || $models === []) {
+            return;
+        }
+
+        foreach ($this->counts as $name => $constraint) {
+            $this->loadSingleRelationCount($models, $name, $constraint);
+        }
+    }
+
+    /**
+     * @param Model[] $models
+     */
+    private function loadSingleRelationCount(array $models, string $name, ?callable $constraint): void
+    {
+        if (!method_exists($models[0], $name)) {
+            throw new \Error("La relacion {$name} no existe en el modelo " . get_class($models[0]));
+        }
+
+        $this->model->validateModel();
+
+        $relationObj = $models[0]->{$name}();
+        $parentTable = $this->model->getTable();
+        $aliasKey = '__cronos_key';
+        $aliasTotal = '__cronos_total';
+
+        if ($relationObj instanceof HasOne || $relationObj instanceof HasMany) {
+            $related = $relationObj->getRelated();
+            $relatedTable = $related->getTable();
+            $fk = $relationObj->getForeignKey();
+            $localKey = $relationObj->getLocalKey();
+
+            $keys = $this->keysDeModelos($models, $localKey);
+            $inner = $this->innerWhereFragment($related, $constraint);
+
+            $sql = "SELECT {$relatedTable}.{$fk} AS {$aliasKey}, COUNT(*) AS {$aliasTotal} FROM {$relatedTable}"
+                . $this->suffixCountWhere($keys, $inner, "{$relatedTable}.{$fk}");
+
+            $mapa = $this->ejecutarCountYmapear($sql, array_values($keys), $inner['values'], $aliasKey, $aliasTotal);
+
+            foreach ($models as $model) {
+                $model->setRelation("{$name}_count", $mapa[(string) $model->{$localKey}] ?? 0);
+            }
+
+            return;
+        }
+
+        if ($relationObj instanceof BelongsTo) {
+            $related = $relationObj->getRelated();
+            $relatedTable = $related->getTable();
+            $ownerKey = $relationObj->getOwnerKey();
+            $fk = $relationObj->getForeignKey();
+
+            $keys = $this->keysDeModelos($models, $fk);
+            $inner = $this->innerWhereFragment($related, $constraint);
+
+            $sql = "SELECT {$relatedTable}.{$ownerKey} AS {$aliasKey}, COUNT(*) AS {$aliasTotal} FROM {$relatedTable}"
+                . $this->suffixCountWhere($keys, $inner, "{$relatedTable}.{$ownerKey}");
+
+            $mapa = $this->ejecutarCountYmapear($sql, array_values($keys), $inner['values'], $aliasKey, $aliasTotal);
+
+            foreach ($models as $model) {
+                $model->setRelation("{$name}_count", $mapa[(string) $model->{$fk}] ?? 0);
+            }
+
+            return;
+        }
+
+        if ($relationObj instanceof BelongsToMany) {
+            $related = $relationObj->getRelated();
+            $pivot = $relationObj->getPivotTable();
+            $fpk = $relationObj->getForeignPivotKey();
+            $from = "{$pivot} JOIN {$related->getTable()} ON {$related->getTable()}.{$related->getPrimaryKey()} = {$pivot}.{$relationObj->getRelatedPivotKey()}";
+
+            $keys = $this->keysDeModelos($models, $this->model->getPrimaryKey());
+            $inner = $this->innerWhereFragment($related, $constraint);
+
+            $sql = "SELECT {$pivot}.{$fpk} AS {$aliasKey}, COUNT(*) AS {$aliasTotal} FROM {$from}"
+                . $this->suffixCountWhere($keys, $inner, "{$pivot}.{$fpk}");
+
+            $mapa = $this->ejecutarCountYmapear($sql, array_values($keys), $inner['values'], $aliasKey, $aliasTotal);
+
+            foreach ($models as $model) {
+                $model->setRelation("{$name}_count", $mapa[(string) $model->{$this->model->getPrimaryKey()}] ?? 0);
+            }
+
+            return;
+        }
+
+        throw new \Error("La relacion {$name} no es soportada por withCount()");
+    }
+
+    /**
+     * Clave unica por modelo para las consultas de conteo.
+     *
+     * @param Model[] $models
+     * @return array<string, int|float|string>
+     */
+    private function keysDeModelos(array $models, string $columna): array
+    {
+        $keys = [];
+
+        foreach ($models as $model) {
+            $key = $model->{$columna};
+            if ($key !== null) {
+                $keys[(string) $key] = $key;
+            }
+        }
+
+        return $keys;
+    }
+
+    /**
+     * Clausula WHERE para las consultas de conteo: IN de claves + inner.
+     *
+     * @param array<string, int|float|string> $keys
+     * @param array{sql: string, values: array} $inner
+     */
+    private function suffixCountWhere(array $keys, array $inner, string $columnaKey): string
+    {
+        if ($keys === []) {
+            return ' WHERE 1 = 0';
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($keys), '?'));
+
+        return " WHERE {$columnaKey} IN ({$placeholders})"
+            . $this->suffixConInner($inner)
+            . " GROUP BY {$columnaKey}";
+    }
+    /**
+     * Ejecuta la consulta de conteo y devuelve mapa clave => total.
+     *
+     * @param array<int, int|float|string> $keyValues
+     * @return array<string, int>
+     */
+    private function ejecutarCountYmapear(string $sql, array $keyValues, array $innerValues, string $aliasKey, string $aliasTotal): array
+    {
+        $mapa = [];
+
+        if ($keyValues === []) {
+            return $mapa;
+        }
+
+        $filas = (array) Model::db()->statement($sql, array_merge($keyValues, $innerValues));
+
+        foreach ($filas as $fila) {
+            $fila = (array) $fila;
+            $mapa[(string) $fila[$aliasKey]] = (int) $fila[$aliasTotal];
+        }
+
+        return $mapa;
     }
 
     /**
@@ -840,7 +1185,11 @@ final class QueryBuilder
         return $row[strtoupper($type) . "({$expresion})"] ?? 0;
     }
 
-    private function applySoftDeleteFilter(): void
+    /**
+     * Aplica el filtro de soft deletes a las condiciones actuales.
+     * Publica para uso interno de has()/withCount() (subconsultas).
+     */
+    public function applySoftDeleteFilter(): void
     {
         if (!$this->model->usesSoftDeletes()) {
             return;
