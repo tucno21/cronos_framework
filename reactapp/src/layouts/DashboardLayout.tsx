@@ -1,10 +1,26 @@
 import { NavLink, Outlet, useNavigate } from 'react-router'
-import { BookOpen, Cpu, LayoutGrid, LogOut, User } from 'lucide-react'
+import {
+  BookOpen,
+  Cpu,
+  LayoutGrid,
+  LogOut,
+  User,
+  Users,
+  FolderTree,
+  Tag,
+  MessageSquare,
+  Database,
+} from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutGrid },
   { to: '/dashboard/blogs', label: 'Blogs', icon: BookOpen },
+  { to: '/dashboard/usuarios', label: 'Usuarios & Roles', icon: Users },
+  { to: '/dashboard/categorias', label: 'Categorías', icon: FolderTree },
+  { to: '/dashboard/etiquetas', label: 'Etiquetas', icon: Tag },
+  { to: '/dashboard/comentarios', label: 'Comentarios', icon: MessageSquare },
+  { to: '/dashboard/orm-lab', label: 'Laboratorio ORM', icon: Database },
 ]
 
 const DashboardLayout = () => {

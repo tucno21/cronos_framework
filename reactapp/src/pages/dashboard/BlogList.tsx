@@ -50,14 +50,14 @@ const BlogList = () => {
     }
   }
 
-  const headers = ['titulo', 'slug', 'autor']
+  const headers = ['Título', 'Categoría', 'Etiquetas', 'Autor', 'Vistas', 'Coment.']
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Gestión de Blogs</h1>
-          <p className="mt-1 text-gray-600">Administra todos tus blogs y artículos</p>
+          <p className="mt-1 text-gray-600">Administra todos tus blogs y artículos con relaciones ORM</p>
         </div>
         <Link
           to="/dashboard/blogs/crear"
@@ -97,7 +97,7 @@ const BlogList = () => {
               setSearch(e.target.value)
               setPage(1)
             }}
-            placeholder="Buscar..."
+            placeholder="Buscar por título, autor o categoría..."
             className="px-3 py-2 border border-gray-300 rounded-md text-sm flex-1 max-w-xs"
           />
         </div>
@@ -107,7 +107,7 @@ const BlogList = () => {
             <thead>
               <tr className="bg-gray-50 text-left text-gray-600">
                 {headers.map((h) => (
-                  <th key={h} className="px-4 py-3 font-medium capitalize">
+                  <th key={h} className="px-4 py-3 font-medium">
                     {h}
                   </th>
                 ))}
@@ -118,25 +118,58 @@ const BlogList = () => {
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i}>
-                    <td colSpan={4} className="px-4 py-3">
+                    <td colSpan={7} className="px-4 py-3">
                       <div className="animate-pulse h-4 bg-gray-200 rounded w-3/4"></div>
                     </td>
                   </tr>
                 ))
               ) : visible.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-10 text-center text-gray-400">
+                  <td colSpan={7} className="px-4 py-10 text-center text-gray-400">
                     {search ? `Sin resultados para "${search}"` : 'No hay datos disponibles'}
                   </td>
                 </tr>
               ) : (
                 visible.map((blog) => (
                   <tr key={blog.id} className="border-t border-gray-100 hover:bg-gray-50">
-                    <td className="px-4 py-3 text-gray-800">{blog.titulo}</td>
-                    <td className="px-4 py-3 text-gray-500">{blog.slug}</td>
-                    <td className="px-4 py-3 text-gray-500">{blog.nombre_autor ?? '—'}</td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
+                      <p className="font-semibold text-gray-800">{blog.titulo}</p>
+                      <p className="text-xs text-gray-400 font-mono">{blog.slug}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      {blog.categoria ? (
+                        <span className="inline-block px-2.5 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+                          {blog.categoria.nombre}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400 italic">Sin cat.</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1">
+                        {blog.etiquetas && blog.etiquetas.length > 0 ? (
+                          blog.etiquetas.map((t) => (
+                            <span
+                              key={t.id}
+                              className="px-1.5 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-100"
+                            >
+                              {t.nombre}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-gray-400 italic">—</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-gray-600 text-xs">{blog.nombre_autor ?? '—'}</td>
+                    <td className="px-4 py-3 text-xs font-mono text-gray-600">
+                      {blog.vistas ?? 0}
+                    </td>
+                    <td className="px-4 py-3 text-xs font-semibold text-amber-700">
+                      {blog.comentarios_count ?? 0}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1.5">
                         <Link
                           to={`/dashboard/blogs/${blog.slug}`}
                           title="Ver post"

@@ -7,6 +7,11 @@ import Dashboard from './pages/dashboard/Dashboard'
 import BlogList from './pages/dashboard/BlogList'
 import BlogShow from './pages/dashboard/BlogShow'
 import BlogForm from './pages/dashboard/BlogForm'
+import UsuariosList from './pages/dashboard/UsuariosList'
+import CategoriasList from './pages/dashboard/CategoriasList'
+import EtiquetasList from './pages/dashboard/EtiquetasList'
+import ComentariosList from './pages/dashboard/ComentariosList'
+import OrmLab from './pages/dashboard/OrmLab'
 
 const router = createBrowserRouter([
   { path: '/login', Component: Login },
@@ -23,6 +28,11 @@ const router = createBrowserRouter([
           { path: 'blogs/crear', Component: BlogForm },
           { path: 'blogs/:slug', Component: BlogShow },
           { path: 'blogs/:slug/editar', Component: BlogForm },
+          { path: 'usuarios', Component: UsuariosList },
+          { path: 'categorias', Component: CategoriasList },
+          { path: 'etiquetas', Component: EtiquetasList },
+          { path: 'comentarios', Component: ComentariosList },
+          { path: 'orm-lab', Component: OrmLab },
         ],
       },
     ],

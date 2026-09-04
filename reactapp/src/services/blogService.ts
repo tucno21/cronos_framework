@@ -1,14 +1,51 @@
 import { api } from '../lib/api'
 
+export interface CategoriaRel {
+  id: number
+  nombre: string
+  slug: string
+  descripcion?: string
+}
+
+export interface EtiquetaRel {
+  id: number
+  nombre: string
+  slug: string
+}
+
+export interface ComentarioRel {
+  id: number
+  contenido: string
+  created_at: string
+  usuario?: {
+    id: number
+    nombre: string
+    avatar?: string
+  }
+}
+
 export interface Publicacion {
   id: number
   usuario_id: number
   titulo: string
   slug: string
+  resumen?: string
   contenido: string
   nombre_autor?: string
-  estado?: string
+  usuario?: {
+    id: number
+    nombre: string
+    correo: string
+    avatar?: string
+  }
+  categoria_id?: number
+  categoria?: CategoriaRel
+  etiquetas?: EtiquetaRel[]
+  comentarios?: ComentarioRel[]
+  comentarios_count?: number
+  estado?: 'publicado' | 'borrador' | 'archivado' | string
   vistas?: number
+  publicado_en?: string
   created_at?: string
   updated_at?: string
 }
