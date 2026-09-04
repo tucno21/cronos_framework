@@ -18,12 +18,14 @@ class BladeCompiler
     protected array $verbatimSegments = [];
     protected array $escapedSegments = [];
     protected string $extendsFooter = '';
+    protected int $componentCounter = 0;
 
     public function compileString(string $value): string
     {
         $this->verbatimSegments = [];
         $this->escapedSegments = [];
         $this->extendsFooter = '';
+        $this->componentCounter = 0;
 
         $value = $this->compileEscapedDirectives($value);
         $value = $this->compileVerbatim($value);
@@ -33,6 +35,9 @@ class BladeCompiler
         $value = $this->compileYield($value);
         $value = $this->compileStacks($value);
         $value = $this->compileIncludes($value);
+        $value = $this->compileProps($value);
+        $value = $this->compileConditionalAttributes($value);
+        $value = $this->compileXComponents($value);
         $value = $this->compilePhpBlock($value);
         $value = $this->compileRawEcho($value);
         $value = $this->compileBreakContinue($value);
@@ -448,6 +453,292 @@ class BladeCompiler
         $operator = $negate ? '!' : '';
 
         return "<?php if ({$operator}({$condition})) { echo \$__env->makeView({$view}, {$dataArgument}); } ?>";
+    }
+
+    /**
+     * compila la declaracion de props de un componente: extrae las props
+     * declaradas (con defaults) al scope y el resto queda en $attributes
+     */
+    protected function compileProps(string $value): string
+    {
+        return $this->compileTokenDirective($value, 'props', function (?string $expr) {
+            if ($expr === null) {
+                throw ViewCompileException::forView('', 'La directiva @props requiere una expresion entre parentesis');
+            }
+
+            return '<?php $__resolved = $__env->resolveProps(array_diff_key(get_defined_vars(), '
+                . "['__viewPath' => 1, '__viewData' => 1, '__viewEnv' => 1, '__env' => 1, '__slots' => 1, 'slot' => 1, '__resolved' => 1]), "
+                . "{$expr}); "
+                . "extract(\$__resolved['props'], EXTR_OVERWRITE); "
+                . '$attributes = $__resolved[\'attributes\']; '
+                . 'unset($__resolved); ?>';
+        }, true);
+    }
+
+    /**
+     * atributos condicionales: @class, @style, @checked, @selected,
+     * @disabled, @readonly y @required
+     */
+    protected function compileConditionalAttributes(string $value): string
+    {
+        $value = $this->compileTokenDirective($value, 'class', fn (?string $expr) => "<?php echo \$__env->classList({$expr}); ?>", true);
+        $value = $this->compileTokenDirective($value, 'style', fn (?string $expr) => "<?php echo \$__env->styleList({$expr}); ?>", true);
+
+        foreach (['checked', 'selected', 'disabled', 'readonly', 'required'] as $attribute) {
+            $value = $this->compileTokenDirective(
+                $value,
+                $attribute,
+                fn (?string $expr) => "<?php if ({$expr}) { echo '{$attribute}'; } ?>",
+                true
+            );
+        }
+
+        return $value;
+    }
+
+    // ── componentes x-* ───────────────────────────────────
+
+    /**
+     * compila etiquetas de componentes anonimos <x-nombre> (con contenido o
+     * auto-cerradas) y <x-dynamic-component>. las etiquetas se emparejan por
+     * balance, por lo que los componentes del mismo nombre pueden anidarse.
+     *
+     * los slots nombrados (<x-slot:nombre>) se capturan por buffer y el
+     * contenido permanece en el stream, por lo que las directivas y los
+     * echo del slot se compilan en pasadas posteriores con el scope del padre.
+     */
+    protected function compileXComponents(string $value): string
+    {
+        $result = '';
+        $offset = 0;
+        $pattern = '/<x-([\w.-]+)\b([^>]*?)(\/?)>/';
+
+        while (preg_match($pattern, $value, $match, PREG_OFFSET_CAPTURE, $offset)) {
+            $name = $match[1][0];
+            $attrs = $match[2][0];
+            $selfClosing = $match[3][0] === '/';
+            $tagStart = $match[0][1];
+            $tagEnd = $tagStart + strlen($match[0][0]);
+
+            if (!$selfClosing) {
+                $close = $this->findXTagClose($value, $name, $tagEnd);
+
+                if ($close !== null) {
+                    $content = substr($value, $tagEnd, $close['start'] - $tagEnd);
+
+                    $result .= substr($value, $offset, $tagStart - $offset)
+                        . $this->buildComponent($name, $attrs, $content);
+                    $offset = $close['end'];
+
+                    continue;
+                }
+            }
+
+            //auto-cerrada o sin cierre conocido: self-closing emite componente,
+            //sin cierre se deja como texto (posible web component nativo)
+            $replacement = $selfClosing
+                ? $this->buildComponent($name, $attrs, '')
+                : substr($value, $tagStart, $tagEnd - $tagStart);
+
+            $result .= substr($value, $offset, $tagStart - $offset) . $replacement;
+            $offset = $tagEnd;
+        }
+
+        return $result . substr($value, $offset);
+    }
+
+    /**
+     * localiza el cierre </x-name> correspondiente contando aperturas anidadas
+     *
+     * @return array{start:int, end:int}|null
+     */
+    protected function findXTagClose(string $value, string $name, int $from): ?array
+    {
+        $pattern = '/<(\/?)x-' . preg_quote($name, '/') . '\b([^>]*?)(\/?)>/';
+        $depth = 1;
+        $pos = $from;
+
+        while (preg_match($pattern, $value, $match, PREG_OFFSET_CAPTURE, $pos)) {
+            $isClose = $match[1][0] === '/';
+            $isSelfClosing = $match[3][0] === '/';
+            $start = $match[0][1];
+            $end = $start + strlen($match[0][0]);
+
+            if ($isClose) {
+                $depth--;
+
+                if ($depth === 0) {
+                    return ['start' => $start, 'end' => $end];
+                }
+            } elseif (!$isSelfClosing) {
+                $depth++;
+            }
+
+            $pos = $end;
+        }
+
+        return null;
+    }
+
+    /**
+     * genera el codigo PHP de un componente: captura de slots + llamada a makeComponent.
+     *
+     * la captura usa ob_start/ob_get_clean SECUENCIALES en el scope del include
+     * (no dentro de closures) para que el contenido del slot vea las variables
+     * del padre; cada slot se guarda en una variable temporal con sufijo unico
+     * para que los componentes anidados no se pisen. el contenido de cada slot
+     * se compila recursivamente para soportar componentes dentro de slots.
+     */
+    protected function buildComponent(string $name, string $attrs, string $content): string
+    {
+        $slots = [];
+        $defaultContent = preg_replace_callback(
+            '/<x-slot:([\w.-]+)\s*>(.*?)<\/x-slot:\1>/s',
+            function (array $match) use (&$slots): string {
+                $slots[$match[1]] = $match[2];
+
+                return '';
+            },
+            $content
+        ) ?? $content;
+
+        $slots['default'] = $defaultContent;
+
+        $view = 'components/' . str_replace('.', '/', $name);
+        $props = $this->exportXProps($this->parseXAttributes($attrs));
+        $suffix = '_' . (++$this->componentCounter);
+
+        $code = '<?php ob_start(); ?>';
+        $slotVars = [];
+        $index = 0;
+
+        foreach ($slots as $slotName => $slotContent) {
+            if ($slotName === 'default') {
+                continue;
+            }
+
+            //los slots nombrados se compilan recursivamente (componentes anidados)
+            //y se capturan en orden, dejando el buffer listo para el siguiente
+            $code .= $this->compileXComponents($slotContent);
+
+            $tempVar = '$__cs' . $suffix . '_' . (++$index);
+            $code .= '<?php ' . $tempVar . ' = ob_get_clean(); ob_start(); ?>';
+            $slotVars[$slotName] = $tempVar;
+        }
+
+        $defaultVar = '$__cs' . $suffix . '_0';
+        $code .= $this->compileXComponents($slots['default']);
+        $code .= '<?php ' . $defaultVar . ' = ob_get_clean(); ?>';
+        $slotVars['default'] = $defaultVar;
+
+        $slotArray = '[';
+        $first = true;
+
+        foreach ($slotVars as $slotName => $tempVar) {
+            $slotArray .= ($first ? '' : ', ') . var_export($slotName, true) . ' => ' . $tempVar;
+            $first = false;
+        }
+
+        $slotArray .= ']';
+
+        if ($name === 'dynamic-component') {
+            $code .= '<?php $__cProps' . $suffix . ' = ' . $props . '; ';
+            $code .= "if (isset(\$__cProps{$suffix}['component'])) { ";
+            $code .= '$__cName' . $suffix . " = \$__cProps{$suffix}['component']; ";
+            $code .= 'if (!str_contains($__cName' . $suffix . ", '/')) { ";
+            $code .= '$__cName' . $suffix . " = 'components/' . \$__cName{$suffix}; } ";
+            $code .= 'echo $__env->makeComponent($__cName' . $suffix . ', $__cProps' . $suffix . ', ' . $slotArray . '); } ?>';
+
+            return $code;
+        }
+
+        $code .= '<?php echo $__env->makeComponent(' . var_export($view, true) . ', ' . $props . ', ' . $slotArray . '); ?>';
+
+        return $code;
+    }
+
+    /**
+     * parsea los atributos de un tag x- a un array nombre => expresion PHP.
+     *   :attr="expresion"   → expresion evaluada en el scope del padre
+     *   attr="valor"        → string literal ({{ expr }} completa se compila a e())
+     *   attr                → true
+     *
+     * @return array<string, string> nombre => expresion PHP
+     */
+    protected function parseXAttributes(string $attrs): array
+    {
+        $props = [];
+        $remaining = trim($attrs);
+
+        if ($remaining === '') {
+            return $props;
+        }
+
+        // bindings :attr="expr" y :attr='expr' (se procesan primero)
+        foreach (['"', '\''] as $quote) {
+            $pattern = '/:([\w.-]+)\s*=\s*' . $quote . '([^' . $quote . ']*)' . $quote . '/';
+
+            if (preg_match_all($pattern, $remaining, $matches, PREG_SET_ORDER)) {
+                foreach ($matches as $m) {
+                    $props[$m[1]] = trim($m[2]);
+                    $remaining = str_replace($m[0], '', $remaining);
+                }
+            }
+        }
+
+        // atributos con valor, dobles y simples
+        foreach (['"', '\''] as $quote) {
+            $pattern = '/([\w.-]+)\s*=\s*' . $quote . '([^' . $quote . ']*)' . $quote . '/';
+
+            if (preg_match_all($pattern, $remaining, $matches, PREG_SET_ORDER)) {
+                foreach ($matches as $m) {
+                    $props[$m[1]] = $this->compileAttrValue($m[2]);
+                    $remaining = str_replace($m[0], '', $remaining);
+                }
+            }
+        }
+
+        // atributos booleanos restantes
+        if (preg_match_all('/[\w.-]+/', $remaining, $matches)) {
+            foreach ($matches[0] as $attr) {
+                if ($attr !== '' && !isset($props[$attr])) {
+                    $props[$attr] = 'true';
+                }
+            }
+        }
+
+        return $props;
+    }
+
+    /**
+     * convierte el valor de un atributo a expresion PHP:
+     * {{ expr }} completa → e(expr); cualquier otra cosa → string literal
+     */
+    protected function compileAttrValue(string $value): string
+    {
+        if (preg_match('/^\{\{\s*(.*?)\s*\}\}$/', $value, $match)) {
+            return "e({$match[1]})";
+        }
+
+        return var_export($value, true);
+    }
+
+    /**
+     * exporta el array de props (nombre => expresion PHP) a codigo PHP
+     */
+    protected function exportXProps(array $props): string
+    {
+        if ($props === []) {
+            return '[]';
+        }
+
+        $parts = [];
+
+        foreach ($props as $name => $expression) {
+            $parts[] = var_export($name, true) . ' => ' . $expression;
+        }
+
+        return '[' . implode(', ', $parts) . ']';
     }
 
     /**

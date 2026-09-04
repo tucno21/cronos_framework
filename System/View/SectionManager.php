@@ -121,6 +121,79 @@ class SectionManager
     }
 
     /**
+     * renderiza un componente anonimo: props + slots con la convencion
+     * $slot / $__slots (compatibilidad con componentes del motor anterior).
+     * cada slot nombrado tambien queda disponible como variable con su nombre.
+     */
+    public function makeComponent(string $view, array $props, array $slots = []): string
+    {
+        $vars = $props;
+
+        foreach ($slots as $name => $content) {
+            if ($name !== 'default') {
+                $vars[$name] = $content;
+            }
+        }
+
+        $vars['__slots'] = $slots;
+        $vars['slot'] = $slots['default'] ?? '';
+        //el array crudo permite que atributos con guion (data-id) sobrevivan
+        //a extract(), que descarta claves con nombres invalidos de variable
+        $vars['__cPropsRaw'] = $props;
+
+        return $this->makeView($view, $vars);
+    }
+
+    /**
+     * separa los datos recibidos por un componente en props declaradas
+     * (con defaults) y el resto como bolsa de atributos. usado por @props.
+     */
+    public function resolveProps(array $data, array $declared): array
+    {
+        $source = isset($data['__cPropsRaw']) && is_array($data['__cPropsRaw'])
+            ? $data['__cPropsRaw']
+            : $data;
+
+        $normalized = [];
+
+        foreach ($declared as $key => $value) {
+            if (is_int($key)) {
+                $normalized[$value] = null;
+                continue;
+            }
+
+            $normalized[$key] = $value;
+        }
+
+        $props = [];
+
+        foreach ($normalized as $name => $default) {
+            $props[$name] = array_key_exists($name, $source) ? $source[$name] : $default;
+        }
+
+        $internal = ['__viewPath', '__viewData', '__viewEnv', '__env', '__slots', 'slot', '__resolved', 'attributes', '__cPropsRaw'];
+        $rest = array_diff_key($source, array_flip($internal), $normalized);
+
+        return ['props' => $props, 'attributes' => new AttributeBag($rest)];
+    }
+
+    /**
+     * clases condicionales para la directiva @class
+     */
+    public function classList(array $classes): string
+    {
+        return AttributeBag::conditionalClasses($classes);
+    }
+
+    /**
+     * estilos condicionales para la directiva @style
+     */
+    public function styleList(array $styles): string
+    {
+        return AttributeBag::conditionalClasses($styles);
+    }
+
+    /**
      * renderiza una sub-vista (layout de @extends, parcial de @include o
      * vista por elemento de @each) y retorna su contenido.
      * el motor completo implementa este metodo.

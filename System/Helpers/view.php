@@ -17,6 +17,16 @@ if (!function_exists('e')) {
             return $value ? '1' : '';
         }
 
+        if (is_object($value)) {
+            if (method_exists($value, 'toHtml')) {
+                return $value->toHtml();
+            }
+
+            if (!method_exists($value, '__toString')) {
+                return '';
+            }
+        }
+
         if (is_array($value)) {
             $json = json_encode($value, JSON_UNESCAPED_UNICODE);
 
