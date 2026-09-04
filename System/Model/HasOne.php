@@ -22,6 +22,51 @@ class HasOne
         return $this->related->newQuery()->where($this->foreignKey, $this->parent->{$this->localKey})->first();
     }
 
+    /**
+     * Crea el registro relacionado asignando automaticamente la clave foranea.
+     *
+     *   $usuario->perfil()->create(['biografia' => '...']);
+     *
+     * Los campos deben cumplir las reglas de create() del modelo relacionado
+     * (todos los $fillable presentes).
+     */
+    public function create(array|object $data): ?Model
+    {
+        if (is_object($data)) {
+            $data = (array) $data;
+        }
+
+        $valor = $this->parent->{$this->localKey} ?? null;
+
+        if ($valor === null) {
+            throw new \Error('El modelo ' . get_class($this->parent) . ' no tiene clave primaria para crear la relacion ' . $this->foreignKey);
+        }
+
+        $data[$this->foreignKey] = $valor;
+
+        $clase = get_class($this->related);
+
+        return $clase::create($data);
+    }
+
+    /**
+     * Guarda un modelo existente como relacionado asignandole la clave foranea.
+     *
+     *   $usuario->perfil()->save($perfil);
+     */
+    public function save(Model $modelo): bool
+    {
+        $valor = $this->parent->{$this->localKey} ?? null;
+
+        if ($valor === null) {
+            throw new \Error('El modelo ' . get_class($this->parent) . ' no tiene clave primaria para guardar la relacion ' . $this->foreignKey);
+        }
+
+        $modelo->{$this->foreignKey} = $valor;
+
+        return $modelo->save();
+    }
+
     public function getRelated(): Model
     {
         return $this->related;

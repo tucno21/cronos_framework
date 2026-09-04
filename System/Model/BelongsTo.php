@@ -22,6 +22,43 @@ class BelongsTo
         return $this->related->newQuery()->where($this->ownerKey, $this->parent->{$this->foreignKey})->first();
     }
 
+    /**
+     * Asigna la clave foranea del padre para apuntar al modelo dado y
+     * retorna el modelo padre (para encadenar ->save()).
+     *
+     *   $comentario->publicacion()->associate($publicacion)->save();
+     *   $comentario->usuario()->associate(5)->save();
+     */
+    public function associate(Model|int|string $modeloOid): Model
+    {
+        if ($modeloOid instanceof Model) {
+            $oid = $modeloOid->{$modeloOid->getPrimaryKey()} ?? null;
+
+            if ($oid === null) {
+                throw new \Error('El modelo a asociar no tiene clave primaria');
+            }
+        } else {
+            $oid = $modeloOid;
+        }
+
+        $this->parent->{$this->foreignKey} = $oid;
+
+        return $this->parent;
+    }
+
+    /**
+     * Limpia la clave foranea del padre (la deja en NULL) y retorna el
+     * modelo padre (para encadenar ->save()).
+     *
+     *   $comentario->publicacion()->dissociate()->save();
+     */
+    public function dissociate(): Model
+    {
+        $this->parent->{$this->foreignKey} = null;
+
+        return $this->parent;
+    }
+
     public function getRelated(): Model
     {
         return $this->related;

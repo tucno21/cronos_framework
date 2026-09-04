@@ -360,6 +360,56 @@ $usuario->roles()->sync([]);   //desasocia todo (equivale a detach() sin argumen
 - El pivote queda reflejado al volver a consultar la relacion (`$publicacion->etiquetas()->get()`).
 - No hay columnas extra de pivote ni `withTimestamps` (pivotes simples: 2 claves).
 
+## Guardar a traves de Relaciones (create / save / associate)
+
+### hasOne y hasMany: create() y save()
+
+`create()` agrega automaticamente la clave foranea del padre a los datos (que deben cumplir las reglas de `create()` del modelo relacionado, es decir, todos los `$fillable` presentes):
+
+```php
+$usuario = Usuario::find(1);
+
+$publicacion = $usuario->publicaciones()->create([
+    'titulo' => 'Nueva',
+    'slug' => 'nueva',
+    'contenido' => 'contenido',
+]);   //usuario_id asignado automaticamente
+
+$perfil = $usuario->perfil()->create([
+    'biografia' => '...',
+    'telefono' => '...',
+    'fecha_nacimiento' => '...',
+    'sitio_web' => null,
+]);   //hasOne tambien soporta create()
+```
+
+`save()` persiste un modelo ya construido asignandole antes la clave foranea:
+
+```php
+$publicacion = new Publicacion();
+$publicacion->titulo = 'Guardada';
+$publicacion->slug = 'guardada';
+$publicacion->contenido = 'contenido';
+
+$usuario->publicaciones()->save($publicacion);   //asigna usuario_id y persiste
+```
+
+### belongsTo: associate() y dissociate()
+
+`associate()` asigna la clave foranea (con un modelo o un id) y retorna el modelo padre para encadenar `->save()`. `dissociate()` la limpia a NULL en memoria:
+
+```php
+$comentario = new Comentario();
+$comentario->contenido = 'Mi comentario';
+
+$comentario->publicacion()->associate($publicacion)->save();   //con modelo
+$comentario->usuario()->associate(5);                          //con id
+
+$comentario->publicacion()->dissociate();   //publicacion_id = null en memoria
+```
+
+> **Nota**: `dissociate()` escribe NULL en memoria; si la columna es NOT NULL el `save()` fallara a nivel BD (igual que en Eloquent, el responsable es el esquema).
+
 ## Consultas Personalizadas (SQL Directo)
 
 ```php
@@ -724,7 +774,7 @@ El ORM **parametriza los valores** y ademas **valida los identificadores** (colu
 - Closures en `with()` para relaciones `belongsToMany` (el resto si las soporta)
 - Columnas extra en pivotes y `withTimestamps` (pivotes de 2 claves; usar SQL directo para extras)
 - `toggle()` y `syncWithoutDetaching()` en pivotes
-- `$modelo->relacion()->create()` (guardar a traves de relaciones) y `associate()`/`dissociate()`
+- `$modelo->relacion()->create()`/`save()` en `belongsToMany` (solo en hasOne/hasMany)
 - Relaciones `hasManyThrough` y morfologicas (`morphOne`/`morphMany`/`morphTo`; las tablas `comentables`/`etiquetables` se manejan con SQL directo)
 - Subqueries en `where()` (las de `has()`/`whereHas()` son generadas por el ORM)
 - Paginacion automatica (usar `limit` + `offset` + `count`)
