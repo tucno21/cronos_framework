@@ -1,6 +1,6 @@
 {
 	"name": "catuva21/cronos_framework",
-	"description": "mini framework php 8.0 inspired by laravel",
+	"description": "mini framework php 8.3 inspired by laravel",
 	"type": "project",
 	"license": "MIT",
 	"authors": [
