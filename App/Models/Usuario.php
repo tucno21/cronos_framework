@@ -63,4 +63,10 @@ class Usuario extends Model
     {
         return $this->hasMany(Usuario::class, 'invitado_por');
     }
+
+    //1:n con comentarios
+    public function comentarios()
+    {
+        return $this->hasMany(Comentario::class, 'usuario_id');
+    }
 }

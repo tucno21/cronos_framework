@@ -3,6 +3,7 @@
 namespace App\Controllers;
 
 use App\Library\JWT\JWTAuth;
+use App\Models\Comentario;
 use App\Models\Publicacion;
 use App\Models\Usuario;
 use Cronos\Http\Controller;
@@ -30,10 +31,16 @@ class PublicacionController extends Controller
 
     public function index()
     {
-        $publicaciones = Publicacion::select('publicaciones.*', 'usuarios.nombre')
-            ->join('usuarios', 'usuarios.id', '=', 'publicaciones.usuario_id')
-            ->orderBy('publicaciones.created_at', 'DESC')
+        $publicaciones = Publicacion::with('usuario', 'categoria', 'etiquetas')
+            ->withCount('comentarios')
+            ->orderBy('created_at', 'DESC')
             ->get();
+
+        if ($publicaciones) {
+            foreach ($publicaciones as $p) {
+                $p->nombre_autor = $p->usuario->nombre ?? null;
+            }
+        }
 
         return json([
             'status' => 'success',
@@ -43,11 +50,22 @@ class PublicacionController extends Controller
 
     public function show(Publicacion $publicacion)
     {
-        $publicacion->nombre_autor = Usuario::find($publicacion->usuario_id)->nombre ?? null;
+        $categoria = $publicacion->categoria()->get();
+        $etiquetas = $publicacion->etiquetas()->get();
+        $comentarios = Comentario::with('usuario')
+            ->where('publicacion_id', $publicacion->id)
+            ->orderBy('created_at', 'DESC')
+            ->get();
+
+        $data = $publicacion->toArray();
+        $data['nombre_autor'] = Usuario::find($publicacion->usuario_id)->nombre ?? null;
+        $data['categoria'] = $categoria ? $categoria->toArray() : null;
+        $data['etiquetas'] = $etiquetas ? $etiquetas->toArray() : [];
+        $data['comentarios'] = $comentarios ? $comentarios->toArray() : [];
 
         return json([
             'status' => 'success',
-            'publicacion' => $publicacion->toArray(),
+            'publicacion' => $data,
         ]);
     }
 
