@@ -9,6 +9,12 @@ class BladeCompiler
     protected const PLACEHOLDER_VERBATIM = '__CRONOS_VERBATIM_%d__';
     protected const PLACEHOLDER_ESCAPED = '__CRONOS_ESCAPED_%d__';
 
+    /**
+     * exclusion de variables internas del scope al pasar el scope actual
+     * a una sub-vista (evita que extract() pise el render en curso)
+     */
+    protected const INTERNAL_VIEW_VARS_FILTER = "['__viewPath' => 1, '__viewData' => 1, '__viewEnv' => 1]";
+
     protected array $verbatimSegments = [];
     protected array $escapedSegments = [];
     protected string $extendsFooter = '';
@@ -26,6 +32,7 @@ class BladeCompiler
         $value = $this->compileSections($value);
         $value = $this->compileYield($value);
         $value = $this->compileStacks($value);
+        $value = $this->compileIncludes($value);
         $value = $this->compilePhpBlock($value);
         $value = $this->compileRawEcho($value);
         $value = $this->compileBreakContinue($value);
@@ -252,8 +259,8 @@ class BladeCompiler
             '/@extends\s*\(\s*([\'"])([^\'"]+)\1\s*\)/',
             function (array $match): string {
                 $view = str_replace(['\\', '\''], ['\\\\', '\\\''], $match[2]);
-                $this->extendsFooter = "<?php echo \$__env->renderLayout('{$view}', "
-                    . "array_diff_key(get_defined_vars(), ['__viewPath' => 1, '__viewData' => 1, '__viewEnv' => 1])); ?>";
+                $this->extendsFooter = "<?php echo \$__env->makeView('{$view}', "
+                    . 'array_diff_key(get_defined_vars(), ' . self::INTERNAL_VIEW_VARS_FILTER . ')); ?>';
 
                 return '';
             },
@@ -357,12 +364,112 @@ class BladeCompiler
     }
 
     /**
+     * compila los includes como llamadas en runtime (no inlining), lo que
+     * soporta includes anidados, nombres dinamicos y cache por dependencias:
+     * include, includeIf, includeWhen, includeUnless y each.
+     *
+     * precedencia de variables estilo Laravel: los datos pasados pisan
+     * a las variables del scope actual.
+     */
+    protected function compileIncludes(string $value): string
+    {
+        $scopeFilter = 'array_diff_key(get_defined_vars(), ' . self::INTERNAL_VIEW_VARS_FILTER . ')';
+
+        $value = $this->compileTokenDirective($value, 'include', function (?string $expr) use ($scopeFilter) {
+            if ($expr === null) {
+                throw ViewCompileException::forView('', 'La directiva @include requiere una expresion entre parentesis');
+            }
+
+            [$view, $data] = $this->splitTopLevelArguments($expr, 'include');
+
+            $dataArgument = $data !== null ? "({$data}) + {$scopeFilter}" : $scopeFilter;
+
+            return "<?php echo \$__env->makeView({$view}, {$dataArgument}); ?>";
+        }, true);
+
+        $value = $this->compileTokenDirective($value, 'includeIf', function (?string $expr) use ($scopeFilter) {
+            if ($expr === null) {
+                throw ViewCompileException::forView('', 'La directiva @includeIf requiere una expresion entre parentesis');
+            }
+
+            [$view, $data] = $this->splitTopLevelArguments($expr, 'includeIf');
+
+            $dataArgument = $data !== null ? "({$data}) + {$scopeFilter}" : $scopeFilter;
+
+            return "<?php if (\$__env->viewExists({$view})) { echo \$__env->makeView({$view}, {$dataArgument}); } ?>";
+        }, true);
+
+        $value = $this->compileTokenDirective($value, 'includeWhen', fn (?string $expr) => $this->compileConditionalInclude($expr, 'includeWhen', false, $scopeFilter), true);
+
+        $value = $this->compileTokenDirective($value, 'includeUnless', fn (?string $expr) => $this->compileConditionalInclude($expr, 'includeUnless', true, $scopeFilter), true);
+
+        $value = $this->compileTokenDirective($value, 'each', function (?string $expr) {
+            if ($expr === null) {
+                throw ViewCompileException::forView('', 'La directiva @each requiere una expresion entre parentesis');
+            }
+
+            $parts = $this->splitAllTopLevelArguments($expr, 'each');
+
+            if (count($parts) < 3) {
+                throw ViewCompileException::forView('', 'La directiva @each requiere vista, coleccion y nombre de variable');
+            }
+
+            $view = $parts[0];
+            $iterable = $parts[1];
+            $variable = $parts[2];
+            $emptyView = $parts[3] ?? 'null';
+            $extraData = $parts[4] ?? '[]';
+
+            return "<?php echo \$__env->renderEach({$view}, {$iterable}, {$variable}, {$emptyView}, {$extraData}); ?>";
+        }, true);
+
+        return $value;
+    }
+
+    /**
+     * genera el codigo de includeWhen (condicion positiva) e includeUnless (negada)
+     */
+    protected function compileConditionalInclude(?string $expr, string $directive, bool $negate, string $scopeFilter): string
+    {
+        if ($expr === null) {
+            throw ViewCompileException::forView('', "La directiva @{$directive} requiere una expresion entre parentesis");
+        }
+
+        $parts = $this->splitAllTopLevelArguments($expr, $directive);
+
+        if (count($parts) < 2) {
+            throw ViewCompileException::forView('', "La directiva @{$directive} requiere condicion y vista");
+        }
+
+        [$condition, $view] = $parts;
+        $data = $parts[2] ?? null;
+
+        $dataArgument = $data !== null ? "({$data}) + {$scopeFilter}" : $scopeFilter;
+        $operator = $negate ? '!' : '';
+
+        return "<?php if ({$operator}({$condition})) { echo \$__env->makeView({$view}, {$dataArgument}); } ?>";
+    }
+
+    /**
      * separa los argumentos de una directiva por comas al nivel superior
      * (respetando strings y parentesis/corchetes anidados)
      *
      * @return array{0:string, 1:?string} [primerArgumento, resto|null]
      */
     protected function splitTopLevelArguments(string $expression, string $directive): array
+    {
+        $parts = $this->splitAllTopLevelArguments($expression, $directive);
+
+        return [$parts[0], $parts[1] ?? null];
+    }
+
+    /**
+     * separa TODOS los argumentos de una directiva por comas al nivel superior
+     * (respetando strings y parentesis/corchetes anidados)
+     *
+     * @return list<string>
+     */
+    protected function splitAllTopLevelArguments(string $expression, string $directive): array
     {
         $parts = [];
         $current = '';
@@ -413,7 +520,7 @@ class BladeCompiler
             throw ViewCompileException::forView('', "La directiva @{$directive} requiere un nombre de seccion");
         }
 
-        return [$parts[0], $parts[1] ?? null];
+        return $parts;
     }
 
     protected function compilePhpBlock(string $value): string

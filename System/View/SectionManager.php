@@ -112,13 +112,43 @@ class SectionManager
     }
 
     /**
-     * renderiza la vista padre indicada por @extends.
-     * el motor completo implementa este metodo; las secciones ya capturadas
-     * por la vista hija estan disponibles para los @yield del layout.
+     * verifica si una vista existe, usado por la directiva includeIf.
+     * el motor completo implementa este metodo.
      */
-    public function renderLayout(string $view, array $vars): void
+    public function viewExists(string $view): bool
     {
-        throw new \LogicException('renderLayout() debe ser implementado por el motor de vistas');
+        throw new \LogicException('viewExists() debe ser implementado por el motor de vistas');
+    }
+
+    /**
+     * renderiza una sub-vista (layout de @extends, parcial de @include o
+     * vista por elemento de @each) y retorna su contenido.
+     * el motor completo implementa este metodo.
+     */
+    public function makeView(string $view, array $vars): string
+    {
+        throw new \LogicException('makeView() debe ser implementado por el motor de vistas');
+    }
+
+    /**
+     * renderiza la vista parcial por cada elemento de la coleccion (@each).
+     * si la coleccion esta vacia y hay vista de vacio, la renderiza.
+     */
+    public function renderEach(string $view, iterable $items, string $variable, ?string $emptyView = null, array $extraData = []): string
+    {
+        $output = '';
+        $hasItems = false;
+
+        foreach ($items as $key => $item) {
+            $hasItems = true;
+            $output .= $this->makeView($view, [$variable => $item, 'key' => $key] + $extraData);
+        }
+
+        if (!$hasItems) {
+            return $emptyView !== null ? $this->makeView($emptyView, $extraData) : '';
+        }
+
+        return $output;
     }
 
     // ── stacks (@push / @prepend / @stack) ────────────────

@@ -9,20 +9,20 @@ use Cronos\View\SectionManager;
 use Tests\TestCase\CronosTestCase;
 
 /**
- * entorno de prueba que resuelve renderLayout() con un registro de plantillas
+ * entorno de prueba que resuelve makeView() con un registro de plantillas
  * del propio test, emulando lo que hara el motor completo en la fase 6.
  */
 class SectionTestEnvironment extends SectionManager
 {
     public ?\Closure $renderer = null;
 
-    public function renderLayout(string $view, array $vars): void
+    public function makeView(string $view, array $vars): string
     {
         if ($this->renderer === null) {
             throw new \LogicException('renderer no configurado');
         }
 
-        echo ($this->renderer)($view, $vars);
+        return ($this->renderer)($view, $vars);
     }
 }
 
