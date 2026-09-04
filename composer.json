@@ -31,7 +31,8 @@
 			"System/Helpers/debug.php",
 			"System/Helpers/app.php",
 			"System/Helpers/http.php",
-			"System/Helpers/session.php"
+			"System/Helpers/session.php",
+			"System/Helpers/view.php"
 		]
 	},
 	"autoload-dev": {

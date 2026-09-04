@@ -308,7 +308,7 @@ class CronosEngine implements View
         // Regex para capturar @component(...) ... @endcomponent
         return preg_replace_callback('/@component\((.*?)(?:,\s*(.*?))?\)(.*?)@endcomponent/s', function (array $matches) {
             $componentView = trim($matches[1], "'\"");
-            $paramsString = $matches[2] ?? '[]'; // Parámetros pasados al componente, por defecto un array vacío
+            $paramsString = $matches[2] !== '' ? $matches[2] : '[]'; // Parámetros pasados al componente, por defecto un array vacío
             $componentContent = $matches[3]; // Contenido entre @component y @endcomponent
 
             $componentFile = $this->viewDirectory . DIRECTORY_SEPARATOR . str_replace('.', DIRECTORY_SEPARATOR, $componentView) . '.php';

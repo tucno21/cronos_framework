@@ -13,6 +13,8 @@ class Session
 
     public const SESSION_ERRORS_IMPUTS = '_errors_inputs';
 
+    public const SESSION_CSRF_TOKEN = '_token';
+
     public function __construct(SessionStorage $storage)
     {
         $this->storage = $storage;
@@ -59,13 +61,13 @@ class Session
         $this->storage->set(self::FLASH_KEY, $flash);
     }
 
-    public function set(string $key, array|object $value)
+    public function set(string $key, mixed $value)
     {
         //almacenar en la sesion
         return $this->storage->set($key, $value);
     }
 
-    public function put(string $key, array|object $value)
+    public function put(string $key, mixed $value)
     {
         //almacenar en la sesion
         return $this->storage->set($key, $value);
