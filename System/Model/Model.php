@@ -39,12 +39,12 @@ use Cronos\Database\DatabaseDriver;
  * @method static self|null first()
  * @method static self firstOrFail()
  * @method static self|null firstNotHidden()
- * @method static int count()
+ * @method static int count(?string $column = null)
  * @method static \Cronos\Model\Paginator paginate(int $porPagina = 15, int $pagina = 1)
- * @method static int|float|string max()
- * @method static int|float|string min()
- * @method static int|float|string sum()
- * @method static int|float|string avg()
+ * @method static int|float|string max(?string $column = null)
+ * @method static int|float|string min(?string $column = null)
+ * @method static int|float|string sum(?string $column = null)
+ * @method static int|float|string avg(?string $column = null)
  * @method static array dd()
  *
  * API de instancia (estilo Eloquent, sobre una fila ya cargada):
