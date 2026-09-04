@@ -4,62 +4,57 @@ declare(strict_types=1);
 
 namespace Tests\Integration;
 
-use Cronos\View\CronosEngine;
 use PHPUnit\Framework\TestCase;
 
 class ViewsIntegrationTest extends TestCase
 {
-    private CronosEngine $engine;
     private string $viewsDir;
-    private string $cacheDir;
 
     protected function setUp(): void
     {
-        $root = dirname(__DIR__, 2);
-        $this->viewsDir = $root . '/resources/views';
-        $this->cacheDir = sys_get_temp_dir() . '/cronos_views_test_' . uniqid();
-
-        if (!is_dir($this->cacheDir)) {
-            mkdir($this->cacheDir, 0777, true);
-        }
-
-        $this->engine = new CronosEngine($this->viewsDir, $this->cacheDir);
+        $this->viewsDir = dirname(__DIR__, 2) . '/resources/views';
     }
 
-    protected function tearDown(): void
+    public function test_layout_principal_existe(): void
     {
-        $this->deleteDirectory($this->cacheDir);
-    }
-
-    private function deleteDirectory(string $dir): void
-    {
-        if (!is_dir($dir)) return;
-        $files = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST
-        );
-        foreach ($files as $file) {
-            $file->isDir() ? rmdir($file->getRealPath()) : unlink($file->getRealPath());
-        }
-        rmdir($dir);
-    }
-
-    public function test_layout_home_head_exists(): void
-    {
-        $viewPath = $this->viewsDir . '/home/layouts/head.php';
+        $viewPath = $this->viewsDir . '/layouts/app.php';
         $this->assertFileExists($viewPath);
+
         $content = file_get_contents($viewPath);
-        $this->assertNotEmpty($content);
+        $this->assertStringContainsString("@yield('content')", $content);
+        $this->assertStringContainsString("@include('partials.nav')", $content);
+        $this->assertStringContainsString("@stack('scripts')", $content);
     }
 
-    public function test_css_home_tiene_source_components(): void
+    public function test_estructura_de_vistas_laravel(): void
     {
-        $cssPath = dirname(__DIR__, 2) . '/resources/css/home.css';
-        if (!file_exists($cssPath)) {
-            $this->markTestSkipped('CSS no encontrado');
+        $esperadas = [
+            'layouts/app.php',
+            'partials/nav.php',
+            'home/index.php',
+            'errors/404.php',
+            'spa/index.php',
+        ];
+
+        foreach ($esperadas as $relativa) {
+            $this->assertFileExists($this->viewsDir . '/' . $relativa);
         }
-        $content = file_get_contents($cssPath);
-        $this->assertStringContainsString('components', $content);
+    }
+
+    public function test_home_extiende_layout(): void
+    {
+        $content = file_get_contents($this->viewsDir . '/home/index.php');
+
+        $this->assertStringContainsString("@extends('layouts.app')", $content);
+        $this->assertStringContainsString("@section('content')", $content);
+    }
+
+    public function test_404_usa_asset_y_ruta_nombrada(): void
+    {
+        $content = file_get_contents($this->viewsDir . '/errors/404.php');
+
+        $this->assertStringContainsString("@asset('assets/css/error.css')", $content);
+        $this->assertStringContainsString("{{ route('home.index') }}", $content);
     }
 
     public function test_componentes_existen(): void
@@ -73,25 +68,11 @@ class ViewsIntegrationTest extends TestCase
         }
     }
 
-    public function test_componente_alert_usa_type(): void
+    public function test_componente_button_usa_props_y_attributes(): void
     {
-        $path = $this->viewsDir . '/components/alert.php';
-        if (!file_exists($path)) {
-            $this->markTestSkipped('Componente no encontrado');
-        }
-        $content = file_get_contents($path);
-        $this->assertStringContainsString('$type', $content);
-    }
+        $content = file_get_contents($this->viewsDir . '/components/button.php');
 
-    public function test_componente_card_soporta_slots(): void
-    {
-        $path = $this->viewsDir . '/components/card.php';
-        if (!file_exists($path)) {
-            $this->markTestSkipped('Componente no encontrado');
-        }
-        $content = file_get_contents($path);
-        $hasSlots = str_contains($content, "__slots['header']")
-            || str_contains($content, '__slots["header"]');
-        $this->assertTrue($hasSlots);
+        $this->assertStringContainsString('@props(', $content);
+        $this->assertStringContainsString('$attributes->merge(', $content);
     }
 }

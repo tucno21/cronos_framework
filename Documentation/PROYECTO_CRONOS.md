@@ -126,8 +126,11 @@ cronos_framework/
 │   │   └── MessageError.php    # Mensajes de error
 │   └── View/                    # Sistema de vistas
 │       ├── View.php            # Interfaz de vista
-│       └── CronosEngine.php    # Motor de plantillas Blade-like con 25+ directivas,
-│                               #   sistema de componentes x-, stacks, @asset y más
+│       ├── BladeEngine.php     # Motor de plantillas tipo Blade: compilador, cache y ejecución
+│       ├── RenderEnvironment.php # Estado por render (secciones, stacks, once)
+│       ├── SectionManager.php  # API runtime de secciones, stacks y componentes
+│       ├── AttributeBag.php    # Bolsa de atributos de componentes ($attributes)
+│       └── Compiler/           # BladeCompiler + BlockMatcher (compilación por fases)
 ├── routes/                      # Definición de rutas
 │   ├── web.php                  # Rutas web (páginas)
 │   └── api.php                  # Rutas API (JSON)
@@ -183,7 +186,7 @@ cronos_framework/
 │   ├── Session/                 # Tests de sesión
 │   ├── TestCase/                # Casos de test base
 │   ├── Unit/                    # Tests unitarios
-│   │   └── CronosEngineTest.php    # Tests unitarios del motor de plantillas
+│   │   └── BladeEngineTest.php    # Tests unitarios del motor de plantillas
 │   └── Validation/              # Tests de validación
 ├── .env.example                 # Ejemplo de archivo .env
 ├── .env.example2                # Segundo ejemplo de .env
@@ -339,13 +342,14 @@ cronos_framework/
 - **Cómo se usa:** Los modelos en `App/Models/` heredan de esta clase y definen `$table`, `$primaryKey`, `$fillable`
 - **Equivalente en Laravel:** `Illuminate\Database\Eloquent\Model` (versión simplificada)
 
-### CronosEngine — `System/View/CronosEngine.php`
-- **Responsabilidad:** Motor de plantillas que compila directivas Blade-like a PHP puro
+### BladeEngine — `System/View/BladeEngine.php`
+- **Responsabilidad:** Motor de plantillas tipo Blade: compila directivas a PHP puro con cache por dependencias y ejecuta las vistas en un scope aislado
 - **Métodos principales:**
   - `render(string $view, array $params)` - Renderiza una vista con parámetros
-  - `directive(string $name, callable $handler)` - Registra directiva personalizada
+  - `makeView(string $view, array $vars)` - Renderiza una sub-vista (layouts, includes, componentes)
+  - `path(string $view)` / `exists(string $view)` - Resolución por notación de punto
 - **Cómo se usa:** Instanciado por ViewServiceProvider, usado a través de la función `view()`
-- **Equivalente en Laravel:** `Illuminate\View\Compilers\BladeCompiler`
+- **Equivalente en Laravel:** `Illuminate\View\Factory` + `BladeCompiler` (la guía completa en [06-vistas.md](06-vistas.md))
 
 ### Session — `System/Session/Session.php`
 - **Responsabilidad:** Manejo de sesiones con soporte para datos flash y persistente
@@ -1201,7 +1205,7 @@ El framework usa sintaxis tipo Blade:
 @include('home.layouts.footer')
 ```
 
-### Directivas del motor CronosEngine
+### Directivas del motor BladeEngine
 
 #### Directivas heredadas (existentes desde el inicio)
 - `@extends('vista')` — extiende un layout (fusiona la vista con el archivo del layout)
@@ -1219,7 +1223,7 @@ El framework usa sintaxis tipo Blade:
 - `{!! $variable !!}` — imprime sin escape (solo para HTML de confianza)
 - `@component('vista', $params)` ... `@slot('nombre')` ... `@endslot` ... `@endcomponent`
   — componentes legacy con slots
-- `CronosEngine::directive('nombre', $handler)` — registra directiva personalizada
+- `BladeCompiler::directive('nombre', $handler)` — registra directiva personalizada
 
 #### Directivas nuevas (Fase 1 — incorporadas en la iteración actual)
 - `{{-- comentario --}}` — comentario de plantilla que NO aparece en el HTML
@@ -1459,37 +1463,40 @@ Dentro de `@error` ... `@enderror`, la variable `$message` contiene automáticam
 el texto del error para ese campo. Después del `@enderror` la variable `$message`
 se elimina para evitar contaminación de scope.
 
-### Pipeline de compilación de CronosEngine
+### Pipeline de compilación de BladeCompiler
 
 El motor compila las directivas en este orden exacto (el orden importa):
 
 ```
-1.  compileExtends        — fusiona el layout (@extends)
-2.  compileIncludes       — fusiona los @include
-3.  compileComments       — elimina {{-- comentarios --}}   ← DEBE ser después de 1 y 2
-4.  compilePushStack      — procesa @push/@endpush y @stack ← DEBE ser después de 1 y 2
-5.  compileSections       — captura @section/@endsection
-6.  compileYields         — reemplaza @yield con el contenido de las secciones
-7.  compileForelse        — @forelse/@empty/@endforelse     ← ANTES de compileForeach
-8.  compileForeach        — @foreach/@endforeach
-9.  compileIf             — @if/@elseif/@else/@endif
-10. compileFor            — @for/@endfor
-11. compileWhile          — @while/@endwhile
-12. compileSwitch         — @switch/@endswitch
-13. compileEmpty          — @empty($var)/@endempty
-14. compileIsset          — @isset($var)/@endisset
-15. compileComponents     — @component legacy
-16. compileCustomDirectives — directivas registradas con CronosEngine::directive()
-17. compileAuth           — @auth/@endauth / @guest/@endguest
-18. compileCsrf           — @csrf
-19. compileMethod          — @method('PUT')
-20. compileError           — @error('campo')/@enderror
-21. compileUnless         — @unless/@endunless
-22. compileDebug          — @dump / @dd
-23. compileRawEcho        — {!! !!}                        ← ANTES de compileVariables
-24. compileVariables      — {{ }}                          ← SIEMPRE AL FINAL
-25. compileXComponents    — <x-nombre> (se ejecuta entre includes y sections)
-26. compileAsset          — @asset('ruta')
+1.  compileEscapedDirectives   — @@ → literal @
+2.  compileVerbatim            — protege bloques @verbatim (se restauran al final)
+3.  compileComments            — elimina {{-- comentarios --}}
+4.  compileExtends             — captura @extends y arma el footer que renderiza el layout
+5.  compileSections            — @section (corto y bloque), @endsection/@stop/@show/@overwrite
+6.  compileYield               — @yield, @hasSection, @sectionMissing
+7.  compileStacks              — @push/@endpush, @prepend/@endprepend, @stack
+8.  compileIncludes            — @include, @includeIf, @includeWhen, @includeUnless, @each
+9.  compileOnce                — @once, @pushOnce
+10. compileProps               — @props
+11. compileConditionalAttributes — @class, @style, @checked, @selected, @disabled, @readonly, @required
+12. compileFormSecurity        — @csrf, @method, @error/@enderror
+13. compileAsset               — @asset('ruta')
+14. compileCustomDirectives    — directivas registradas con BladeCompiler::directive()
+15. compileXComponents         — <x-nombre> (slots capturados por buffer; anidables por balance)
+16. compilePhpBlock            — @php/@endphp y @php(...)
+17. compileRawEcho             — {!! !!}                            ← ANTES de compileEcho
+18. compileBreakContinue       — @break, @continue
+19. compileSwitch              — @switch/@case/@default/@endswitch
+20. compileForelse             — @forelse/@empty/@endforelse        ← ANTES de compileForeach
+21. compileForeach             — @foreach con $loop (anidamiento por balance)
+22. compileFor                 — @for/@endfor
+23. compileWhile               — @while/@endwhile
+24. compileConditionals        — @if/@elseif/@else/@endif, @unless, @isset, @empty, @auth, @guest
+25. compileInlinePhp           — @php(...) suelto
+26. compileJson                — @json
+27. compileUnset               — @unset
+28. compileEcho                — {{ }}                              ← SIEMPRE AL FINAL
+29. restoreEscaped + footer    — restaura @@ y anexa la llamada del layout
 ```
 
 **Reglas críticas del pipeline:**
@@ -1657,12 +1664,12 @@ return [
 
 | Clave | Tipo | Default | Descripción |
 |-------|------|---------|-------------|
-| `engine` | string | `'cronos'` | Motor de plantillas a usar. Únicamente soporta `'cronos'` que usa `CronosEngine` |
+| `engine` | string | `'blade'` | Motor de plantillas a usar. Únicamente soporta `'blade'` que usa `BladeEngine` |
 | `path` | string | `resourcesDirectory() . '/views'` | Ruta al directorio de vistas (ubicación de los archivos `.php` de las plantillas) |
-| `cache` | string | `cacheDirectory()` | Ruta al directorio de caché donde se guardan las vistas compiladas (`storage/cache/`) |
+| `cache` | string | `cacheDirectory()` | Ruta al directorio de caché donde se guardan las vistas compiladas (`storage/cache/views/`) |
 
 **Valores posibles:**
-- `engine: 'cronos'` - Usa `CronosEngine` (motor de plantillas tipo Blade con directivas personalizadas)
+- `engine: 'blade'` - Usa `BladeEngine` (motor de plantillas tipo Blade con cache por dependencias y componentes `<x-*>`)
 - `path` - Debe ser una ruta válida al sistema de archivos
 - `cache` - Debe ser una ruta válida con permisos de escritura
 
@@ -2064,7 +2071,7 @@ Para agregar nuevos helpers:
 - **Cache de vistas:** Compilación en `storage/cache/`
 - **Componentes con slots:** @component, @slot
 - **Directivas personalizadas:** Registro de directivas custom
-- **Archivos involucrados:** `System/View/View.php`, `System/View/CronosEngine.php`, `resources/views/*`
+- **Archivos involucrados:** `System/View/View.php`, `System/View/BladeEngine.php`, `resources/views/*`
 
 ### Caché de Vistas — Invalidación y Limpieza
 
@@ -2078,25 +2085,26 @@ El sistema de caché de vistas en Cronos Framework guarda las versiones compilad
 
 El caché se invalida y se regenera automáticamente cuando:
 1. **El archivo de vista original cambia** — El sistema verifica `filemtime()` de la vista original
-2. **La vista no existe en caché** — Se crea una nueva versión compilada
+2. **Una dependencia cambia** — El compilador registra layouts, includes y componentes usados por cada vista en la cabecera del archivo compilado; si cualquiera es más nuevo, se recompila
+3. **La vista no existe en caché** — Se crea una nueva versión compilada
 
 **Cuándo hay que borrar el caché manualmente:**
 
 Debes borrar el caché manualmente cuando:
-1. **Cambias el motor CronosEngine** — Si modificas el código en `System/View/CronosEngine.php` que compila las directivas, el caché no se regenera automáticamente
-2. **Agregas o modificas directivas personalizadas** — Nuevas directivas o modificaciones a `CronosEngine::directive()` requieren limpieza de caché
+1. **Cambias el compilador** — Si modificas el código en `System/View/Compiler/BladeCompiler.php`, el caché no se regenera automáticamente
+2. **Agregas o modificas directivas personalizadas** — Nuevas directivas o modificaciones a `BladeCompiler::directive()` requieren limpieza de caché
 3. **El caché está corrupto** — Si ves errores de sintaxis PHP que no corresponden a tu código
-4. **Cambio de lógica de compilación** — Cualquier modificación a los métodos `compile*()` en `CronosEngine`
+4. **Cambio de lógica de compilación** — Cualquier modificación a los métodos `compile*()` en `BladeCompiler`
 
 **Cómo borrar el caché:**
 
 **Opción 1: Borrar manualmente todos los archivos de caché**
 ```bash
 # Windows
-Remove-Item storage\cache\*.php
+Remove-Item storage\cache\views\*.php
 
 # Linux/Mac
-rm storage/cache/*.php
+rm storage/cache/views/*.php
 ```
 
 **Opción 2: Borrar el directorio completo y recrearlo**
@@ -2107,7 +2115,7 @@ mkdir storage/cache
 chmod 777 storage/cache
 ```
 
-**Consecuencias de NO borrar el caché tras cambiar CronosEngine:**
+**Consecuencias de NO borrar el caché tras cambiar el compilador:**
 
 Si modificas el motor de plantillas y no borras el caché:
 - ❌ **Las vistas antiguas siguen usando la lógica de compilación antigua**
@@ -2120,7 +2128,7 @@ Si modificas el motor de plantillas y no borras el caché:
 Imagina que modificas `@foreach` para agregar un contador interno:
 
 ```php
-// En CronosEngine.php - MODIFICACIÓN
+// En BladeCompiler.php - MODIFICACIÓN
 protected function compileForeach(string $viewContent): string
 {
     // Nueva funcionalidad agregada
@@ -2134,7 +2142,7 @@ Sin borrar el caché:
 - Necesitas borrar `storage/cache/*.php` para que se recompile todo
 
 **Buenas prácticas:**
-1. Siempre borrar el caché después de modificar `System/View/CronosEngine.php`
+1. Siempre borrar el caché después de modificar `System/View/BladeEngine.php`
 2. Borrar el caché en producción después de deployar cambios al motor de plantillas
 3. Agregar `storage/cache/` a `.gitignore` (ya está en el proyecto)
 4. Considerar crear un comando CLI `php cronos view:clear` para limpieza rápida
@@ -2840,10 +2848,10 @@ return new class extends Migration
 
 ### Tests del motor de plantillas
 
-**`tests/Unit/CronosEngineTest.php`** — Tests unitarios puros del motor.
-- No depende del framework ni de base de datos
+**`tests/Unit/BladeEngineTest.php`** — Tests unitarios del motor (cache, aislamiento, once, formularios).
+- No depende de base de datos
 - Usa directorios temporales (`sys_get_temp_dir()`) para crear vistas de prueba
-- Cubre todas las directivas existentes y las nuevas
+- Cubre render, cache por dependencias, @once/@pushOnce, includes, componentes y errores
 - 13 tests, 21 assertions — 100% passing
 
 Directivas cubiertas por los tests:
@@ -2857,7 +2865,7 @@ Directivas cubiertas por los tests:
 - `@empty` / `@endempty`
 - `@section` / `@yield` / `@extends`
 - `@include`
-- Directivas personalizadas (`CronosEngine::directive()`)
+- Directivas personalizadas (`BladeCompiler::directive()`)
 - `@csrf`
 - `@method`
 - `@forelse` / `@empty` / `@endforelse`
@@ -3175,7 +3183,7 @@ pero sin estilos de Tailwind porque el compilador no escaneó sus clases.
 Esta sección documenta las reglas y lecciones aprendidas para que cualquier IA
 que trabaje en este proyecto entienda el contexto y evite errores conocidos.
 
-### Restricciones conocidas del motor CronosEngine
+### Restricciones conocidas del motor BladeEngine
 
 - **Los atributos de `<x-componente>` NO aceptan expresiones PHP**.
   `value="<?= old('email') ?>"` rompe el parser. El componente debe calcular

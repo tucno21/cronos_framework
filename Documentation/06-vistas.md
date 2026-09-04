@@ -1,65 +1,96 @@
 # Vistas
 
-Las vistas se ubican en `resources/views/` y se renderizan con la funcion `view()`.
+El motor de plantillas de Cronos es **BladeEngine**: compila las vistas a PHP plano con cache automatico por dependencias y las ejecuta en un scope aislado. La sintaxis es la de Blade (Laravel).
 
-## Convencion de Nombres
+## Reglas de Oro (para desarrolladores e IAs)
 
-- Referencia con punto para separar carpetas: `view('dashboard.index')`
-- Corresponde al archivo: `resources/views/dashboard/index.php`
-- No agregar la extension `.php` al llamar `view()`
+1. Las vistas viven en `resources/views/` y se referencian con **notacion de punto**: `view('home.index')` → `resources/views/home/index.php`.
+2. `{{ $x }}` **escapa** HTML (seguro contra XSS); `{!! $x !!}` imprime crudo (solo HTML de confianza).
+3. El layout se define **una sola vez** en `layouts/app.php`; las vistas hijas lo usan con `@extends` y `@section`.
+4. Los componentes se crean como archivos en `resources/views/components/` y se usan como etiquetas `<x-nombre>` sin registrar nada.
+5. `@foreach` expone la variable **`$loop`** (index, iteration, count, first, last, remaining, parent). No existe Carbon: los timestamps son strings.
+
+## Estructura
+
+```
+resources/views/
+├── layouts/
+│   └── app.php              # esqueleto unico: <head>, nav, @yield('content'), stacks
+├── partials/
+│   └── nav.php              # fragmentos incluidos por el layout
+├── components/              # componentes anonimos <x-*>
+│   ├── alert.php
+│   ├── badge.php
+│   ├── button.php
+│   ├── card.php
+│   ├── input.php
+│   └── textarea.php
+├── home/
+│   └── index.php            # paginas por modulo
+├── errors/
+│   ├── 404.php              # paginas de error por codigo HTTP
+│   └── 500.php
+└── spa/
+    └── index.php            # shell de la SPA (reactapp)
+```
+
+Convenciones:
+- El **layout** es el dueno del esqueleto HTML; la vista **hija** es la que se renderiza.
+- Las vistas de error van en `errors/` (plural) nombradas por codigo.
+- Usar sintaxis Blade en las vistas: no mezclar `<?= ?>` ni la constante `base_url`; para URLs usar `{{ route('nombre') }}` y `@asset('ruta')`.
 
 ## Renderizar una Vista
 
 ```php
-// Vista simple
+// desde un controlador
 return view('home.index');
-
-// Con datos
 return view('dashboard.show', ['blog' => $blog, 'pageTitle' => $blog->title]);
-
-// Con layout especifico
-return view('dashboard.index', ['data' => $data], 'layouts.admin');
 ```
 
-## Imprimir Variables
+La firma con tercer argumento de layout (`view('x', [], 'layout')`) esta **deprecada**: los layouts se resuelven con `@extends` dentro de la vista.
 
-```php
-{{ $variable }}          // Con escape HTML (seguro contra XSS)
-{!! $variable !!}        // Sin escape (solo HTML de confianza)
-{{ base_url }}           // URL base del proyecto
-{{ $array['key'] }}      // Acceso a array
-{{ $object->property }}  // Acceso a objeto
+## Imprimir Valores
+
+```blade
+{{ $variable }}              // escapado con e() (XSS-safe); null → '', bool → '1'/''
+{{ $array['clave'] }}        // acceso a array
+{{ $objeto->propiedad }}     // acceso a objeto
+{{ $x ?? 'default' }}        // expresiones PHP completas
+{!! $htmlConfiable !!}       // SIN escape
+{{ $datos }}                 // arrays: se imprimen como JSON escapado
 ```
 
-## Layouts y Herencia
+## Herencia: @extends / @section / @yield
 
-**Layout base** (`resources/views/home/layouts/head.php`):
-```php
+**Layout** (`layouts/app.php`):
+
+```blade
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <title>{{ $pageTitle ?? 'Cronos Framework' }}</title>
+    <title>@yield('title', 'Cronos Framework')</title>
     <link href="@asset('assets/css/home.css')" rel="stylesheet">
     @stack('styles')
 </head>
-<body>
-    @yield('content')
-
+<body class="font-sans">
+    @include('partials.nav')
+    <main>@yield('content')</main>
     <script src="@asset('assets/js/home.js')"></script>
     @stack('scripts')
 </body>
 </html>
 ```
 
-**Vista que extiende el layout** (`resources/views/home/index.php`):
-```php
-@extends('home.layouts.head')
+**Vista hija** (`home/index.php`):
+
+```blade
+@extends('layouts.app')
+
+@section('title', 'Mi Pagina')
 
 @section('content')
-<div class="container">
-    <h1>{{ $pageTitle }}</h1>
-</div>
+    <h1>Hola {{ $usuario->nombre }}</h1>
+    <x-button href="https://ejemplo.com">Ir</x-button>
 @endsection
 
 @push('scripts')
@@ -67,179 +98,243 @@ return view('dashboard.index', ['data' => $data], 'layouts.admin');
 @endpush
 ```
 
-## Directivas del Motor CronosEngine
+Detalles de secciones:
 
-### Directivas Basicas
-
-| Directiva | Descripcion |
+| Directiva | Uso |
 |---|---|
-| `@extends('vista')` | Extiende un layout |
-| `@include('vista')` | Incluye otra vista |
-| `@section('nombre')` ... `@endsection` | Define una seccion |
-| `@yield('nombre')` | Muestra el contenido de una seccion |
-| `@push('nombre')` ... `@endpush` | Acumula contenido en un stack |
-| `@stack('nombre')` | Renderiza contenido acumulado |
+| `@section('n', 'contenido')` | forma corta; el contenido es una expresion PHP evaluada al renderizar |
+| `@section('n') ... @endsection` | bloque; el contenido se captura con las variables de la vista hija |
+| `@section('n') ... @stop` | `@stop` es alias de `@endsection` |
+| `@section('n') ... @show` | captura e imprime inmediatamente (tipico en layouts) |
+| `@section('n') ... @overwrite` | reemplaza lo definido por el layout sin respetar @parent |
+| `@parent` | dentro de una seccion hija: anexa al contenido definido en el layout |
+| `@yield('n', 'default')` | imprime la seccion o el default si no fue definida |
+| `@hasSection('n') ... @endif` | condicional: la seccion existe y no esta vacia |
+| `@sectionMissing('n') ... @endif` | condicional inverso |
 
-### Control de Flujo
+La herencia es **multinivel**: `nieto @extends(media)`, `media @extends(app)` funcionan en cadena. En un layout intermedio que quiera exponer un punto de extension, definir la seccion con `@show` y un `@yield` interno con OTRO nombre:
 
-| Directiva | Descripcion |
+```blade
+{{-- layouts/media.php --}}
+@extends('layouts.app')
+@section('content')
+    <div class="wrapper">
+        @yield('media-content')
+    </div>
+@show
+```
+
+## Stacks: @push / @prepend / @stack
+
+```blade
+{{-- en la vista hija --}}
+@push('scripts')
+    <script src="pagina.js"></script>
+@endpush
+
+{{-- forma corta --}}
+@push('styles', '<link rel="stylesheet" href="x.css">')
+
+{{-- al frente del stack --}}
+@prepend('scripts')<script>primero</script>@endprepend
+
+{{-- en el layout, donde se deben renderizar --}}
+@stack('scripts')
+```
+
+- El contenido se acumula en orden; `@prepend` inserta al frente.
+- Funcionan igual desde la vista hija, el layout o un include (se evaluan en runtime; la hija renderiza antes que el layout).
+- `@pushOnce('stack') ... @endPushOnce`: agrega una sola vez aunque el parcial se incluya varias veces.
+
+## Includes
+
+```blade
+@include('partials.tarjeta')
+@include('partials.tarjeta', ['titulo' => 'Especial'])   {{-- los datos pasados pisan al scope --}}
+@include($parcial)                                       {{-- nombres dinamicos --}}
+@includeIf('partials.banner')                            {{-- solo si la vista existe --}}
+@includeWhen($usuario->activo, 'partials.aviso')
+@includeUnless($usuario->activo, 'partials.suspendido')
+@each('partials.item', $tareas, 'tarea')                 {{-- un parcial por elemento --}}
+@each('partials.item', $tareas, 'tarea', 'partials.vacio')
+```
+
+- El parcial recibe los datos pasados **mas** todas las variables del scope actual (los pasados ganan).
+- Los includes pueden anidarse sin limite.
+
+## Loops y $loop
+
+```blade
+@foreach($publicaciones as $post)
+    @if ($loop->first) <primer> @endif
+    {{ $loop->iteration }}/{{ $loop->count }}: {{ $post->titulo }}
+    @if ($loop->last) <ultimo> @endif
+@endforeach
+
+@forelse($comentarios as $c)
+    {{ $c->texto }}
+@empty
+    <p>Sin comentarios</p>
+@endforelse
+```
+
+Propiedades de `$loop`: `index` (desde 0), `iteration` (desde 1), `count`, `remaining`, `first`, `last`, `parent` (el `$loop` del nivel exterior, o null).
+
+Tambien disponibles: `@for`, `@while`, `@break`, `@break($cond)`, `@continue`, `@continue($cond)`, `@switch/@case/@default/@break/@endswitch`.
+
+> Nota: las directivas deben ir separadas del texto siguiente por espacio o salto de linea cuando ese texto empieza con letra (`@endif aqui` OK; `@endifaqui` se interpreta como otra palabra).
+
+## Condicionales y Utilidades
+
+```blade
+@if / @elseif / @else / @endif          {{-- expresiones PHP completas: parens y comillas OK --}}
+@unless($activo) ... @endunless
+@isset($var) ... @endisset
+@empty($var) ... @endempty
+@auth ... @endauth                       {{-- session()->hasUser() --}}
+@guest ... @endguest
+@php $doble = $n * 2; @endphp            {{-- bloque --}}
+@php($doble = $n * 2)                    {{-- inline --}}
+@json($datos)                            {{-- json_encode seguro para <script> --}}
+@unset($var)
+{{-- comentario que NO llega al HTML --}}
+@verbatim {{ $x }} y @if quedan literales @endverbatim
+@@if(true)                               {{-- @@ escapa la directiva --}}
+@dump($var) / @dd($var)
+```
+
+## Formularios
+
+```blade
+<form method="POST" action="{{ route('blog.store') }}">
+    @csrf
+    @method('PUT')   {{-- PUT | PATCH | DELETE --}}
+
+    <input name="email" value="{{ old('email') }}" @if(session()->ifError('email')) autofocus @endif>
+    @error('email')
+        <p class="text-red-600">{{ $message }}</p>
+    @enderror
+
+    <input type="checkbox" @checked($recordar)>
+    <option @selected($actual == $valor)>
+    <button @disabled($bloqueado)>Enviar</button>
+    <input @readonly($soloLectura) @required>
+</form>
+```
+
+Helpers de sesion en vistas: `old('campo')`, `error('campo')`, `ifError('campo')`.
+
+Clases y estilos condicionales:
+
+```blade
+<div class="@class(['p-4', 'bg-green' => $ok, 'bg-red' => !$ok])"></div>
+<div style="@style(['display:block', 'color:red' => $error])"></div>
+```
+
+## Componentes Anonimos <x-*>
+
+Archivo `resources/views/components/alerta.php`:
+
+```blade
+@props(['type' => 'info', 'title' => null])
+
+<div class="alert alert-{{ $type }}" {{ $attributes->merge(['role' => 'alert']) }}>
+    @if ($title)
+        <strong>{{ $title }}</strong>
+    @endif
+    {{ $slot }}
+</div>
+```
+
+Uso desde cualquier vista:
+
+```blade
+<x-alerta type="error" title="UPS" id="alerta-1">
+    Algo salio mal con {{ $detalle }}
+</x-alerta>
+
+<x-alerta type="ok"/>          {{-- self-closing --}}
+
+<x-dynamic-component :component="$nombreComponente" type="info"/>
+```
+
+Reglas:
+
+| Concepto | Detalle |
 |---|---|
-| `@if($cond)` ... `@elseif($cond)` ... `@else` ... `@endif` | Condicionales |
-| `@foreach($array as $item)` ... `@endforeach` | Bucle iterador |
-| `@for($i=0; $i<n; $i++)` ... `@endfor` | Bucle for |
-| `@while($cond)` ... `@endwhile` | Bucle while |
-| `@switch($var)` / `@case` / `@default` / `@break` ... `@endswitch` | Switch |
-| `@isset($var)` ... `@endisset` | Renderiza si la variable existe |
-| `@empty($var)` ... `@endempty` | Renderiza si la variable esta vacia |
-| `@unless($cond)` ... `@endunless` | Condicional inverso (si es falso) |
-| `@forelse($arr as $item)` ... `@empty` ... `@endforelse` | Foreach con bloque alternativo si esta vacio |
+| `@props([...])` | primera linea del componente; define props con defaults; lo NO declarado queda en `$attributes` |
+| `{{ $slot }}` | contenido por defecto del tag |
+| `<x-slot:nombre> ... </x-slot:nombre>` | slot nombrado; tambien disponible como variable `$nombre` |
+| `:prop="$expresion"` | binding: la expresion se evalua en el scope del padre |
+| `attr="texto"` | literal; si el valor es exactamente `{{ expr }}` se compila a `e(expr)` |
+| `attr` (sin valor) | booleano `true` |
+| `{{ $attributes }}` | renderiza los atributos extra como HTML (`id="x" class="y"`) |
+| `$attributes->merge(['class' => 'base'])` | combina: `class`/`style` se concatenan, el resto gana el del uso |
+| `$attributes->get/has/only/except/all` | acceso programatico a la bolsa |
+| `@class([...])`, `@style([...])`, `@checked/@selected/@disabled/@readonly/@required` | directivas condicionales |
+| `<x-sub.carpeta>` | `resources/views/components/sub/carpeta.php` |
+| Nombre de componente | solo valida PHP: `data-id` como prop NO puede extraerse a variable (queda en `$attributes`) |
 
-### Directivas de Formularios y Seguridad
+Componentes incluidos: `x-alert`, `x-badge`, `x-button`, `x-card`, `x-input`, `x-textarea` (props documentadas en el propio archivo).
 
-| Directiva | Descripcion |
-|---|---|
-| `@csrf` | Genera `<input type="hidden" name="_token">` para proteccion CSRF |
-| `@method('PUT')` | Genera `<input type="hidden" name="_method">` para otros metodos HTTP |
+## URLs y Assets
 
-### Directivas de Autenticacion
-
-| Directiva | Descripcion |
-|---|---|
-| `@auth` ... `@endauth` | Renderiza si hay usuario autenticado |
-| `@guest` ... `@endguest` | Renderiza si NO hay usuario autenticado |
-
-### Directivas de Errores y Debug
-
-| Directiva | Descripcion |
-|---|---|
-| `@error('campo')` ... `@enderror` | Renderiza si existe error de validacion. `$message` contiene el error |
-| `@dump($var)` | Ejecuta `var_dump` sin detener ejecucion |
-| `@dd($var)` | Ejecuta `var_dump` y detiene ejecucion |
-
-### Otras Directivas
-
-| Directiva | Descripcion |
-|---|---|
-| `{{-- comentario --}}` | Comentario que NO aparece en el HTML |
-| `@asset('ruta/al/archivo')` | Genera URL con cache-busting automatico (`?v=timestamp`) |
-
-## Componentes x-
-
-Los componentes se ubican en `resources/views/components/` y se registran automaticamente.
-
-### Sintaxis
-
-```php
-// Self-closing
-<x-badge color="blue" />
-
-// Con contenido
-<x-card>Contenido aqui</x-card>
-
-// Con slots nombrados
-<x-card>
-    <x-slot:header>Titulo</x-slot:header>
-    Cuerpo del card
-</x-card>
+```blade
+<a href="{{ route('blog.show', ['id' => 1]) }}">Ver</a>
+<link href="@asset('assets/css/home.css')" rel="stylesheet">
 ```
 
-### Componentes Disponibles
-
-**`<x-alert>`** — Alerta con variantes
-- Props: `type` (success/error/warning/info), `title` (opcional)
-```php
-<x-alert type="success" title="Exito!">Operacion realizada.</x-alert>
-```
-
-**`<x-card>`** — Tarjeta con slots header/footer
-- Props: `class`, `shadow` (bool), `padding` (sm/md/lg)
-```php
-<x-card>
-    <x-slot:header><h2>Titulo</h2></x-slot:header>
-    Contenido
-</x-card>
-```
-
-**`<x-button>`** — Boton o enlace
-- Props: `type`, `variant` (primary/secondary/danger/ghost), `size` (sm/md/lg), `href`, `disabled`, `class`
-```php
-<x-button type="submit" variant="primary" size="lg">Iniciar Sesion</x-button>
-<x-button href="{{ route('dashboard.index') }}" variant="secondary">Volver</x-button>
-```
-
-**`<x-input>`** — Campo de formulario con validacion
-- Props: `name` (requerido), `label`, `type`, `placeholder`, `required`, `class`, `variant` (standard/floating)
-- Recupera `old()` y muestra errores automaticamente
-```php
-<x-input name="title" label="Titulo" required />
-<x-input name="email" type="email" variant="floating" required />
-```
-
-**`<x-textarea>`** — Textarea con validacion
-- Props: mismos que `<x-input>` mas `rows` (default 4)
-```php
-<x-textarea name="content" label="Contenido" rows="6" required />
-```
-
-**`<x-badge>`** — Badge/pill de colores
-- Props: `color` (blue/green/red/yellow/gray)
-```php
-<x-badge color="green">Publicado</x-badge>
-```
-
-> **Regla critica**: Los atributos de `<x-componente>` solo aceptan valores literales. NO se pueden pasar expresiones PHP como valores.
+`@asset('ruta')` genera la URL absoluta con cache-busting: `http://host/assets/css/home.css?v=1733...` (v = `filemtime` del archivo; si no existe, sin version).
 
 ## Directivas Personalizadas
 
-Se pueden registrar directivas personalizadas con `CronosEngine::directive()`:
-
 ```php
-use Cronos\View\CronosEngine;
+use Cronos\View\Compiler\BladeCompiler;
 
-// Sin argumentos
-CronosEngine::directive('currentYear', function () {
-    return '<?php echo date("Y"); ?>';
-});
-
-// Con argumentos
-CronosEngine::directive('datetime', function ($expression) {
-    return "<?php echo date('Y-m-d H:i:s', {$expression}); ?>";
-});
-
-CronosEngine::directive('uppercase', function ($expression) {
-    return "<?php echo strtoupper({$expression}); ?>";
+BladeCompiler::directive('datetime', function ($expression) {
+    return "<?php echo date('Y-m-d H:i:s', strtotime({$expression})); ?>";
 });
 ```
 
-Uso en vistas:
-```php
-<footer>&copy; @currentYear Mi Empresa.</footer>
-<p>Publicado el: @datetime($post->created_at)</p>
+```blade
+<p>Publicado: @datetime($post->created_at)</p>
 ```
 
-## Cache de Vistas
+## Cache
 
-Las vistas se cachean en `storage/cache/`. Si no ves cambios despues de modificar una vista, borra el cache:
+- Compilados en `storage/cache/views/` (un `.php` por vista, con cabecera de dependencias).
+- Se recompila **solo** si la vista o alguna dependencia (layout, includes, componentes) es mas nueva que el compilado.
+- Limpiar manualmente:
 
 ```bash
-# Windows
-Remove-Item storage\cache\*.php
-
-# Linux/Mac
-rm storage/cache/*.php
+Remove-Item storage\cache\views\*.php   # Windows
+rm storage/cache/views/*.php            # Linux/Mac
 ```
 
-**Debe borrar el cache manualmente cuando:**
-- Modificas `System/View/CronosEngine.php`
-- Agregas o modificas directivas personalizadas
-- El cache esta corrupto
+## Diferencias con Blade de Laravel
 
-## Obtener Rutas en Vistas
+| Laravel 13 | Cronos |
+|---|---|
+| Compilador idéntico en sintaxis `@directiva`, `{{ }}`, `<x-*>` | Misma sintaxis |
+| Componentes con clase PHP (`make:component`) | Solo componentes anonimos (archivo) |
+| `@can`, `@canany` (policies) | No hay policies; usar `@auth` + condiciones |
+| `@lang`, `@choice` (i18n) | No implementado |
+| `$attributes->class([...])` | Existe; ademas `@class([...])` global |
+| Cache invalida por mtime del propio archivo | Cache invalida por vista **y dependencias** |
+| `@each` | Igual |
+| Directivas pegadas a letras (`@endifX`) | No compilan (igual que Laravel); separar con espacio |
+| `{{ }}` escapa con `e()` | Igual; `e()` tambien acepta objetos con `toHtml()` (bolsas de atributos) |
 
-```php
-<a href="<?= route('home.login') ?>">Login</a>
-<a href="<?= route('home.login', ['id' => 1]) ?>">Login</a>
-```
+## Errores Comunes
+
+| Sintoma | Causa | Solucion |
+|---|---|---|
+| `Too few arguments to function e()` | `{{ }}` vacio en la vista | Revisar `{{  }}` sin contenido |
+| `La directiva @foreach requiere una expresion` | `@foreach` sin parentesis | `@foreach($x as $y)` |
+| La directiva aparece literal en el HTML | Pegada a una letra (`OK@endif`) o mal escrita | Separar con espacio; revisar nombre |
+| `La vista [x] no existe` | Ruta/nombre incorrecto | Verificar carpeta y notacion de punto |
+| Cambios en la vista no se ven | Cache con mtime futuro (edicion automatica) | Borrar `storage/cache/views` |
+| Slot no recibe `{{ $var }}` del padre | El contenido no pertenece al slot | Verificar `<x-slot:...>` balanceado |
 
 ---
 

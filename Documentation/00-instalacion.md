@@ -64,7 +64,7 @@
 │   ├── 📁 Session/           # Sistema de sesiones
 │   ├── 📁 Storage/           # Almacenamiento
 │   ├── 📁 Validation/        # Sistema de validacion
-│   └── 📁 View/              # Motor de plantillas (CronosEngine)
+│   └── 📁 View/              # Motor de plantillas Blade (BladeEngine)
 ├── 📁 storage/
 │   ├── 📁 cache/             # Cache de vistas compiladas
 │   └── 📁 logs/              # Logs de aplicacion
@@ -93,7 +93,7 @@ DIR_IMG     // path.../public/PATH_FILE_STORAGE (definido en .env)
 5. **Pipeline de Middlewares**: globales → ruta → controlador (patron onion)
 6. **Controlador**: se instancia y se llama al metodo con los parametros de la URL
 7. **Modelo**: usa PdoDriver para ejecutar queries SQL
-8. **Vista**: CronosEngine compila directivas Blade-like a PHP, se cachea en `storage/cache/`
+8. **Vista**: BladeEngine compila directivas Blade a PHP con cache por dependencias en `storage/cache/views/`
 9. **Response**: se envian headers y contenido (JSON, HTML o redireccion)
 10. **Finalizacion**: se cierra la sesion, se limpia flash data
 

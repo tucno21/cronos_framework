@@ -10,7 +10,7 @@ class ExceptionHandler
     public function handle(Throwable $e): Response
     {
         if ($e instanceof HttpNotFoundException) {
-            return view('error/404')->setStatusCode(404);
+            return view('errors.404')->setStatusCode(404);
         }
 
         if ($e instanceof RouteException) {

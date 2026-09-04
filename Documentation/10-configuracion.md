@@ -102,9 +102,9 @@ return [
 ];
 ```
 
-- `engine`: Solo soporta `'cronos'` (motor CronosEngine)
+- `engine`: Solo soporta `'blade'` (motor BladeEngine)
 - `path`: Directorio de vistas (`resources/views/`)
-- `cache`: Directorio de cache (`storage/cache/`)
+- `cache`: Directorio base de cache; las vistas compiladas van en `storage/cache/views/`
 
 ### config/hashing.php
 

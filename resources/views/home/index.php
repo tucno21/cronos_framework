@@ -1,5 +1,8 @@
-@include('home.layouts.head')
+@extends('layouts.app')
 
+@section('title', 'Cronos Framework')
+
+@section('content')
 <div class="bg-slate-100 mt-16 min-h-[calc(100vh-4rem)] flex items-center">
     <div class="container mx-auto">
         <div class="h-full flex flex-col md:flex-row gap-4 md:gap-6 p-3 md:p-6 justify-center items-center">
@@ -10,10 +13,11 @@
                 <p class="mt-4 mb-4">
                     Este mini-framework, inspirado en Laravel y diseñado para proyectos pequeños, fue creado como parte de mi aprendizaje en PHP. Mi objetivo fue imitar las funcionalidades básicas y más utilizadas en los tutoriales de Laravel. Actualmente, el framework está en desarrollo y se actualizará con nuevas funcionalidades en el futuro.
                 </p>
-                <a href="https://github.com/tucno21/cronos_framework" target="_blank" class="bg-blue-800 text-white px-3 py-2 rounded text-center">
+                <x-button href="https://github.com/tucno21/cronos_framework" target="_blank" rel="noopener">
                     Ver Proyecto
-                </a>
+                </x-button>
             </div>
+
             <div class="flex-1 flex flex-col justify-center items-center">
                 <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" fill="currentColor" class="bi bi-cpu-fill text-blue-800" viewBox="0 0 16 16">
                     <path d="M6.5 6a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3z" />
@@ -21,10 +25,8 @@
                 </svg>
                 <span class="block font-bold text-2xl drop-shadow-lg text-blue-800">Cronos Framework</span>
                 <span class="block font-bold text-2xl drop-shadow-lg text-blue-800">PHP</span>
-
             </div>
         </div>
     </div>
 </div>
-
-@include('home.layouts.footer')
+@endsection

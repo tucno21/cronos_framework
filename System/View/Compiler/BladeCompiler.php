@@ -9,6 +9,24 @@ class BladeCompiler
     protected const PLACEHOLDER_VERBATIM = '__CRONOS_VERBATIM_%d__';
     protected const PLACEHOLDER_ESCAPED = '__CRONOS_ESCAPED_%d__';
 
+    /** @var array<string, callable> directivas personalizadas registradas */
+    protected static array $customDirectives = [];
+
+    /**
+     * registra una directiva personalizada.
+     * el handler recibe la expresion entre parentesis (o null si no tiene)
+     * y retorna el codigo PHP de reemplazo (o null para dejar la directiva como texto).
+     */
+    public static function directive(string $name, callable $handler): void
+    {
+        static::$customDirectives[$name] = $handler;
+    }
+
+    public static function getCustomDirectives(): array
+    {
+        return static::$customDirectives;
+    }
+
     /**
      * exclusion de variables internas del scope al pasar el scope actual
      * a una sub-vista (evita que extract() pise el render en curso)
@@ -49,6 +67,8 @@ class BladeCompiler
         $value = $this->compileConditionalAttributes($value);
         $value = $this->compileFormSecurity($value);
         $value = $this->compileAsset($value);
+        $value = $this->compileDebug($value);
+        $value = $this->compileCustomDirectives($value);
         $value = $this->compileXComponents($value);
         $value = $this->compilePhpBlock($value);
         $value = $this->compileRawEcho($value);
@@ -570,6 +590,29 @@ class BladeCompiler
     protected function compileAsset(string $value): string
     {
         return $this->compileTokenDirective($value, 'asset', fn (?string $expr) => "<?php echo asset({$expr}); ?>", true);
+    }
+
+    /**
+     * compila @dump y @dd para debug en plantillas
+     */
+    protected function compileDebug(string $value): string
+    {
+        $value = $this->compileTokenDirective($value, 'dump', fn (?string $expr) => "<?php var_dump({$expr}); ?>", true);
+        $value = $this->compileTokenDirective($value, 'dd', fn (?string $expr) => "<?php var_dump({$expr}); exit(1); ?>", true);
+
+        return $value;
+    }
+
+    /**
+     * compila las directivas personalizadas registradas con directive()
+     */
+    protected function compileCustomDirectives(string $value): string
+    {
+        foreach (static::$customDirectives as $name => $handler) {
+            $value = $this->compileTokenDirective($value, $name, fn (?string $expr) => $handler($expr), false);
+        }
+
+        return $value;
     }
 
     /**
