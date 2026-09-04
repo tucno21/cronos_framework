@@ -11,15 +11,20 @@ class BladeCompiler
 
     protected array $verbatimSegments = [];
     protected array $escapedSegments = [];
+    protected string $extendsFooter = '';
 
     public function compileString(string $value): string
     {
         $this->verbatimSegments = [];
         $this->escapedSegments = [];
+        $this->extendsFooter = '';
 
         $value = $this->compileEscapedDirectives($value);
         $value = $this->compileVerbatim($value);
         $value = $this->compileComments($value);
+        $value = $this->compileExtends($value);
+        $value = $this->compileSections($value);
+        $value = $this->compileYield($value);
         $value = $this->compilePhpBlock($value);
         $value = $this->compileRawEcho($value);
         $value = $this->compileBreakContinue($value);
@@ -35,6 +40,10 @@ class BladeCompiler
         $value = $this->compileEcho($value);
 
         $value = $this->restoreEscaped($value);
+
+        //el layout se renderiza al final de la vista hija, cuando las
+        //secciones ya fueron capturadas (mecanismo de @extends de Blade)
+        $value .= $this->extendsFooter;
 
         return $this->restoreVerbatim($value);
     }
@@ -222,6 +231,143 @@ class BladeCompiler
     protected function compileComments(string $value): string
     {
         return preg_replace('/\{\{--.*?--\}\}/s', '', $value) ?? $value;
+    }
+
+    /**
+     * captura @extends('layout') y lo elimina del flujo.
+     * la llamada de renderizado del layout se anexa al footer de la vista,
+     * de modo que el padre se renderiza al final, cuando las secciones
+     * de la vista hija ya fueron capturadas. si hay varios @extends, gana el ultimo.
+     *
+     * el footer excluye las variables internas del scope de renderizado
+     * (__viewPath, __viewData, __viewEnv) para que el extract() del layout
+     * no pueda colisionar con ellas.
+     */
+    protected function compileExtends(string $value): string
+    {
+        $this->extendsFooter = '';
+
+        return preg_replace_callback(
+            '/@extends\s*\(\s*([\'"])([^\'"]+)\1\s*\)/',
+            function (array $match): string {
+                $view = str_replace(['\\', '\''], ['\\\\', '\\\''], $match[2]);
+                $this->extendsFooter = "<?php echo \$__env->renderLayout('{$view}', "
+                    . "array_diff_key(get_defined_vars(), ['__viewPath' => 1, '__viewData' => 1, '__viewEnv' => 1])); ?>";
+
+                return '';
+            },
+            $value
+        ) ?? $value;
+    }
+
+    /**
+     * compila la directiva de seccion en sus dos formas y sus cierres:
+     * forma corta `section('nombre', contenido)` (expresion evaluada al renderizar)
+     * y bloque `section('nombre')` cerrado por endsection, stop, show u overwrite.
+     */
+    protected function compileSections(string $value): string
+    {
+        $value = $this->compileTokenDirective($value, 'section', function (?string $expr) {
+            if ($expr === null) {
+                throw ViewCompileException::forView('', 'La directiva @section requiere una expresion entre parentesis');
+            }
+
+            [$name, $content] = $this->splitTopLevelArguments($expr, 'section');
+
+            return $content === null
+                ? "<?php \$__env->startSection({$name}); ?>"
+                : "<?php \$__env->startSection({$name}, {$content}); ?>";
+        }, true);
+
+        $value = $this->compileTokenDirective($value, 'endsection', fn () => '<?php $__env->stopSection(); ?>');
+        $value = $this->compileTokenDirective($value, 'stop', fn () => '<?php $__env->stopSection(); ?>');
+        $value = $this->compileTokenDirective($value, 'show', fn () => '<?php $__env->showSection(); ?>');
+        $value = $this->compileTokenDirective($value, 'overwrite', fn () => '<?php $__env->stopSection(true); ?>');
+
+        return $value;
+    }
+
+    /**
+     * compila @yield con default, @hasSection y @sectionMissing
+     */
+    protected function compileYield(string $value): string
+    {
+        $value = $this->compileTokenDirective($value, 'yield', function (?string $expr) {
+            if ($expr === null) {
+                throw ViewCompileException::forView('', 'La directiva @yield requiere una expresion entre parentesis');
+            }
+
+            [$name, $default] = $this->splitTopLevelArguments($expr, 'yield');
+
+            $defaultArgument = $default ?? "''";
+
+            return "<?php echo \$__env->yieldSection({$name}, {$defaultArgument}); ?>";
+        }, true);
+
+        $value = $this->compileTokenDirective($value, 'hasSection', fn (?string $expr) => "<?php if (\$__env->hasSection({$expr})): ?>", true);
+        $value = $this->compileTokenDirective($value, 'sectionMissing', fn (?string $expr) => "<?php if (\$__env->missingSection({$expr})): ?>", true);
+
+        return $value;
+    }
+
+    /**
+     * separa los argumentos de una directiva por comas al nivel superior
+     * (respetando strings y parentesis/corchetes anidados)
+     *
+     * @return array{0:string, 1:?string} [primerArgumento, resto|null]
+     */
+    protected function splitTopLevelArguments(string $expression, string $directive): array
+    {
+        $parts = [];
+        $current = '';
+        $depth = 0;
+        $inString = null;
+        $length = strlen($expression);
+
+        for ($i = 0; $i < $length; $i++) {
+            $char = $expression[$i];
+
+            if ($inString !== null) {
+                $current .= $char;
+
+                if ($char === '\\') {
+                    $current .= $expression[++$i] ?? '';
+                    continue;
+                }
+
+                if ($char === $inString) {
+                    $inString = null;
+                }
+
+                continue;
+            }
+
+            if ($char === '\'' || $char === '"') {
+                $inString = $char;
+                $current .= $char;
+                continue;
+            }
+
+            if ($char === '(' || $char === '[') {
+                $depth++;
+            } elseif ($char === ')' || $char === ']') {
+                $depth--;
+            } elseif ($char === ',' && $depth === 0) {
+                $parts[] = trim($current);
+                $current = '';
+                continue;
+            }
+
+            $current .= $char;
+        }
+
+        $parts[] = trim($current);
+
+        if ($parts[0] === '') {
+            throw ViewCompileException::forView('', "La directiva @{$directive} requiere un nombre de seccion");
+        }
+
+        return [$parts[0], $parts[1] ?? null];
     }
 
     protected function compilePhpBlock(string $value): string
