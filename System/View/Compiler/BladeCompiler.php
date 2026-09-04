@@ -25,6 +25,7 @@ class BladeCompiler
         $value = $this->compileExtends($value);
         $value = $this->compileSections($value);
         $value = $this->compileYield($value);
+        $value = $this->compileStacks($value);
         $value = $this->compilePhpBlock($value);
         $value = $this->compileRawEcho($value);
         $value = $this->compileBreakContinue($value);
@@ -306,6 +307,51 @@ class BladeCompiler
 
         $value = $this->compileTokenDirective($value, 'hasSection', fn (?string $expr) => "<?php if (\$__env->hasSection({$expr})): ?>", true);
         $value = $this->compileTokenDirective($value, 'sectionMissing', fn (?string $expr) => "<?php if (\$__env->missingSection({$expr})): ?>", true);
+
+        return $value;
+    }
+
+    /**
+     * compila los stacks: push y prepend en forma corta o bloque,
+     * y stack para imprimir el contenido acumulado en ese punto del render.
+     */
+    protected function compileStacks(string $value): string
+    {
+        $value = $this->compileTokenDirective($value, 'push', function (?string $expr) {
+            if ($expr === null) {
+                throw ViewCompileException::forView('', 'La directiva @push requiere una expresion entre parentesis');
+            }
+
+            [$name, $content] = $this->splitTopLevelArguments($expr, 'push');
+
+            return $content === null
+                ? "<?php \$__env->startPush({$name}); ?>"
+                : "<?php \$__env->startPush({$name}, {$content}); ?>";
+        }, true);
+
+        $value = $this->compileTokenDirective($value, 'endpush', fn () => '<?php $__env->stopPush(); ?>');
+
+        $value = $this->compileTokenDirective($value, 'prepend', function (?string $expr) {
+            if ($expr === null) {
+                throw ViewCompileException::forView('', 'La directiva @prepend requiere una expresion entre parentesis');
+            }
+
+            [$name, $content] = $this->splitTopLevelArguments($expr, 'prepend');
+
+            return $content === null
+                ? "<?php \$__env->startPrepend({$name}); ?>"
+                : "<?php \$__env->startPrepend({$name}, {$content}); ?>";
+        }, true);
+
+        $value = $this->compileTokenDirective($value, 'endprepend', fn () => '<?php $__env->stopPrepend(); ?>');
+
+        $value = $this->compileTokenDirective($value, 'stack', function (?string $expr) {
+            if ($expr === null) {
+                throw ViewCompileException::forView('', 'La directiva @stack requiere una expresion entre parentesis');
+            }
+
+            return "<?php echo \$__env->yieldStack({$expr}); ?>";
+        }, true);
 
         return $value;
     }

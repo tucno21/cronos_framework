@@ -19,6 +19,12 @@ class SectionManager
     /** @var list<string> pila de secciones abiertas (soporta anidamiento) */
     protected array $sectionStack = [];
 
+    /** @var array<string, string> contenido acumulado por stack */
+    protected array $stacks = [];
+
+    /** @var list<string> pila de pushes/prepends abiertos */
+    protected array $pushStack = [];
+
     public function startSection(string $name, ?string $content = null): void
     {
         if ($content === null) {
@@ -113,5 +119,74 @@ class SectionManager
     public function renderLayout(string $view, array $vars): void
     {
         throw new \LogicException('renderLayout() debe ser implementado por el motor de vistas');
+    }
+
+    // ── stacks (@push / @prepend / @stack) ────────────────
+
+    public function startPush(string $stack, ?string $content = null): void
+    {
+        if ($content === null) {
+            $this->pushStack[] = $stack;
+            ob_start();
+
+            return;
+        }
+
+        $this->extendStack($stack, $content, false);
+    }
+
+    public function stopPush(): void
+    {
+        $this->closePush(false);
+    }
+
+    public function startPrepend(string $stack, ?string $content = null): void
+    {
+        if ($content === null) {
+            $this->pushStack[] = $stack;
+            ob_start();
+
+            return;
+        }
+
+        $this->extendStack($stack, $content, true);
+    }
+
+    public function stopPrepend(): void
+    {
+        $this->closePush(true);
+    }
+
+    /**
+     * contenido acumulado de un stack en este punto del render (@stack)
+     */
+    public function yieldStack(string $stack): string
+    {
+        return $this->stacks[$stack] ?? '';
+    }
+
+    protected function closePush(bool $prepend): void
+    {
+        $stack = array_pop($this->pushStack);
+
+        if ($stack === null) {
+            //cierre sin apertura previa: descartar el buffer para no romper el render
+            ob_get_clean();
+
+            return;
+        }
+
+        $this->extendStack($stack, (string) ob_get_clean(), $prepend);
+    }
+
+    protected function extendStack(string $stack, string $content, bool $prepend): void
+    {
+        if ($prepend) {
+            $this->stacks[$stack] = $content . ($this->stacks[$stack] ?? '');
+
+            return;
+        }
+
+        $this->stacks[$stack] = ($this->stacks[$stack] ?? '') . $content;
     }
 }
