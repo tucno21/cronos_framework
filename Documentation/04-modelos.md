@@ -335,6 +335,31 @@ Publicacion::has('comentarios')->withCount('comentarios')->with('usuario')->get(
 - Funciona en `get()` y `first()`. El atributo se llama `{relacion}_count`.
 - Soporta hasOne/hasMany, belongsTo y belongsToMany.
 
+## Escritura de Pivotes (attach / detach / sync)
+
+Para relaciones `belongsToMany`, el objeto de relacion permite escribir la tabla pivote:
+
+```php
+//ATTACH: agrega ids al pivote (duplicados ignorados); retorna filas insertadas
+$publicacion->etiquetas()->attach(3);
+$publicacion->etiquetas()->attach([1, 2, 3]);
+
+//DETACH: elimina ids del pivote; retorna filas eliminadas
+$publicacion->etiquetas()->detach(3);       //solo la 3
+$publicacion->etiquetas()->detach([1, 2]);  //las 1 y 2
+$publicacion->etiquetas()->detach();        //TODAS las de esta publicacion
+
+//SYNC: sincroniza el pivote con la lista exacta
+$resultado = $usuario->roles()->sync([2, 3]);
+// $resultado = ['attached' => [3], 'detached' => [1], 'updated' => []]
+
+$usuario->roles()->sync([]);   //desasocia todo (equivale a detach() sin argumentos)
+```
+
+- Requieren que el modelo padre tenga clave primaria (si no, lanzan `Error`).
+- El pivote queda reflejado al volver a consultar la relacion (`$publicacion->etiquetas()->get()`).
+- No hay columnas extra de pivote ni `withTimestamps` (pivotes simples: 2 claves).
+
 ## Consultas Personalizadas (SQL Directo)
 
 ```php
@@ -697,7 +722,9 @@ El ORM **parametriza los valores** y ademas **valida los identificadores** (colu
 - Events de modelo
 - Observers
 - Closures en `with()` para relaciones `belongsToMany` (el resto si las soporta)
-- `attach()` / `detach()` / `sync()` en pivotes (solo lectura de la relacion N:M)
+- Columnas extra en pivotes y `withTimestamps` (pivotes de 2 claves; usar SQL directo para extras)
+- `toggle()` y `syncWithoutDetaching()` en pivotes
+- `$modelo->relacion()->create()` (guardar a traves de relaciones) y `associate()`/`dissociate()`
 - Relaciones `hasManyThrough` y morfologicas (`morphOne`/`morphMany`/`morphTo`; las tablas `comentables`/`etiquetables` se manejan con SQL directo)
 - Subqueries en `where()` (las de `has()`/`whereHas()` son generadas por el ORM)
 - Paginacion automatica (usar `limit` + `offset` + `count`)
