@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'engine' => 'cronos',
+    'engine' => 'blade',
     'path' => resourcesDirectory() . '/views',
     'cache' => cacheDirectory(),
 ];

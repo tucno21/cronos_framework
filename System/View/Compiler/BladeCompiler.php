@@ -20,12 +20,21 @@ class BladeCompiler
     protected string $extendsFooter = '';
     protected int $componentCounter = 0;
 
-    public function compileString(string $value): string
+    /** @var list<string> nombres de vistas referenciadas (extends, includes, componentes) */
+    protected array $viewDependencies = [];
+
+    /**
+     * compila una plantilla blade a codigo PHP.
+     *
+     * @param string $viewName nombre de la vista para claves de @once/@pushOnce
+     */
+    public function compileString(string $value, string $viewName = ''): string
     {
         $this->verbatimSegments = [];
         $this->escapedSegments = [];
         $this->extendsFooter = '';
         $this->componentCounter = 0;
+        $this->viewDependencies = [];
 
         $value = $this->compileEscapedDirectives($value);
         $value = $this->compileVerbatim($value);
@@ -35,8 +44,11 @@ class BladeCompiler
         $value = $this->compileYield($value);
         $value = $this->compileStacks($value);
         $value = $this->compileIncludes($value);
+        $value = $this->compileOnce($value, $viewName);
         $value = $this->compileProps($value);
         $value = $this->compileConditionalAttributes($value);
+        $value = $this->compileFormSecurity($value);
+        $value = $this->compileAsset($value);
         $value = $this->compileXComponents($value);
         $value = $this->compilePhpBlock($value);
         $value = $this->compileRawEcho($value);
@@ -59,6 +71,27 @@ class BladeCompiler
         $value .= $this->extendsFooter;
 
         return $this->restoreVerbatim($value);
+    }
+
+    /**
+     * nombres de vistas referenciadas por la ultima compilacion,
+     * usados por el motor para la invalidacion del cache por dependencias
+     *
+     * @return list<string>
+     */
+    public function getDependencies(): array
+    {
+        return $this->viewDependencies;
+    }
+
+    /**
+     * registra una vista referenciada si el argumento es un literal entre comillas
+     */
+    protected function recordDependency(?string $viewExpression): void
+    {
+        if ($viewExpression !== null && preg_match('/^([\'"])(.+)\1$/', $viewExpression, $match)) {
+            $this->viewDependencies[] = $match[2];
+        }
     }
 
     /**
@@ -264,6 +297,7 @@ class BladeCompiler
             '/@extends\s*\(\s*([\'"])([^\'"]+)\1\s*\)/',
             function (array $match): string {
                 $view = str_replace(['\\', '\''], ['\\\\', '\\\''], $match[2]);
+                $this->viewDependencies[] = $match[2];
                 $this->extendsFooter = "<?php echo \$__env->makeView('{$view}', "
                     . 'array_diff_key(get_defined_vars(), ' . self::INTERNAL_VIEW_VARS_FILTER . ')); ?>';
 
@@ -387,6 +421,7 @@ class BladeCompiler
 
             [$view, $data] = $this->splitTopLevelArguments($expr, 'include');
 
+            $this->recordDependency($view);
             $dataArgument = $data !== null ? "({$data}) + {$scopeFilter}" : $scopeFilter;
 
             return "<?php echo \$__env->makeView({$view}, {$dataArgument}); ?>";
@@ -399,6 +434,7 @@ class BladeCompiler
 
             [$view, $data] = $this->splitTopLevelArguments($expr, 'includeIf');
 
+            $this->recordDependency($view);
             $dataArgument = $data !== null ? "({$data}) + {$scopeFilter}" : $scopeFilter;
 
             return "<?php if (\$__env->viewExists({$view})) { echo \$__env->makeView({$view}, {$dataArgument}); } ?>";
@@ -425,6 +461,9 @@ class BladeCompiler
             $emptyView = $parts[3] ?? 'null';
             $extraData = $parts[4] ?? '[]';
 
+            $this->recordDependency($view);
+            $this->recordDependency($emptyView !== 'null' ? $emptyView : null);
+
             return "<?php echo \$__env->renderEach({$view}, {$iterable}, {$variable}, {$emptyView}, {$extraData}); ?>";
         }, true);
 
@@ -449,10 +488,88 @@ class BladeCompiler
         [$condition, $view] = $parts;
         $data = $parts[2] ?? null;
 
+        $this->recordDependency($view);
         $dataArgument = $data !== null ? "({$data}) + {$scopeFilter}" : $scopeFilter;
         $operator = $negate ? '!' : '';
 
         return "<?php if ({$operator}({$condition})) { echo \$__env->makeView({$view}, {$dataArgument}); } ?>";
+    }
+
+    /**
+     * compila @once y @pushOnce: el contenido se renderiza una sola vez por
+     * render (clave = nombre de vista, y nombre de stack para pushOnce)
+     */
+    protected function compileOnce(string $value, string $viewName): string
+    {
+        while (($block = BlockMatcher::find($value, 'once', 'endonce')) !== null) {
+            $key = var_export($viewName, true);
+            $replacement = "<?php if (\$__env->beginOnce({$key})): ?>"
+                . $block['body']
+                . '<?php $__env->endOnce(); endif; ?>';
+
+            $value = substr($value, 0, $block['start']) . $replacement . substr($value, $block['end']);
+        }
+
+        while (($block = BlockMatcher::find($value, 'pushOnce', 'endPushOnce')) !== null) {
+            $extract = $this->extractParenExpression($block['body']);
+
+            if ($extract === null) {
+                throw ViewCompileException::forView('', 'La directiva @pushOnce requiere el nombre del stack entre parentesis');
+            }
+
+            $stack = trim($extract['expr']);
+            $key = var_export($viewName . ':', true) . " . {$stack}";
+
+            $replacement = "<?php if (\$__env->beginPushOnce({$key}, {$stack})): ?>"
+                . $extract['rest']
+                . '<?php $__env->endPushOnce(); endif; ?>';
+
+            $value = substr($value, 0, $block['start']) . $replacement . substr($value, $block['end']);
+        }
+
+        return $value;
+    }
+
+    /**
+     * compila @csrf, @method y @error/@enderror sobre la sesion del proyecto
+     */
+    protected function compileFormSecurity(string $value): string
+    {
+        $value = $this->compileTokenDirective($value, 'csrf', fn () => '<?php echo \'<input type="hidden" name="_token" value="\' . e(csrf_token()) . \'">\'; ?>');
+
+        $value = $this->compileTokenDirective($value, 'method', function (?string $expr) {
+            if ($expr === null) {
+                throw ViewCompileException::forView('', 'La directiva @method requiere el verbo HTTP entre parentesis');
+            }
+
+            $verb = strtoupper(trim($expr, '\'" '));
+
+            if (!in_array($verb, ['PUT', 'PATCH', 'DELETE'], true)) {
+                throw ViewCompileException::forView('', "Verbo HTTP no soportado por @method: [{$verb}]");
+            }
+
+            return "<?php echo '<input type=\"hidden\" name=\"_method\" value=\"{$verb}\">'; ?>";
+        }, true);
+
+        $value = $this->compileTokenDirective($value, 'error', function (?string $expr) {
+            if ($expr === null) {
+                throw ViewCompileException::forView('', 'La directiva @error requiere el nombre del campo entre parentesis');
+            }
+
+            return "<?php if ((\$message = session()->error({$expr})) !== null): ?>";
+        }, true);
+
+        $value = $this->compileTokenDirective($value, 'enderror', fn () => '<?php unset($message); endif; ?>');
+
+        return $value;
+    }
+
+    /**
+     * compila @asset('ruta') al helper asset() con versionado
+     */
+    protected function compileAsset(string $value): string
+    {
+        return $this->compileTokenDirective($value, 'asset', fn (?string $expr) => "<?php echo asset({$expr}); ?>", true);
     }
 
     /**
@@ -605,6 +722,7 @@ class BladeCompiler
         $slots['default'] = $defaultContent;
 
         $view = 'components/' . str_replace('.', '/', $name);
+        $this->viewDependencies[] = $view;
         $props = $this->exportXProps($this->parseXAttributes($attrs));
         $suffix = '_' . (++$this->componentCounter);
 

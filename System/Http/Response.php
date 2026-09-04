@@ -182,9 +182,14 @@ class Response
         return $this;
     }
 
+    /**
+     * renderiza una vista con el motor de plantillas registrado.
+     * el tercer parametro esta deprecado: los layouts se resuelven
+     * con @extends dentro de la propia vista.
+     */
     public static function view(string $viewName, array $params = [], ?string $layout = null): self
     {
-        $content = app(View::class)->render($viewName, $params, $layout);
+        $content = app(View::class)->render($viewName, $params);
 
         return (new self())
             ->setContentType("text/html")

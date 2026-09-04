@@ -25,6 +25,12 @@ class SectionManager
     /** @var list<string> pila de pushes/prepends abiertos */
     protected array $pushStack = [];
 
+    /** @var array<string, true> claves once ya ejecutadas en este render */
+    protected array $doneOnce = [];
+
+    /** @var list<string> pila de claves/stacks de once abiertos */
+    protected array $onceStack = [];
+
     public function startSection(string $name, ?string $content = null): void
     {
         if ($content === null) {
@@ -266,6 +272,61 @@ class SectionManager
     public function yieldStack(string $stack): string
     {
         return $this->stacks[$stack] ?? '';
+    }
+
+    // ── once (@once / @pushOnce) ──────────────────────────
+
+    /**
+     * abre un bloque once: retorna true solo la primera vez por render.
+     * mientras sea true, el buffer queda abierto capturando el bloque.
+     */
+    public function beginOnce(string $key): bool
+    {
+        if (isset($this->doneOnce[$key])) {
+            return false;
+        }
+
+        $this->doneOnce[$key] = true;
+        $this->onceStack[] = $key;
+        ob_start();
+
+        return true;
+    }
+
+    /**
+     * cierra un bloque @once e imprime el contenido capturado
+     */
+    public function endOnce(): void
+    {
+        array_pop($this->onceStack);
+        echo ob_get_clean();
+    }
+
+    /**
+     * abre un bloque @pushOnce: retorna true solo la primera vez por render.
+     * el contenido capturado se agrega al stack indicado.
+     */
+    public function beginPushOnce(string $key, string $stack): bool
+    {
+        if (isset($this->doneOnce[$key])) {
+            return false;
+        }
+
+        $this->doneOnce[$key] = true;
+        $this->onceStack[] = $stack;
+        ob_start();
+
+        return true;
+    }
+
+    /**
+     * cierra un bloque @pushOnce y agrega el contenido al stack
+     */
+    public function endPushOnce(): void
+    {
+        $stack = array_pop($this->onceStack) ?? '';
+
+        $this->extendStack($stack, (string) ob_get_clean(), false);
     }
 
     protected function closePush(bool $prepend): void
