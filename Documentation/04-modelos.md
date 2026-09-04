@@ -360,6 +360,26 @@ $usuario->roles()->sync([]);   //desasocia todo (equivale a detach() sin argumen
 - El pivote queda reflejado al volver a consultar la relacion (`$publicacion->etiquetas()->get()`).
 - No hay columnas extra de pivote ni `withTimestamps` (pivotes simples: 2 claves).
 
+## firstOrNew / firstOrCreate / updateOrCreate
+
+```php
+//busca por los atributos; si no existe retorna instancia NUEVA SIN GUARDAR
+$usuario = Usuario::firstOrNew(['correo' => $correo], ['rol' => 'usuario']);
+
+//busca; si no existe lo crea (con atributos + extras)
+$usuario = Usuario::firstOrCreate(['correo' => $correo], $datosCompletos);
+
+//busca; si existe lo actualiza con $valores; si no, crea con atributos + valores
+$usuario = Usuario::updateOrCreate(
+    ['correo' => $correo],
+    ['nombre' => 'Nuevo Nombre']
+);
+```
+
+- El primer array son las condiciones de busqueda; el segundo los datos.
+- `updateOrCreate()` dispara los eventos `updating/updated` al actualizar.
+- Respetan SoftDeletes: los registros borrados no se encuentran (se crea uno nuevo).
+
 ## Guardar a traves de Relaciones (create / save / associate)
 
 ### hasOne y hasMany: create() y save()
@@ -409,6 +429,108 @@ $comentario->publicacion()->dissociate();   //publicacion_id = null en memoria
 ```
 
 > **Nota**: `dissociate()` escribe NULL en memoria; si la columna es NOT NULL el `save()` fallara a nivel BD (igual que en Eloquent, el responsable es el esquema).
+
+## Eventos de Modelo y Observers
+
+El modelo dispara eventos de ciclo de vida. Registratelos en el hook `booted()` (se ejecuta una vez por clase):
+
+```php
+class Publicacion extends Model
+{
+    protected static function booted(): void
+    {
+        static::creating(function ($publicacion) {
+            $publicacion->slug = strtolower($publicacion->slug);
+            //retornar false DETIENE la operacion
+        });
+
+        static::created(fn ($p) => Log::info('creada', ['id' => $p->id]));
+    }
+}
+```
+
+Eventos disponibles y orden en `save()`:
+
+| Momento | Eventos (en orden) |
+|---|---|
+| INSERT | `saving` -> `creating` -> (insert) -> `created` -> `saved` |
+| UPDATE | `saving` -> `updating` -> (update) -> `updated` -> `saved` |
+| DELETE | `deleting` -> (delete) -> `deleted` |
+| RESTORE | `restoring` -> (restore) -> `restored` |
+| FORCE DELETE | (delete) -> `forceDeleted` |
+| LECTURA (find/get/first) | `retrieved` |
+
+- Si un listener de `saving/creating/updating/deleting/restoring` retorna `false`, la operacion se aborta (`create()` retorna null, `save/update/delete/restore()` retornan false).
+- Los metodos estaticos para registrar tienen el nombre del evento: `Publicacion::deleting(fn ($p) => ...)`.
+
+### Observers
+
+```php
+//App/Observers/PublicacionObserver.php
+class PublicacionObserver
+{
+    public function created($publicacion): void { /* ... */ }
+    public function updated($publicacion): void { /* ... */ }
+    public function deleted($publicacion): void { /* ... */ }
+}
+
+//en booted():
+Publicacion::observe(PublicacionObserver::class);
+```
+
+### Utilidades para tests
+
+```php
+Publicacion::flushEventListeners();  //elimina listeners estaticos y re-ejecuta booted() en la proxima instancia
+```
+
+## Paginacion
+
+```php
+$pagina = Publicacion::where('estado', 'publicado')->paginate(15, (int) ($_GET['page'] ?? 1));
+
+$pagina->total;           //registros totales con el filtro aplicado
+$pagina->porPagina;
+$pagina->paginaActual;
+$pagina->ultimaPagina;
+$pagina->desde();         //indice del primer item (null si la pagina esta vacia)
+$pagina->hasta();         //indice del ultimo item (null si la pagina esta vacia)
+$pagina->items;           //ModelCollection (soporta with() y withCount())
+$pagina->toArray();       //['data' => [...], 'total' =>, 'por_pagina' =>, 'pagina_actual' =>, 'ultima_pagina' =>, 'desde' =>, 'hasta' =>]
+
+foreach ($pagina as $publicacion) { ... }   //iterable y Countable
+```
+
+- Ejecuta un COUNT + el SELECT de la pagina; respeta wheres/joins/soft deletes.
+- Si la pagina pedida queda fuera de rango, `items` viene vacio y `total` conserva el conteo real.
+
+## Accessors, Mutators y $appends
+
+```php
+class Publicacion extends Model
+{
+    //campos calculados incluidos en toArray()/toJson()
+    protected array $appends = ['titulo_mayuscula'];
+
+    //ACCESSOR: transformacion en LECTURA (get{Campo}Attribute)
+    public function getTituloMayusculaAttribute(?string $valor): ?string
+    {
+        $titulo = $valor ?? $this->attributes['titulo'] ?? null;
+
+        return $titulo === null ? null : mb_strtoupper($titulo);
+    }
+
+    //MUTATOR: transformacion en ESCRITURA (set{Campo}Attribute)
+    public function setTituloAttribute(?string $valor): ?string
+    {
+        return $valor === null ? null : mb_strtolower(trim($valor));
+    }
+}
+```
+
+- `$publicacion->titulo_mayuscula` dispara el accessor en lectura (y funciona aunque no exista columna; `null` si no hay valor detras).
+- El mutator se aplica en `create()`, `save()`, `update()` y `firstOrNew()` (no al hidratar desde la BD).
+- `$appends` agrega los campos calculados a `toArray()`/`toObject()`/`toJson()`.
 
 ## Consultas Personalizadas (SQL Directo)
 
@@ -767,17 +889,15 @@ El ORM **parametriza los valores** y ademas **valida los identificadores** (colu
 
 ## Lo que NO Soporta (vs Eloquent)
 
-- Scopes
-- Accessors y Mutators (solo casts de tipo)
-- Events de modelo
-- Observers
+- Scopes de query (`scopeActivos()`)
 - Closures en `with()` para relaciones `belongsToMany` (el resto si las soporta)
 - Columnas extra en pivotes y `withTimestamps` (pivotes de 2 claves; usar SQL directo para extras)
 - `toggle()` y `syncWithoutDetaching()` en pivotes
 - `$modelo->relacion()->create()`/`save()` en `belongsToMany` (solo en hasOne/hasMany)
 - Relaciones `hasManyThrough` y morfologicas (`morphOne`/`morphMany`/`morphTo`; las tablas `comentables`/`etiquetables` se manejan con SQL directo)
 - Subqueries en `where()` (las de `has()`/`whereHas()` son generadas por el ORM)
-- Paginacion automatica (usar `limit` + `offset` + `count`)
+- `chunk()`/`cursor()` para recorrer datasets grandes
+- Eventos en `update()`/`delete()` por query builder (solo se disparan en operaciones por instancia)
 
 ---
 

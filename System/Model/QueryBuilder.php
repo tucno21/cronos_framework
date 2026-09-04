@@ -524,6 +524,11 @@ final class QueryBuilder
         $this->model->validateModel();
         $this->applySoftDeleteFilter();
 
+        return $this->runCount();
+    }
+
+    private function runCount(): int
+    {
         $sql = 'SELECT COUNT(*) FROM ' . $this->model->getTable();
 
         if (!empty($this->joins)) {
@@ -535,6 +540,33 @@ final class QueryBuilder
         $result = $this->execute($sql);
 
         return (int) ((array) $result[0])['COUNT(*)'];
+    }
+
+    /**
+     * Pagina los resultados de la consulta (estilo Laravel).
+     *
+     * Ejemplo: Publicacion::where('estado', 'publicado')->paginate(15, (int) ($_GET['page'] ?? 1))
+     */
+    public function paginate(int $porPagina = 15, int $pagina = 1): Paginator
+    {
+        if ($porPagina < 1) {
+            throw new \Error('La cantidad por pagina debe ser mayor a 0');
+        }
+
+        if ($pagina < 1) {
+            $pagina = 1;
+        }
+
+        $this->model->validateModel();
+        $this->applySoftDeleteFilter();
+
+        $total = $this->runCount();
+
+        $resultado = $this->limit($porPagina)->offset(($pagina - 1) * $porPagina)->get();
+
+        $items = $resultado === null ? [] : iterator_to_array($resultado);
+
+        return new Paginator($items, $total, $porPagina, $pagina);
     }
 
     public function max(?string $column = null): int|float|string

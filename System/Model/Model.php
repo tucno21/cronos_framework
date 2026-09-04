@@ -40,6 +40,7 @@ use Cronos\Database\DatabaseDriver;
  * @method static self firstOrFail()
  * @method static self|null firstNotHidden()
  * @method static int count()
+ * @method static \Cronos\Model\Paginator paginate(int $porPagina = 15, int $pagina = 1)
  * @method static int|float|string max()
  * @method static int|float|string min()
  * @method static int|float|string sum()
@@ -81,6 +82,162 @@ abstract class Model
 
     //ATRIBUTOS TAL COMO VINIERON DE LA BD (para detectar cambios en save())
     protected array $original = [];
+
+    //ACCESSORS EXPUESTOS EN toArray()/toObject()/toJson()
+    protected array $appends = [];
+
+    //LISTENERS DE EVENTOS DE MODELO POR CLASE (creating, created, updating...)
+    private static array $modelEventListeners = [];
+
+    //CLASES YA INICIALIZADAS (booted())
+    private static array $booted = [];
+
+    private const EVENTOS_MODELO = [
+        'retrieved',
+        'creating',
+        'created',
+        'updating',
+        'updated',
+        'saving',
+        'saved',
+        'deleting',
+        'deleted',
+        'restoring',
+        'restored',
+        'forceDeleted',
+    ];
+
+    public function __construct()
+    {
+        static::bootIfNotBooted();
+    }
+
+    /**
+     * Inicializa la clase una sola vez (registra eventos definidos en booted()).
+     */
+    protected static function bootIfNotBooted(): void
+    {
+        if (!isset(self::$booted[static::class])) {
+            self::$booted[static::class] = true;
+            static::booted();
+        }
+    }
+
+    /**
+     * Hook de inicializacion del modelo: sobreescribelo en tu modelo para
+     * registrar eventos, ej. static::creating(fn ($m) => ...);
+     */
+    protected static function booted(): void
+    {
+    }
+
+    //******************************************************************
+    // EVENTOS DE MODELO (estilo Laravel)
+    //******************************************************************
+
+    public static function observe(object|string $observador): void
+    {
+        $instancia = is_object($observador) ? $observador : new $observador();
+
+        foreach (self::EVENTOS_MODELO as $evento) {
+            if (method_exists($instancia, $evento)) {
+                self::registerModelEvent($evento, fn ($modelo) => $instancia->{$evento}($modelo));
+            }
+        }
+    }
+
+    protected static function registerModelEvent(string $evento, callable $callback): void
+    {
+        self::$modelEventListeners[static::class][$evento][] = $callback;
+    }
+
+    /**
+     * Elimina todos los listeners de eventos de la clase y la marca como
+     * no inicializada (se re-registrara booted() en la proxima instancia).
+     * Pensado para tests.
+     */
+    public static function flushEventListeners(): void
+    {
+        unset(self::$modelEventListeners[static::class]);
+        unset(self::$booted[static::class]);
+    }
+
+    /**
+     * Dispara un evento del modelo. Si un listener retorna false el
+     * evento se considera "detenido" y la operacion se aborta.
+     */
+    protected function fireModelEvent(string $evento): bool
+    {
+        $listeners = self::$modelEventListeners[static::class][$evento] ?? [];
+
+        foreach ($listeners as $listener) {
+            if ($listener($this) === false) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public static function retrieved(callable $callback): void
+    {
+        self::registerModelEvent('retrieved', $callback);
+    }
+
+    public static function creating(callable $callback): void
+    {
+        self::registerModelEvent('creating', $callback);
+    }
+
+    public static function created(callable $callback): void
+    {
+        self::registerModelEvent('created', $callback);
+    }
+
+    public static function updating(callable $callback): void
+    {
+        self::registerModelEvent('updating', $callback);
+    }
+
+    public static function updated(callable $callback): void
+    {
+        self::registerModelEvent('updated', $callback);
+    }
+
+    public static function saving(callable $callback): void
+    {
+        self::registerModelEvent('saving', $callback);
+    }
+
+    public static function saved(callable $callback): void
+    {
+        self::registerModelEvent('saved', $callback);
+    }
+
+    public static function deleting(callable $callback): void
+    {
+        self::registerModelEvent('deleting', $callback);
+    }
+
+    public static function deleted(callable $callback): void
+    {
+        self::registerModelEvent('deleted', $callback);
+    }
+
+    public static function restoring(callable $callback): void
+    {
+        self::registerModelEvent('restoring', $callback);
+    }
+
+    public static function restored(callable $callback): void
+    {
+        self::registerModelEvent('restored', $callback);
+    }
+
+    public static function forceDeleted(callable $callback): void
+    {
+        self::registerModelEvent('forceDeleted', $callback);
+    }
 
     //RELACIONES CARGADAS (eager o lazy) sobre la instancia
     protected array $relations = [];
@@ -149,14 +306,24 @@ abstract class Model
 
     public function __get(string $property)
     {
+        //ACCESSOR: get{Campo}Attribute transforma el valor en lectura
+        $accessor = 'get' . self::studly($property) . 'Attribute';
+
         //Verifica si la propiedad existe en el arreglo de atributos
         if (array_key_exists($property, $this->attributes)) {
-            return $this->attributes[$property];
+            $valor = $this->attributes[$property];
+
+            return method_exists($this, $accessor) ? $this->{$accessor}($valor) : $valor;
         }
 
         //Relacion ya cargada (cache de la instancia)
         if (array_key_exists($property, $this->relations)) {
             return $this->relations[$property];
+        }
+
+        //Accessor sin columna detras (campos calculados / $appends)
+        if (method_exists($this, $accessor)) {
+            return $this->{$accessor}(null);
         }
 
         //Carga perezosa (lazy) de la relacion la primera vez que se accede
@@ -179,7 +346,22 @@ abstract class Model
 
     public function __set(string $name, mixed $value)
     {
+        //MUTATOR: set{Campo}Attribute transforma el valor en escritura
+        $mutator = 'set' . self::studly($name) . 'Attribute';
+
+        if (method_exists($this, $mutator)) {
+            $value = $this->{$mutator}($value);
+        }
+
         $this->attributes[$name] = $value;
+    }
+
+    /**
+     * Convierte snake_case a StudlyCase: nombre_completo -> NombreCompleto.
+     */
+    public static function studly(string $valor): string
+    {
+        return str_replace(' ', '', ucwords(str_replace('_', ' ', $valor)));
     }
 
     public function setRelation(string $name, mixed $value): void
@@ -214,6 +396,7 @@ abstract class Model
         $model->setAttributes($row);
         $model->applyCasts();
         $model->original = $model->attributes;
+        $model->fireModelEvent('retrieved');
 
         return $model;
     }
@@ -327,6 +510,11 @@ abstract class Model
             }
         }
 
+        //campos calculados de $appends (usan accessors get{Campo}Attribute)
+        foreach ($this->appends as $campo) {
+            $data[$campo] = $this->{$campo};
+        }
+
         //incluir SOLO las relaciones explicitamente cargadas (with() o acceso previo)
         foreach ($this->relations as $name => $relation) {
             $data[$name] = $relation instanceof ModelCollection
@@ -348,37 +536,92 @@ abstract class Model
 
     public static function create(array|object $data): self|null
     {
-        if (is_object($data)) {
-            $data = (array) $data;
-        }
-
         $model = new static();
+        $model->setAttributes($model->conMutators(is_object($data) ? (array) $data : $data));
 
-        // Asignar los datos al arreglo $attributes
-        $model->setAttributes($data);
+        return $model->insertThis() ? $model : null;
+    }
 
-        //realizar validaciones
-        $model->validateModel();
-        $model->validateColumns($data);
-        $model->validateFillableOnAttibutes();
+    /**
+     * Aplica los mutators set{Campo}Attribute a los datos antes de escribir.
+     */
+    private function conMutators(array $data): array
+    {
+        foreach ($data as $key => $value) {
+            $mutator = 'set' . self::studly((string) $key) . 'Attribute';
 
-        //agregar registros de tiempo
-        $model->addTimestamps();
-
-        // Crear la sentencia SQL y los parámetros según los datos en $model->attributes
-        $sql = "INSERT INTO {$model->table} (" . implode(',', array_keys($model->attributes)) . ") VALUES (" . implode(',', array_fill(0, count($model->attributes), '?')) . ")";
-        $param = array_values($model->attributes);
-
-        $responseInt = self::db()->statementC_U_D($sql, $param);
-        if ($responseInt > 0) {
-            //agregar el id del registro creado al arreglo $attributes
-            $model->attributes[$model->primaryKey] = self::db()->lastInsertId();
-            $model->applyCasts();
-
-            return $model;
+            if (method_exists($this, $mutator)) {
+                $data[$key] = $this->{$mutator}($value);
+            }
         }
 
-        return null;
+        return $data;
+    }
+
+    /**
+     * Busca el primer registro con los atributos dados. Si no existe,
+     * retorna una instancia NUEVA SIN GUARDAR con esos atributos (+extras).
+     *
+     * Ejemplo: $usuario = Usuario::firstOrNew(['correo' => $correo], ['rol' => 'usuario']);
+     */
+    public static function firstOrNew(array $atributos, array $extras = []): static
+    {
+        $query = (new static())->newQuery();
+
+        foreach ($atributos as $columna => $valor) {
+            $query->where($columna, $valor);
+        }
+
+        $encontrado = $query->first();
+
+        if ($encontrado instanceof static) {
+            return $encontrado;
+        }
+
+        $nuevo = new static();
+        $nuevo->setAttributes($nuevo->conMutators(array_merge($atributos, $extras)));
+
+        return $nuevo;
+    }
+
+    /**
+     * Busca el primer registro con los atributos dados; si no existe lo crea.
+     */
+    public static function firstOrCreate(array $atributos, array $extras = []): static
+    {
+        $modelo = static::firstOrNew($atributos, $extras);
+
+        if ($modelo->{$modelo->primaryKey} === null) {
+            $modelo->save();
+        }
+
+        return $modelo;
+    }
+
+    /**
+     * Busca el primer registro con los atributos dados y lo actualiza con
+     * $valores; si no existe lo crea con atributos + valores.
+     */
+    public static function updateOrCreate(array $atributos, array $valores = []): static
+    {
+        $query = (new static())->newQuery();
+
+        foreach ($atributos as $columna => $valor) {
+            $query->where($columna, $valor);
+        }
+
+        $existente = $query->first();
+
+        if ($existente instanceof static) {
+            $existente->update($valores === [] ? $atributos : $valores);
+
+            return $existente;
+        }
+
+        $nuevo = static::firstOrNew($atributos, $valores);
+        $nuevo->save();
+
+        return $nuevo;
     }
 
     /**
@@ -390,7 +633,9 @@ abstract class Model
      */
     public function update(array|object $data): bool
     {
-        return $this->updateThis(is_array($data) ? $data : (array) $data);
+        $datos = is_array($data) ? $data : (array) $data;
+
+        return $this->updateThis($this->conMutators($datos));
     }
 
     /**
@@ -472,6 +717,14 @@ abstract class Model
 
     private function insertThis(): bool
     {
+        if (!$this->fireModelEvent('saving')) {
+            return false;
+        }
+
+        if (!$this->fireModelEvent('creating')) {
+            return false;
+        }
+
         $this->validateModel();
         $this->validateColumns($this->attributes);
         $this->validateFillableOnAttibutes();
@@ -486,6 +739,9 @@ abstract class Model
             $this->applyCasts();
             $this->original = $this->attributes;
 
+            $this->fireModelEvent('created');
+            $this->fireModelEvent('saved');
+
             return true;
         }
 
@@ -494,6 +750,13 @@ abstract class Model
 
     private function updateThis(array $data): bool
     {
+        if (!$this->fireModelEvent('saving')) {
+            return false;
+        }
+
+        if (!$this->fireModelEvent('updating')) {
+            return false;
+        }
         $pk = $this->attributes[$this->primaryKey] ?? null;
 
         if ($pk === null) {
@@ -530,6 +793,9 @@ abstract class Model
             $this->applyCasts();
             $this->original = $this->attributes;
 
+            $this->fireModelEvent('updated');
+            $this->fireModelEvent('saved');
+
             return true;
         }
 
@@ -546,6 +812,10 @@ abstract class Model
 
         $this->validateModel();
 
+        if (!$this->fireModelEvent('deleting')) {
+            return false;
+        }
+
         //soft delete: marca eliminado_en en lugar de borrar la fila
         if ($this->usesSoftDeletes()) {
             $columna = $this->getDeletedAtColumn();
@@ -556,6 +826,8 @@ abstract class Model
                 //la instancia refleja el borrado logico (estilo Eloquent)
                 $this->attributes[$columna] = $marca;
 
+                $this->fireModelEvent('deleted');
+
                 return true;
             }
 
@@ -564,7 +836,13 @@ abstract class Model
 
         $sql = "DELETE FROM {$this->table} WHERE {$this->primaryKey} = ?";
 
-        return self::db()->statementC_U_D($sql, [$pk]) > 0;
+        if (self::db()->statementC_U_D($sql, [$pk]) > 0) {
+            $this->fireModelEvent('deleted');
+
+            return true;
+        }
+
+        return false;
     }
 
     private function forceDeleteThis(): bool
@@ -579,7 +857,13 @@ abstract class Model
 
         $sql = "DELETE FROM {$this->table} WHERE {$this->primaryKey} = ?";
 
-        return self::db()->statementC_U_D($sql, [$pk]) > 0;
+        if (self::db()->statementC_U_D($sql, [$pk]) > 0) {
+            $this->fireModelEvent('forceDeleted');
+
+            return true;
+        }
+
+        return false;
     }
 
     private function restoreThis(): bool
@@ -596,12 +880,18 @@ abstract class Model
 
         $this->validateModel();
 
+        if (!$this->fireModelEvent('restoring')) {
+            return false;
+        }
+
         $columna = $this->getDeletedAtColumn();
         $sql = "UPDATE {$this->table} SET {$columna} = NULL WHERE {$this->primaryKey} = ? AND {$columna} IS NOT NULL";
 
         if (self::db()->statementC_U_D($sql, [$pk]) > 0) {
             //la instancia refleja la recuperacion (estilo Eloquent)
             $this->attributes[$columna] = null;
+
+            $this->fireModelEvent('restored');
 
             return true;
         }
