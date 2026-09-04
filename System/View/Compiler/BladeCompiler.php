@@ -521,8 +521,11 @@ class BladeCompiler
      */
     protected function compileOnce(string $value, string $viewName): string
     {
+        //cada bloque @once de la misma vista necesita una clave propia
+        $blockIndex = 0;
+
         while (($block = BlockMatcher::find($value, 'once', 'endonce')) !== null) {
-            $key = var_export($viewName, true);
+            $key = var_export($viewName . '#' . (++$blockIndex), true);
             $replacement = "<?php if (\$__env->beginOnce({$key})): ?>"
                 . $block['body']
                 . '<?php $__env->endOnce(); endif; ?>';

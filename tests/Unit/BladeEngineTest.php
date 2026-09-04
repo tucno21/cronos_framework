@@ -206,6 +206,16 @@ class BladeEngineTest extends CronosTestCase
         $this->assertSame('<script>una-vez</script>', $this->engine->render('pagina'));
     }
 
+    public function test_bloques_once_distintos_en_la_misma_vista_renderizan_todos(): void
+    {
+        $this->makeView(
+            'pagina',
+            "@once<a>UNO</a>@endonce @once<b>DOS</b>@endonce"
+        );
+
+        $this->assertSame('<a>UNO</a> <b>DOS</b>', $this->engine->render('pagina'));
+    }
+
     public function test_push_once_deduplica_el_stack(): void
     {
         $this->makeView('layouts.base', '<html>@stack(\'scripts\')</html>');
