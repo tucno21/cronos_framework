@@ -24,6 +24,8 @@ class ConsoleCLI
 
     protected string $requestPath;
 
+    protected string $resourcePath;
+
     public function __construct(array $data)
     {
         $this->command1 = isset($data[1]) ? $data[1] : ''; //make
@@ -40,6 +42,7 @@ class ConsoleCLI
         $this->modelPath = dirname(__DIR__) . '/../App/Models/';
         $this->middlewarePath = dirname(__DIR__) . '/../App/Middlewares/';
         $this->requestPath = dirname(__DIR__) . '/../App/Requests/';
+        $this->resourcePath = dirname(__DIR__) . '/../App/Resources/';
 
         $this->migrationsPath = dirname(__DIR__) . '/../App/Migrations/';
     }
@@ -60,6 +63,10 @@ class ConsoleCLI
 
         if ($this->command1 == 'make:request') {
             return $this->request();
+        }
+
+        if ($this->command1 == 'make:resource') {
+            return $this->resource();
         }
 
         if ($this->command1 == 'make:migration') {
@@ -399,5 +406,49 @@ class ConsoleCLI
         file_put_contents($requestPath . $fileName, $templateRequest);
 
         $this->printSuccess("Request creado: {$fileName}");
+    }
+
+    private function resource()
+    {
+        $templateResource = file_get_contents($this->templatesPath . 'resource.stub');
+        $resourcePath = $this->resourcePath;
+        $nameResource = ucfirst($this->command2);
+
+        if ($nameResource === '' || !preg_match('/^[a-zA-Z][a-zA-Z0-9_]*$/', $nameResource)) {
+            $this->printError('Nombre de resource invalido. Ej: php cronos make:resource UserResource');
+            exit;
+        }
+
+        if (!str_ends_with($nameResource, 'Resource')) {
+            $nameResource .= 'Resource';
+        }
+
+        $fileName = $nameResource . '.php';
+        $namespaceSuffix = '';
+
+        if ($this->command3 !== '') {
+            $folder = trim(str_replace(['/', '\\'], '/', $this->command3), '/');
+            $resourcePath = $this->resourcePath . $folder . '/';
+            $namespaceSuffix = '\\' . str_replace('/', '\\', $folder);
+        }
+
+        if (!file_exists($resourcePath)) {
+            mkdir($resourcePath, 0777, true);
+        }
+
+        if (file_exists($resourcePath . $fileName)) {
+            $this->printError("El archivo {$fileName} ya existe");
+            exit;
+        }
+
+        $templateResource = str_replace(
+            ['{{class}}', '{{namespace_suffix}}'],
+            [$nameResource, $namespaceSuffix],
+            $templateResource
+        );
+
+        file_put_contents($resourcePath . $fileName, $templateResource);
+
+        $this->printSuccess("Resource creado: {$fileName}");
     }
 }

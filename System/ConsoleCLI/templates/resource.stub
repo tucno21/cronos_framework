@@ -1,0 +1,23 @@
+<?php
+
+namespace App\Resources{{namespace_suffix}};
+
+use Cronos\Http\JsonResource;
+
+class {{class}} extends JsonResource
+{
+    /**
+     * Transforma el recurso a un array estructurado para respuestas JSON.
+     *
+     * @return array<string, mixed>
+     */
+    public function toArray(): array
+    {
+        return [
+            'id' => $this->id,
+            // 'campo' => $this->campo,
+            'created_at' => $this->created_at,
+            'updated_at' => $this->updated_at,
+        ];
+    }
+}

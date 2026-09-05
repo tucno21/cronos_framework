@@ -40,6 +40,16 @@ php cronos make:request Name          # genera NameRequest.php (agrega el sufijo
 php cronos make:request Name FolderName # crea en App/Requests/FolderName/NameRequest.php
 ```
 
+### Generar API Resource
+
+Los recursos JSON se crean en `App/Resources/`.
+
+```bash
+php cronos make:resource NameResource
+php cronos make:resource Name          # genera NameResource.php (agrega el sufijo automaticamente)
+php cronos make:resource Name FolderName # crea en App/Resources/FolderName/NameResource.php
+```
+
 ### Generar Migracion
 
 Crea un archivo de migracion timestamped en `App/Migrations/`. Si el nombre sigue el patron `create_NOMBRE_table`, el stub rellena el nombre de la tabla automaticamente.

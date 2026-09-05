@@ -156,4 +156,42 @@ class ConsoleMakeCommandsTest extends TestCase
 
         unlink($file);
     }
+
+    public function test_make_resource_crea_clase_json_resource(): void
+    {
+        $root = dirname(__DIR__, 2);
+        $file = $root . '/App/Resources/TestTmpUserResource.php';
+
+        if (file_exists($file)) {
+            unlink($file);
+        }
+
+        (new ConsoleCLI(['cronos', 'make:resource', 'TestTmpUserResource']))->run();
+
+        $this->assertFileExists($file);
+        $content = file_get_contents($file);
+        $this->assertStringContainsString('namespace App\Resources;', $content);
+        $this->assertStringContainsString('class TestTmpUserResource extends JsonResource', $content);
+        $this->assertStringContainsString('public function toArray(): array', $content);
+
+        unlink($file);
+    }
+
+    public function test_make_resource_agrega_sufijo_resource_si_falta(): void
+    {
+        $root = dirname(__DIR__, 2);
+        $file = $root . '/App/Resources/TestTmpPostResource.php';
+
+        if (file_exists($file)) {
+            unlink($file);
+        }
+
+        (new ConsoleCLI(['cronos', 'make:resource', 'TestTmpPost']))->run();
+
+        $this->assertFileExists($file);
+        $content = file_get_contents($file);
+        $this->assertStringContainsString('class TestTmpPostResource extends JsonResource', $content);
+
+        unlink($file);
+    }
 }

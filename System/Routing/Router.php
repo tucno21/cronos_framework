@@ -13,6 +13,8 @@ use Cronos\Container\DependencyInjection;
 use Cronos\Http\Pipeline;
 use Cronos\Http\MiddlewareGroup;
 use Cronos\Http\Response;
+use Cronos\Http\JsonResource;
+use Cronos\Http\ResourceCollection;
 
 class Router
 {
@@ -91,7 +93,13 @@ class Router
         return (new Pipeline())
             ->send($request)
             ->through($allMiddlewares)
-            ->then(fn() => call_user_func($action, ...$params));
+            ->then(function () use ($action, $params) {
+                $result = call_user_func($action, ...$params);
+                if ($result instanceof JsonResource || $result instanceof ResourceCollection) {
+                    return $result->toResponse();
+                }
+                return $result;
+            });
     }
 
     public function resolveRoute(Request $request)
