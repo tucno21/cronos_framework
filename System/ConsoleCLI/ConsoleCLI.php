@@ -49,6 +49,11 @@ class ConsoleCLI
 
     public function run()
     {
+        if ($this->command1 == '--version' || $this->command1 == '-v' || $this->command1 == 'version') {
+            print("\e[1;32mCronos Framework\e[0m version \e[1;33m" . \Cronos\App::VERSION . "\e[0m\n");
+            return;
+        }
+
         if ($this->command1 == 'make:controller') {
             return $this->controller();
         }

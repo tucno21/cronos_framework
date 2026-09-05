@@ -19,6 +19,8 @@ use Cronos\Errors\ExceptionHandler;
 
 class App
 {
+    public const VERSION = '5.4.0';
+
     public static string $root;
 
     public Router $router;
