@@ -8,6 +8,7 @@ use App\Models\Publicacion;
 use App\Models\Usuario;
 use App\Requests\StorePublicacionRequest;
 use App\Requests\UpdatePublicacionRequest;
+use App\Resources\PublicacionResource;
 use Cronos\Http\Controller;
 use Cronos\Http\Request;
 
@@ -38,31 +39,22 @@ class PublicacionController extends Controller
             ->orderBy('created_at', 'DESC')
             ->get();
 
-        if ($publicaciones) {
-            foreach ($publicaciones as $p) {
-                $p->nombre_autor = $p->usuario->nombre ?? null;
-            }
-        }
+        $data = $publicaciones ? PublicacionResource::collection($publicaciones)->resolve() : [];
 
         return json([
             'status' => 'success',
-            'publicaciones' => $publicaciones ? $publicaciones->toArray() : [],
+            'publicaciones' => $data,
         ]);
     }
 
     public function show(Publicacion $publicacion)
     {
-        $categoria = $publicacion->categoria()->get();
-        $etiquetas = $publicacion->etiquetas()->get();
         $comentarios = Comentario::with('usuario')
             ->where('publicacion_id', $publicacion->id)
             ->orderBy('created_at', 'DESC')
             ->get();
 
-        $data = $publicacion->toArray();
-        $data['nombre_autor'] = Usuario::find($publicacion->usuario_id)->nombre ?? null;
-        $data['categoria'] = $categoria ? $categoria->toArray() : null;
-        $data['etiquetas'] = $etiquetas ? $etiquetas->toArray() : [];
+        $data = (new PublicacionResource($publicacion))->resolve();
         $data['comentarios'] = $comentarios ? $comentarios->toArray() : [];
 
         return json([

@@ -3,6 +3,7 @@
 namespace App\Controllers;
 
 use App\Models\Usuario;
+use App\Resources\UsuarioResource;
 use Cronos\Http\Controller;
 use Cronos\Http\Request;
 
@@ -33,11 +34,12 @@ class UsuarioController extends Controller
         }
 
         $usuarios = $query->orderBy('id', 'ASC')->get();
+        $data = $usuarios ? UsuarioResource::collection($usuarios)->resolve() : [];
 
         return json([
             'status' => 'success',
-            'usuarios' => $usuarios ? $usuarios->toArray() : [],
-            'total' => $usuarios ? count($usuarios) : 0,
+            'usuarios' => $data,
+            'total' => count($data),
         ]);
     }
 
@@ -57,7 +59,7 @@ class UsuarioController extends Controller
 
         return json([
             'status' => 'success',
-            'usuario' => $usuario->toArray(),
+            'usuario' => (new UsuarioResource($usuario))->resolve(),
         ]);
     }
 }
