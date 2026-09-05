@@ -1,0 +1,40 @@
+<?php
+
+namespace App\Requests{{namespace_suffix}};
+
+use Cronos\Http\FormRequest;
+
+class {{class}} extends FormRequest
+{
+    /**
+     * Determina si el usuario está autorizado a realizar esta petición.
+     */
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    /**
+     * Reglas de validación para la petición.
+     *
+     * @return array<string, string>
+     */
+    public function rules(): array
+    {
+        return [
+            // 'campo' => 'required|string|min:3',
+        ];
+    }
+
+    /**
+     * Mensajes de error personalizados (opcional).
+     *
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            // 'campo.required' => 'El campo es obligatorio.',
+        ];
+    }
+}

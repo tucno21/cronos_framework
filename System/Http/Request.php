@@ -529,4 +529,14 @@ class Request
         }
         return null;
     }
+
+    public function rawBody(): ?string
+    {
+        return $this->rawBody;
+    }
+
+    public function files(): array
+    {
+        return $this->files;
+    }
 }

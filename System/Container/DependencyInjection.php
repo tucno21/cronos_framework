@@ -9,6 +9,8 @@ use Cronos\Model\Model;
 use ReflectionFunction;
 use Cronos\Container\Container;
 use Cronos\Errors\HttpNotFoundException;
+use Cronos\Http\FormRequest;
+use Cronos\Http\Request;
 use ReflectionUnionType;
 use ReflectionNamedType;
 use ReflectionType;
@@ -207,6 +209,15 @@ class DependencyInjection
                         // Si no hay parámetro de ruta para el modelo, intentar resolverlo como una clase normal
                         $resolved = self::resolveClass($className);
                     }
+                } elseif (is_subclass_of($className, FormRequest::class)) {
+                    /** @var FormRequest $formRequest */
+                    $formRequest = self::resolveClass($className);
+                    if (Container::has(Request::class)) {
+                        $currentRequest = Container::resolve(Request::class);
+                        $formRequest->copyFrom($currentRequest);
+                    }
+                    $formRequest->validateResolved();
+                    $resolved = $formRequest;
                 } else {
                     //instanciar la clase del parametro usando el nuevo método de resolución
                     $resolved = self::resolveClass($className);

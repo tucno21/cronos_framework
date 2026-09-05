@@ -54,4 +54,12 @@ class Container
     {
         return array_key_exists($class, self::$instances);
     }
+
+    /**
+     * Limpia todas las instancias registradas en el contenedor (útil para tests).
+     */
+    public static function flush(): void
+    {
+        self::$instances = [];
+    }
 }

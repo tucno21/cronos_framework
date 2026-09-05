@@ -117,4 +117,43 @@ class ConsoleMakeCommandsTest extends TestCase
 
         unlink($file);
     }
+
+    public function test_make_request_crea_clase_form_request(): void
+    {
+        $root = dirname(__DIR__, 2);
+        $file = $root . '/App/Requests/TestTmpUserRequest.php';
+
+        if (file_exists($file)) {
+            unlink($file);
+        }
+
+        (new ConsoleCLI(['cronos', 'make:request', 'TestTmpUserRequest']))->run();
+
+        $this->assertFileExists($file);
+        $content = file_get_contents($file);
+        $this->assertStringContainsString('namespace App\Requests;', $content);
+        $this->assertStringContainsString('class TestTmpUserRequest extends FormRequest', $content);
+        $this->assertStringContainsString('public function authorize(): bool', $content);
+        $this->assertStringContainsString('public function rules(): array', $content);
+
+        unlink($file);
+    }
+
+    public function test_make_request_agrega_sufijo_request_si_falta(): void
+    {
+        $root = dirname(__DIR__, 2);
+        $file = $root . '/App/Requests/TestTmpPostRequest.php';
+
+        if (file_exists($file)) {
+            unlink($file);
+        }
+
+        (new ConsoleCLI(['cronos', 'make:request', 'TestTmpPost']))->run();
+
+        $this->assertFileExists($file);
+        $content = file_get_contents($file);
+        $this->assertStringContainsString('class TestTmpPostRequest extends FormRequest', $content);
+
+        unlink($file);
+    }
 }

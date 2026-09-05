@@ -30,6 +30,16 @@ Los middlewares se crean en `App/Middlewares/`.
 php cronos make:middleware Name
 ```
 
+### Generar Form Request
+
+Los form requests se crean en `App/Requests/`.
+
+```bash
+php cronos make:request NameRequest
+php cronos make:request Name          # genera NameRequest.php (agrega el sufijo automaticamente)
+php cronos make:request Name FolderName # crea en App/Requests/FolderName/NameRequest.php
+```
+
 ### Generar Migracion
 
 Crea un archivo de migracion timestamped en `App/Migrations/`. Si el nombre sigue el patron `create_NOMBRE_table`, el stub rellena el nombre de la tabla automaticamente.

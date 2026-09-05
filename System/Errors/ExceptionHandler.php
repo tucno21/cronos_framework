@@ -13,6 +13,20 @@ class ExceptionHandler
             return view('errors.404')->setStatusCode(404);
         }
 
+        if ($e instanceof ValidationException) {
+            if ($e->response()) {
+                return $e->response();
+            }
+            return json([
+                'message' => $e->getMessage(),
+                'errors' => $e->errors(),
+            ], 422);
+        }
+
+        if ($e instanceof AuthorizationException) {
+            return json(['message' => $e->getMessage()], $e->getCode() ?: 403);
+        }
+
         if ($e instanceof RouteException) {
             return json(["message" => $e->getMessage()])->setStatusCode(500);
         }

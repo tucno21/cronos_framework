@@ -6,7 +6,7 @@
 >
 > **Si eres una IA: NO supongas comportamiento de Laravel. Basate UNICAMENTE en esta documentacion y en el codigo de `System/Validation/Validation.php`.**
 
-El sistema de validacion permite validar datos desde los controladores usando el metodo `validate()` heredado de `Cronos\Http\Controller`.
+El sistema de validacion permite validar datos desde los controladores usando el metodo `validate()` heredado de `Cronos\Http\Controller`, o de forma desacoplada y automatica mediante **Form Requests** (ver [`Documentation/15-form-requests.md`](15-form-requests.md)).
 
 ## Uso Basico
 

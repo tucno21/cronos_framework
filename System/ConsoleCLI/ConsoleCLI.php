@@ -22,6 +22,8 @@ class ConsoleCLI
 
     protected string $migrationsPath;
 
+    protected string $requestPath;
+
     public function __construct(array $data)
     {
         $this->command1 = isset($data[1]) ? $data[1] : ''; //make
@@ -37,6 +39,7 @@ class ConsoleCLI
         $this->controllerPath = dirname(__DIR__) . '/../App/Controllers/';
         $this->modelPath = dirname(__DIR__) . '/../App/Models/';
         $this->middlewarePath = dirname(__DIR__) . '/../App/Middlewares/';
+        $this->requestPath = dirname(__DIR__) . '/../App/Requests/';
 
         $this->migrationsPath = dirname(__DIR__) . '/../App/Migrations/';
     }
@@ -53,6 +56,10 @@ class ConsoleCLI
 
         if ($this->command1 == 'make:middleware') {
             return $this->middleware();
+        }
+
+        if ($this->command1 == 'make:request') {
+            return $this->request();
         }
 
         if ($this->command1 == 'make:migration') {
@@ -348,5 +355,49 @@ class ConsoleCLI
 
         $text =   "\n" . "successfully created." . "\n";
         print("\e[0;34m$text\e[0m");
+    }
+
+    private function request()
+    {
+        $templateRequest = file_get_contents($this->templatesPath . 'request.stub');
+        $requestPath = $this->requestPath;
+        $nameRequest = ucfirst($this->command2);
+
+        if ($nameRequest === '' || !preg_match('/^[a-zA-Z][a-zA-Z0-9_]*$/', $nameRequest)) {
+            $this->printError('Nombre de request invalido. Ej: php cronos make:request CreateUserRequest');
+            exit;
+        }
+
+        if (!str_ends_with($nameRequest, 'Request')) {
+            $nameRequest .= 'Request';
+        }
+
+        $fileName = $nameRequest . '.php';
+        $namespaceSuffix = '';
+
+        if ($this->command3 !== '') {
+            $folder = trim(str_replace(['/', '\\'], '/', $this->command3), '/');
+            $requestPath = $this->requestPath . $folder . '/';
+            $namespaceSuffix = '\\' . str_replace('/', '\\', $folder);
+        }
+
+        if (!file_exists($requestPath)) {
+            mkdir($requestPath, 0777, true);
+        }
+
+        if (file_exists($requestPath . $fileName)) {
+            $this->printError("El archivo {$fileName} ya existe");
+            exit;
+        }
+
+        $templateRequest = str_replace(
+            ['{{class}}', '{{namespace_suffix}}'],
+            [$nameRequest, $namespaceSuffix],
+            $templateRequest
+        );
+
+        file_put_contents($requestPath . $fileName, $templateRequest);
+
+        $this->printSuccess("Request creado: {$fileName}");
     }
 }
