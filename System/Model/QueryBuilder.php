@@ -1513,4 +1513,20 @@ final class QueryBuilder
 
         return $upper;
     }
+
+    /**
+     * Permite invocar local scopes definidos en el modelo como scope{Nombre}($query, ...$args).
+     */
+    public function __call(string $method, array $arguments): mixed
+    {
+        $scopeMethod = 'scope' . ucfirst($method);
+
+        if (method_exists($this->model, $scopeMethod)) {
+            $result = $this->model->{$scopeMethod}($this, ...$arguments);
+
+            return $result ?? $this;
+        }
+
+        throw new \BadMethodCallException("El metodo [{$method}] no existe en el query builder ni en el modelo {$this->modelClass}.");
+    }
 }

@@ -8,6 +8,7 @@ use Cronos\Model\Model;
 use Cronos\Model\ModelNotFoundException;
 use Tests\Integration\Fixtures\PublicacionBorrable;
 use Tests\Integration\Fixtures\PublicacionConCastsRicos;
+use Tests\Integration\Fixtures\PublicacionConScopes;
 use Tests\Integration\Fixtures\PublicacionSinTimestamps;
 use Tests\TestCase\OrmTestCase;
 
@@ -633,5 +634,97 @@ class OrmEloquentStyleTest extends OrmTestCase
             //y el modelo sigue siendo utilizable despues de serializar
             $this->assertTrue($fresco->update(['nombre' => 'Post-Serializacion']));
         });
+    }
+
+    //******************************************************************
+    // PASO 9: SCOPES LOCALES EN MODELOS (ESTILO ELOQUENT)
+    //******************************************************************
+
+    public function testScopesLocalesEncadenables(): void
+    {
+        $this->rollbackAfter(function () {
+            $usuario1 = $this->crearUsuario();
+            $usuario2 = $this->crearUsuario();
+
+            // Publicaciones para usuario 1
+            $p1 = PublicacionConScopes::create([
+                'usuario_id' => $usuario1->id,
+                'titulo' => 'P1 Publicada Popular',
+                'slug' => 'p1-' . uniqid(),
+                'contenido' => 'contenido 1',
+            ]);
+            $this->fijarVistas((int) $p1->id, 150);
+            Model::db()->statementC_U_D('UPDATE publicaciones SET estado = ? WHERE id = ?', ['publicado', $p1->id]);
+
+            $p2 = PublicacionConScopes::create([
+                'usuario_id' => $usuario1->id,
+                'titulo' => 'P2 Borrador Popular',
+                'slug' => 'p2-' . uniqid(),
+                'contenido' => 'contenido 2',
+            ]);
+            $this->fijarVistas((int) $p2->id, 200);
+            Model::db()->statementC_U_D('UPDATE publicaciones SET estado = ? WHERE id = ?', ['borrador', $p2->id]);
+
+            $p3 = PublicacionConScopes::create([
+                'usuario_id' => $usuario1->id,
+                'titulo' => 'P3 Publicada Pocas Vistas',
+                'slug' => 'p3-' . uniqid(),
+                'contenido' => 'contenido 3',
+            ]);
+            $this->fijarVistas((int) $p3->id, 20);
+            Model::db()->statementC_U_D('UPDATE publicaciones SET estado = ? WHERE id = ?', ['publicado', $p3->id]);
+
+            // Publicacion para usuario 2
+            $p4 = PublicacionConScopes::create([
+                'usuario_id' => $usuario2->id,
+                'titulo' => 'P4 Usuario2 Publicada Popular',
+                'slug' => 'p4-' . uniqid(),
+                'contenido' => 'contenido 4',
+            ]);
+            $this->fijarVistas((int) $p4->id, 300);
+            Model::db()->statementC_U_D('UPDATE publicaciones SET estado = ? WHERE id = ?', ['publicado', $p4->id]);
+
+            // 1. Invocar scope estático inicial: PublicacionConScopes::publicadas()->get()
+            $publicadas = PublicacionConScopes::publicadas()->get();
+            $this->assertNotNull($publicadas);
+            foreach ($publicadas as $pub) {
+                $this->assertSame('publicado', $pub->estado);
+            }
+            $this->assertTrue($publicadas->contains('slug', $p1->slug));
+            $this->assertFalse($publicadas->contains('slug', $p2->slug));
+            $this->assertTrue($publicadas->contains('slug', $p3->slug));
+            $this->assertTrue($publicadas->contains('slug', $p4->slug));
+
+            // 2. Encadenar múltiples scopes: publicadas()->populares(100)
+            $publicadasPopulares = PublicacionConScopes::publicadas()->populares(100)->get();
+            $this->assertNotNull($publicadasPopulares);
+            $this->assertTrue($publicadasPopulares->contains('slug', $p1->slug));
+            $this->assertFalse($publicadasPopulares->contains('slug', $p2->slug));
+            $this->assertFalse($publicadasPopulares->contains('slug', $p3->slug));
+            $this->assertTrue($publicadasPopulares->contains('slug', $p4->slug));
+
+            // 3. Encadenar scope con parámetros y filtrar por usuario: delUsuario($usuario1->id)
+            $filtradasUsuario = PublicacionConScopes::delUsuario((int) $usuario1->id)->publicadas()->populares(100)->get();
+            $this->assertNotNull($filtradasUsuario);
+            $this->assertSame(1, $filtradasUsuario->count());
+            $this->assertSame($p1->slug, $filtradasUsuario->first()->slug);
+
+            // 4. Encadenar scope tras métodos del QueryBuilder estándar (ej: whereIn, orderBy)
+            $resultado = PublicacionConScopes::whereIn('slug', [$p1->slug, $p2->slug, $p3->slug, $p4->slug])
+                ->publicadas()
+                ->populares(50)
+                ->orderBy('vistas', 'DESC')
+                ->get();
+            $this->assertNotNull($resultado);
+            $this->assertSame($p4->slug, $resultado->first()->slug);
+        });
+    }
+
+    public function testScopeInexistenteLanzaBadMethodCallException(): void
+    {
+        $this->expectException(\BadMethodCallException::class);
+        $this->expectExceptionMessage('El metodo [scopeInexistente] no existe');
+
+        PublicacionConScopes::scopeInexistente()->get();
     }
 }

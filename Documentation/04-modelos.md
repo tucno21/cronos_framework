@@ -893,7 +893,68 @@ $array = $publicacion->toArray(); //incluye 'titulo_mayuscula' por $appends
 
 ---
 
-## 13. Soft Deletes
+## 13. Scopes Locales de Consulta (Estilo Eloquent)
+
+Los **Scopes Locales** permiten encapsular lógica y restricciones comunes de consultas en métodos reutilizables dentro de tu modelo.
+
+### Definición en el Modelo
+
+Prefija el método con `scope` seguido del nombre en `StudlyCase`:
+- El primer parámetro siempre recibe la instancia del `$query` (`QueryBuilder`).
+- Los siguientes parámetros son opcionales y permiten pasar argumentos al scope.
+- Puedes retornar `$query` o simplemente encadenar sobre él (si no retorna nada, Cronos automáticamente retorna el builder).
+
+```php
+namespace App\Models;
+
+use Cronos\Model\Model;
+
+class Publicacion extends Model
+{
+    // Scope simple sin parámetros
+    public function scopePublicadas($query)
+    {
+        return $query->where('estado', 'publicado');
+    }
+
+    // Scope con parámetro y valor por defecto
+    public function scopePopulares($query, int $minVistas = 100)
+    {
+        return $query->where('vistas', '>=', $minVistas);
+    }
+
+    // Scope parametrizado para un usuario específico
+    public function scopeDelUsuario($query, int $usuarioId)
+    {
+        $query->where('usuario_id', $usuarioId);
+    }
+}
+```
+
+### Uso y Encadenamiento
+
+Los scopes se pueden invocar estáticamente desde el modelo o encadenarse libremente con cualquier método del query builder (`where`, `orderBy`, `with`, `latest`, etc.):
+
+```php
+// Invocación inicial estática:
+$publicadas = Publicacion::publicadas()->get();
+
+// Encadenamiento fluido de múltiples scopes:
+$destacadas = Publicacion::publicadas()
+    ->populares(500)
+    ->latest()
+    ->get();
+
+// Combinado con otros métodos del builder:
+$delAutor = Publicacion::delUsuario(5)
+    ->publicadas()
+    ->with('categoria')
+    ->paginate(15);
+```
+
+---
+
+## 14. Soft Deletes
 
 ```php
 use Cronos\Model\Model;
@@ -941,7 +1002,7 @@ Publicacion::count();              //excluye eliminados (tambien agregados y exi
 
 ---
 
-## 14. Timestamps
+## 15. Timestamps
 
 ```php
 protected bool $timestamps = true;   //false: ni INSERT ni UPDATE tocan timestamps
@@ -956,7 +1017,7 @@ protected string $updated = Model::UPDATED_AT;  //'updated_at'
 
 ---
 
-## 15. Paginacion
+## 16. Paginacion
 
 ```sql
 SELECT COUNT(*) FROM publicaciones WHERE estado = 'publicado';          --total
@@ -990,7 +1051,7 @@ return json(['status' => 'success', 'paginacion' => $pagina->toArray()]);
 
 ---
 
-## 16. Transacciones
+## 17. Transacciones
 
 ```php
 use Cronos\Model\Model;
@@ -1011,7 +1072,7 @@ DBexecute::transaction(fn () => Usuario::create([...]));
 
 ---
 
-## 17. ModelCollection
+## 18. ModelCollection
 
 Retornada por `get()`, `all()` y `Paginator->items`. **Puede ser `null`** (get/all cuando no hay filas).
 
@@ -1035,7 +1096,7 @@ Retornada por `get()`, `all()` y `Paginator->items`. **Puede ser `null`** (get/a
 
 ---
 
-## 18. SQL directo y depuracion
+## 19. SQL directo y depuracion
 
 ### customQuery (parametrizado)
 
@@ -1074,7 +1135,7 @@ $info = Publicacion::where('estado', 'publicado')->limit(5)->dd();
 
 ---
 
-## 19. Seguridad
+## 20. Seguridad
 
 - **Valores**: siempre parametrizados (`?`). Nunca se interpola input.
 - **Identificadores**: columnas y tablas validadas con regex
@@ -1086,7 +1147,7 @@ $info = Publicacion::where('estado', 'publicado')->limit(5)->dd();
 
 ---
 
-## 20. Combinaciones: que se puede mezclar y que NO
+## 21. Combinaciones: que se puede mezclar y que NO
 
 **Combinaciones validas (probadas en tests):**
 
@@ -1131,7 +1192,7 @@ Publicacion::select('publicaciones.*', 'usuarios.nombre')
 
 ---
 
-## 21. Errores y excepciones
+## 22. Errores y excepciones
 
 | Excepcion | Cuando |
 |---|---|
@@ -1152,14 +1213,14 @@ try {
 
 ---
 
-## 22. Lo que el ORM NO soporta
+## 23. Lo que el ORM NO soporta
 
 **Para que una IA no lo intente:**
 
 - LEFT/RIGHT JOIN, alias de tabla (`publicaciones p`), subqueries en `where()`
 - `groupBy()`/`having()`/`UNION` en el builder (usa `customQuery`)
 - `whereRaw()`/`selectRaw()` (usa `customQuery` o `Model::db()`)
-- Scopes (`scopeActivos()`)
+- Scopes globales automáticos
 - Relaciones `hasManyThrough` y morfologicas (`morphOne/morphMany/morphTo`; las tablas
   `comentables`/`etiquetables` se manejan con SQL directo)
 - Closures en `with()` para `belongsToMany`
@@ -1173,7 +1234,7 @@ try {
 
 ---
 
-## 23. Recetas de controlador
+## 24. Recetas de controlador
 
 ### Listado paginado con filtro y relaciones
 
@@ -1258,7 +1319,7 @@ public function syncEtiquetas(Request $request, Publicacion $publicacion)
 
 ---
 
-## 24. Cheat sheet rapido (para IAs)
+## 25. Cheat sheet rapido (para IAs)
 
 ```php
 //LECTURA
