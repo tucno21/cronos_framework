@@ -39,7 +39,7 @@ class PublicacionController extends Controller
             ->orderBy('created_at', 'DESC')
             ->get();
 
-        $data = $publicaciones ? PublicacionResource::collection($publicaciones)->resolve() : [];
+        $data = $publicaciones ? PublicacionResource::collection($publicaciones)->toArray() : [];
 
         return json([
             'status' => 'success',

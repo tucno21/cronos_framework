@@ -51,7 +51,13 @@ export interface UsuarioFilterParams {
 
 export const getUsuarios = async (params?: UsuarioFilterParams): Promise<Usuario[]> => {
   const { data } = await api.get('usuarios', { params })
-  return data.usuarios ?? []
+  if (Array.isArray(data.usuarios)) {
+    return data.usuarios
+  }
+  if (Array.isArray(data.usuarios?.data)) {
+    return data.usuarios.data
+  }
+  return []
 }
 
 export const getUsuario = async (id: number): Promise<Usuario | null> => {

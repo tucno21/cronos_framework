@@ -34,7 +34,7 @@ class UsuarioController extends Controller
         }
 
         $usuarios = $query->orderBy('id', 'ASC')->get();
-        $data = $usuarios ? UsuarioResource::collection($usuarios)->resolve() : [];
+        $data = $usuarios ? UsuarioResource::collection($usuarios)->toArray() : [];
 
         return json([
             'status' => 'success',

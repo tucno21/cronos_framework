@@ -52,7 +52,13 @@ export interface Publicacion {
 
 export const getPublicaciones = async (): Promise<Publicacion[]> => {
   const { data } = await api.get('blogs')
-  return data.publicaciones ?? []
+  if (Array.isArray(data.publicaciones)) {
+    return data.publicaciones
+  }
+  if (Array.isArray(data.publicaciones?.data)) {
+    return data.publicaciones.data
+  }
+  return []
 }
 
 export const getPublicacion = async (slug: string): Promise<Publicacion | null> => {
