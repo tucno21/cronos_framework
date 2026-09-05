@@ -1,14 +1,25 @@
 # Helpers y Funciones Auxiliares
 
-## Helpers de Depuracion
+## Helpers de Depuración (Estilo Laravel / VarDumper)
+
+Cronos Framework cuenta con un subsistema nativo de depuración (`Cronos\Debug\Dumper`) con detección de origen (`📍 Archivo:línea`), soporte para múltiples argumentos, colores ANSI en terminal y visor interactivo con tema oscuro y acordeones colapsables en navegador:
 
 ```php
-// Detiene la ejecucion y muestra el contenido de la variable
-dd($variable);
+// Vuelca una o más variables y CONTINÚA la ejecución
+dump($user, $params, 'Paso 1 completado');
 
-// Muestra el contenido sin detener la ejecucion
-d($variable);
+// Alias corto de dump() para continuar la ejecución
+d($user, $params);
+
+// Vuelca una o más variables y TERMINA la ejecución inmediatamente (exit con código 500 en web)
+dd($user, $request->all(), 'Depuración crítica');
 ```
+
+> **Detección automática de contexto:**
+> - En **Terminal / CLI**: Renderiza con colores ANSI y formateo estructurado limpio.
+> - En **Navegador Web**: Renderiza un panel oscuro con botón de colapsar/expandir nodos y origen del archivo.
+> - En **Peticiones API / JSON**: Emite una respuesta JSON estructurada (`__cronos_debug: true`) sin romper el cliente.
+
 
 ## Helpers Globales
 

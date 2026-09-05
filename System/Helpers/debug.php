@@ -1,27 +1,38 @@
 <?php
 
-if (!function_exists('dd')) {
+declare(strict_types=1);
+
+use Cronos\Debug\Dumper;
+
+if (!function_exists('dump')) {
     /**
-     * debugear sin continuar con otros codigos de linea
+     * Vuelca las variables especificadas permitiendo continuar con la ejecución del script.
+     * Soporta múltiples argumentos y adapta la salida automáticamente a CLI, Web o JSON.
      */
-    function dd(mixed $variable): never
+    function dump(mixed ...$vars): void
     {
-        echo "<pre>";
-        var_dump($variable);
-        echo "</pre>";
-        exit;
+        Dumper::dump(...$vars);
     }
 }
-
 
 if (!function_exists('d')) {
     /**
-     * debugear continuando las lineas de codigo
+     * Alias de dump() para depurar continuando la ejecución.
      */
-    function d(mixed $variable): void
+    function d(mixed ...$vars): void
     {
-        echo "<pre>";
-        var_dump($variable);
-        echo "</pre>";
+        Dumper::dump(...$vars);
     }
 }
+
+if (!function_exists('dd')) {
+    /**
+     * Vuelca las variables especificadas y termina la ejecución del script (Dump and Die).
+     * Soporta múltiples argumentos y adapta la salida automáticamente a CLI, Web o JSON.
+     */
+    function dd(mixed ...$vars): never
+    {
+        Dumper::dd(...$vars);
+    }
+}
+
