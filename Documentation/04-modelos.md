@@ -822,24 +822,35 @@ clase y re-ejecuta `booted()` en la proxima instancia.
 
 ## 11. Casts de tipos
 
-Todo lo que llega de PDO puede venir como string. Con `$casts` el modelo convierte al hidratar:
+Los casts proporcionan conversión bidireccional automática: hidratación tipada al leer desde la base de datos y serialización adecuada al escribir (`create`, `save`, `update`) o exportar (`toArray`, `toJson`).
 
 ```php
 protected array $casts = [
-    'usuario_id' => 'int',        //int|integer
-    'peso'       => 'float',      //float|double|real
-    'activa'     => 'bool',       //bool|boolean
-    'nombre'     => 'string',
-    'vistas'     => 'decimal:2',  //string "123.00" (N decimales, como Eloquent)
-    'created_at' => 'datetime',   //DateTimeImmutable ('date' tambien existe)
-    'metadata'   => 'array',      //json_decode a array ('json' es equivalente)
+    'usuario_id' => 'int',        // int|integer: convierte a int
+    'peso'       => 'float',      // float|double|real: convierte a float
+    'activa'     => 'bool',       // bool|boolean: bool al leer, 0/1 al persistir
+    'nombre'     => 'string',     // string nativo
+    'vistas'     => 'decimal:2',  // string con N decimales ("123.00", estilo Laravel)
+    'created_at' => 'datetime',   // DateTimeImmutable al leer / 'Y-m-d H:i:s' al persistir o toArray()
+    'metadata'   => 'array',      // array al leer / json_encode automático al guardar ('json' es equivalente)
 ];
 ```
 
-- `null` nunca se convierte.
-- Sin `$casts`, el comportamiento es identico al clasico (sin conversion).
-- Los casts se aplican al hidratar (`find`, `all`, `get`, `first`) y despues de
-  `create()`/`save()`/`update()`.
+### Características Principales:
+
+1. **Lectura / Hidratación:**
+   - Todo lo que entrega PDO como string se convierte al tipo configurado (`find`, `all`, `get`, `first`).
+   - `null` se preserva siempre sin alteración.
+2. **Escritura y Persistencia en BD:**
+   - Si asignas un `array` a un atributo casteado como `array` o `json` (`$modelo->metadata = ['tema' => 'oscuro']`), Cronos lo serializa automáticamente mediante `json_encode()` al hacer `save()`, `create()` o `$modelo->update([...])`.
+   - Si asignas una instancia `DateTimeInterface` a un atributo casteado como `datetime` o `date`, se serializa automáticamente en formato `'Y-m-d H:i:s'`.
+   - Los valores booleanos se serializan como enteros `0` / `1` para compatibilidad de base de datos.
+3. **Detección de Cambios (Dirty Checking):**
+   - Al llamar a `$modelo->save()`, los atributos casteados comparan su representación serializada frente al original, detectando modificaciones reales en estructuras complejas (arrays y fechas).
+4. **Serialización limpia (`toArray` / `toJson`):**
+   - Los objetos `DateTimeInterface` se exportan automáticamente formateados como string `'Y-m-d H:i:s'`.
+   - Los atributos `array` y `json` se mantienen como arrays asociativos limpios.
+- Sin `$casts`, el modelo conserva el comportamiento estándar del driver de base de datos.
 
 ---
 

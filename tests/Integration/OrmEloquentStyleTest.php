@@ -439,6 +439,51 @@ class OrmEloquentStyleTest extends OrmTestCase
         });
     }
 
+    public function testCastsBidireccionalesEscrituraYSerializacion(): void
+    {
+        $this->rollbackAfter(function () {
+            $usuario = $this->crearUsuario();
+
+            // 1. Create asignando array a campo con cast 'array'
+            $publicacion = PublicacionConCastsRicos::create([
+                'usuario_id' => $usuario->id,
+                'titulo' => 'Post Cast Array',
+                'slug' => 'post-cast-array-' . uniqid(),
+                'contenido' => ['config' => ['tema' => 'oscuro', 'activo' => true]],
+            ]);
+            $this->assertNotNull($publicacion);
+            $this->assertIsArray($publicacion->contenido);
+            $this->assertSame('oscuro', $publicacion->contenido['config']['tema']);
+
+            // Verificar en BD que se guardo como JSON string
+            $raw = Model::db()->statement(
+                'SELECT contenido FROM publicaciones WHERE id = ?',
+                [$publicacion->id]
+            );
+            $this->assertSame('{"config":{"tema":"oscuro","activo":true}}', ((array) $raw[0])['contenido']);
+
+            // 2. Modificacion via propiedad y save()
+            $publicacion->contenido = ['config' => ['tema' => 'claro', 'activo' => false]];
+            $this->assertTrue($publicacion->save());
+
+            $recargado = PublicacionConCastsRicos::find($publicacion->id);
+            $this->assertSame(['config' => ['tema' => 'claro', 'activo' => false]], $recargado->contenido);
+
+            // 3. Modificacion via update()
+            $this->assertTrue($recargado->update([
+                'contenido' => ['foo' => 'bar'],
+            ]));
+            $recargado2 = PublicacionConCastsRicos::find($publicacion->id);
+            $this->assertSame(['foo' => 'bar'], $recargado2->contenido);
+
+            // 4. toArray() formatea created_at (DateTimeInterface) a string Y-m-d H:i:s
+            $array = $recargado2->toArray();
+            $this->assertIsString($array['created_at']);
+            $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $array['created_at']);
+            $this->assertSame(['foo' => 'bar'], $array['contenido']);
+        });
+    }
+
     //******************************************************************
     // PASO 5: TIMESTAMPS CONFIGURABLES
     //******************************************************************

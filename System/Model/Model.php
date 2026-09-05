@@ -435,8 +435,48 @@ abstract class Model
             'float', 'double', 'real' => (float) $value,
             'bool', 'boolean' => (bool) $value,
             'string' => (string) $value,
-            'datetime', 'date' => new \DateTimeImmutable((string) $value),
-            'array', 'json' => json_decode((string) $value, true),
+            'datetime', 'date' => ($value instanceof \DateTimeInterface) ? $value : new \DateTimeImmutable((string) $value),
+            'array', 'json' => is_array($value) ? $value : json_decode((string) $value, true),
+            default => $value,
+        };
+    }
+
+    /**
+     * Serializa un valor para almacenamiento en base de datos o comparacion dirty segun su cast.
+     */
+    private function serializeCastAttribute(string $key, mixed $value): mixed
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $type = (string) ($this->casts[$key] ?? '');
+
+        if ($type === '') {
+            if ($value instanceof \DateTimeInterface) {
+                return $value->format('Y-m-d H:i:s');
+            }
+            if (is_array($value)) {
+                return json_encode($value, JSON_UNESCAPED_UNICODE);
+            }
+            if (is_bool($value)) {
+                return (int) $value;
+            }
+            return $value;
+        }
+
+        if (str_starts_with($type, 'decimal:')) {
+            $decimales = (int) substr($type, 8);
+            return number_format((float) $value, $decimales, '.', '');
+        }
+
+        return match ($type) {
+            'int', 'integer' => (int) $value,
+            'float', 'double', 'real' => (float) $value,
+            'bool', 'boolean' => (int) (bool) $value,
+            'string' => (string) $value,
+            'datetime', 'date' => ($value instanceof \DateTimeInterface) ? $value->format('Y-m-d H:i:s') : (string) $value,
+            'array', 'json' => is_string($value) ? $value : json_encode($value, JSON_UNESCAPED_UNICODE),
             default => $value,
         };
     }
@@ -506,13 +546,14 @@ abstract class Model
 
         foreach ($this->attributes as $key => $value) {
             if (!in_array($key, $this->hidden, true)) {
-                $data[$key] = $value;
+                $data[$key] = ($value instanceof \DateTimeInterface) ? $value->format('Y-m-d H:i:s') : $value;
             }
         }
 
         //campos calculados de $appends (usan accessors get{Campo}Attribute)
         foreach ($this->appends as $campo) {
-            $data[$campo] = $this->{$campo};
+            $val = $this->{$campo};
+            $data[$campo] = ($val instanceof \DateTimeInterface) ? $val->format('Y-m-d H:i:s') : $val;
         }
 
         //incluir SOLO las relaciones explicitamente cargadas (with() o acceso previo)
@@ -683,7 +724,12 @@ abstract class Model
         //los atributos no fillable no pueden pasar por validateColumns()
         $dirty = [];
         foreach ($this->attributes as $key => $value) {
-            if (!array_key_exists($key, $this->original) || $this->original[$key] !== $value) {
+            $serializedValue = $this->serializeCastAttribute((string) $key, $value);
+            $serializedOriginal = array_key_exists($key, $this->original)
+                ? $this->serializeCastAttribute((string) $key, $this->original[$key])
+                : null;
+
+            if (!array_key_exists($key, $this->original) || $serializedOriginal !== $serializedValue) {
                 $dirty[$key] = $value;
             }
         }
@@ -732,7 +778,10 @@ abstract class Model
 
         $sql = "INSERT INTO {$this->table} (" . implode(',', array_keys($this->attributes)) . ') VALUES ('
             . implode(',', array_fill(0, count($this->attributes), '?')) . ')';
-        $param = array_values($this->attributes);
+        $param = [];
+        foreach ($this->attributes as $key => $value) {
+            $param[] = $this->serializeCastAttribute((string) $key, $value);
+        }
 
         if (self::db()->statementC_U_D($sql, $param) > 0) {
             $this->attributes[$this->primaryKey] = self::db()->lastInsertId();
@@ -776,7 +825,7 @@ abstract class Model
         $param = [];
         foreach ($data as $key => $value) {
             $sets[] = "{$key} = ?";
-            $param[] = $value;
+            $param[] = $this->serializeCastAttribute((string) $key, $value);
         }
 
         $sql = "UPDATE {$this->table} SET " . implode(', ', $sets) . " WHERE {$this->primaryKey} = ?";
