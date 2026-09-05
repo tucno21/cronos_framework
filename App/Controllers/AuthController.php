@@ -4,28 +4,16 @@ namespace App\Controllers;
 
 use App\Models\Usuario;
 use App\Library\JWT\JWTAuth;
+use App\Requests\Auth\LoginRequest;
+use App\Requests\Auth\RegisterRequest;
 use Cronos\Http\Request;
 use Cronos\Http\Controller;
 use Cronos\Crypto\Hasher;
 
 class AuthController extends Controller
 {
-    public function register(Request $request, Hasher $hasher)
+    public function register(RegisterRequest $request, Hasher $hasher)
     {
-        $valid = $this->validate($request->all(), [
-            'nombre' => 'required|string|min:3|max:100',
-            'correo' => 'required|email|unique:Usuario,correo',
-            'contrasena' => 'required|min:6|max:50|matches:confirmar_contrasena',
-            'confirmar_contrasena' => 'required|matches:contrasena',
-        ]);
-
-        if ($valid !== true) {
-            return json([
-                'status' => 'error',
-                'message' => $valid
-            ], 400);
-        }
-
         $data = $request->all();
         $data->contrasena = $hasher->hash($data->contrasena);
         unset($data->confirmar_contrasena);
@@ -53,20 +41,8 @@ class AuthController extends Controller
         ], 201);
     }
 
-    public function login(Request $request)
+    public function login(LoginRequest $request)
     {
-        $valid = $this->validate($request->all(), [
-            'correo' => 'required|email|not_unique:Usuario,correo',
-            'contrasena' => 'required|password_verify:Usuario,correo',
-        ]);
-
-        if ($valid !== true) {
-            return json([
-                'status' => 'error',
-                'message' => $valid
-            ], 401);
-        }
-
         $usuario = Usuario::where('correo', $request->correo)->first();
 
         $jwt = new JWTAuth();

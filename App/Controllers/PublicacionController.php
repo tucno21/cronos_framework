@@ -6,6 +6,8 @@ use App\Library\JWT\JWTAuth;
 use App\Models\Comentario;
 use App\Models\Publicacion;
 use App\Models\Usuario;
+use App\Requests\StorePublicacionRequest;
+use App\Requests\UpdatePublicacionRequest;
 use Cronos\Http\Controller;
 use Cronos\Http\Request;
 
@@ -69,31 +71,10 @@ class PublicacionController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StorePublicacionRequest $request)
     {
-        $valid = $this->validate($request->all(), [
-            'titulo' => 'required|string|min:3|max:100',
-            'slug' => 'required|slug|unique:Publicacion,slug',
-            'contenido' => 'required|string|min:3|max:1000',
-        ]);
-
-        if ($valid !== true) {
-            return json([
-                'status' => 'error',
-                'message' => $valid,
-            ], 422);
-        }
-
-        $usuario = $this->authUser($request);
-        if (!$usuario) {
-            return json([
-                'status' => 'error',
-                'message' => 'No autenticado',
-            ], 401);
-        }
-
         $data = $request->all();
-        $data->usuario_id = $usuario->id;
+        $data->usuario_id = $request->user()->id;
 
         $publicacion = Publicacion::create($data);
 
@@ -104,25 +85,8 @@ class PublicacionController extends Controller
         ], 201);
     }
 
-    public function update(Request $request, Publicacion $publicacion)
+    public function update(UpdatePublicacionRequest $request, Publicacion $publicacion)
     {
-        $slugRule = $request->slug === $publicacion->slug
-            ? 'required|slug'
-            : 'required|slug|unique:Publicacion,slug';
-
-        $valid = $this->validate($request->all(), [
-            'titulo' => 'required|string|min:3|max:100',
-            'slug' => $slugRule,
-            'contenido' => 'required|string|min:3|max:1000',
-        ]);
-
-        if ($valid !== true) {
-            return json([
-                'status' => 'error',
-                'message' => $valid,
-            ], 422);
-        }
-
         $publicacion->update($request->all());
 
         return json([
