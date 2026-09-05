@@ -50,6 +50,42 @@ php cronos make:resource Name          # genera NameResource.php (agrega el sufi
 php cronos make:resource Name FolderName # crea en App/Resources/FolderName/NameResource.php
 ```
 
+### Generar Comando de Consola Personalizado
+
+Los comandos de consola personalizados se crean en `App/Commands/`. Heredan de `Cronos\ConsoleCLI\Command` y se ejecutan directamente con `php cronos <firma>`.
+
+```bash
+php cronos make:command SendEmailsCommand
+php cronos make:command SendEmails          # genera SendEmailsCommand.php automáticamente
+php cronos make:command SendEmails Reports  # crea en App/Commands/Reports/SendEmailsCommand.php
+```
+
+**Ejemplo de Comando generado:**
+```php
+namespace App\Commands;
+
+use Cronos\ConsoleCLI\Command;
+
+class SendEmailsCommand extends Command
+{
+    protected string $signature = 'app:send-emails';
+    protected string $description = 'Envía correos electrónicos pendientes.';
+
+    public function handle(): int
+    {
+        $this->info("Enviando correos...");
+        // Tu lógica de negocio aquí...
+        return 0; // Código de salida exitoso
+    }
+}
+```
+
+**Ejecución:**
+```bash
+php cronos app:send-emails
+```
+
+
 ### Generar Migracion
 
 Crea un archivo de migracion timestamped en `App/Migrations/`. Si el nombre sigue el patron `create_NOMBRE_table`, el stub rellena el nombre de la tabla automaticamente.

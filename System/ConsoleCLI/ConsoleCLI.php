@@ -26,8 +26,14 @@ class ConsoleCLI
 
     protected string $resourcePath;
 
+    protected string $commandPath;
+
+    protected array $argv = [];
+
     public function __construct(array $data)
     {
+        $this->argv = $data;
+
         $this->command1 = isset($data[1]) ? $data[1] : ''; //make
 
         $this->command2 = isset($data[2]) ? $data[2] : ''; //name
@@ -43,6 +49,7 @@ class ConsoleCLI
         $this->middlewarePath = dirname(__DIR__) . '/../App/Middlewares/';
         $this->requestPath = dirname(__DIR__) . '/../App/Requests/';
         $this->resourcePath = dirname(__DIR__) . '/../App/Resources/';
+        $this->commandPath = dirname(__DIR__) . '/../App/Commands/';
 
         $this->migrationsPath = dirname(__DIR__) . '/../App/Migrations/';
     }
@@ -72,6 +79,10 @@ class ConsoleCLI
 
         if ($this->command1 == 'make:resource') {
             return $this->resource();
+        }
+
+        if ($this->command1 == 'make:command') {
+            return $this->makeCommand();
         }
 
         if ($this->command1 == 'make:migration') {
@@ -106,18 +117,26 @@ class ConsoleCLI
             return $this->dbSeed();
         }
 
+        // Si no es un comando nativo, verificar si coincide con un comando de App/Commands/
+        if ($this->command1 !== '' && $this->runCustomCommand($this->command1)) {
+            return;
+        }
+
         $text =   "\n" . "Command not found" . "\n";
         $text2 =    "\n" . "make:controller name folderName(optional)" . "\n";
         $text3 =   "make:model name folderName(optional)" . "\n";
         $text4 =   "make:middleware name" . "\n";
-        $text5 = "make:migration name (ej: create_users_table)" . "\n";
-        $text6 = "make:seeder name" . "\n";
-        $text7 = "migrate" . "\n";
-        $text8 = "migrate:rollback (steps opcional)" . "\n";
-        $text9 = "migrate:status" . "\n";
-        $text10 = "migrate:fresh" . "\n";
-        $text11 = "migrate:refresh" . "\n";
-        $text12 = "db:seed" . "\n";
+        $text5 =   "make:request name folderName(optional)" . "\n";
+        $text6 =   "make:resource name folderName(optional)" . "\n";
+        $text7 =   "make:command name folderName(optional)" . "\n";
+        $text8 =   "make:migration name (ej: create_users_table)" . "\n";
+        $text9 =   "make:seeder name" . "\n";
+        $text10 =  "migrate" . "\n";
+        $text11 =  "migrate:rollback (steps opcional)" . "\n";
+        $text12 =  "migrate:status" . "\n";
+        $text13 =  "migrate:fresh" . "\n";
+        $text14 =  "migrate:refresh" . "\n";
+        $text15 =  "db:seed" . "\n";
 
         print("\e[0;31m$text\e[0m");
         print("\e[0;36m$text2\e[0m");
@@ -131,6 +150,9 @@ class ConsoleCLI
         print("\e[0;36m$text10\e[0m");
         print("\e[0;36m$text11\e[0m");
         print("\e[0;36m$text12\e[0m");
+        print("\e[0;36m$text13\e[0m");
+        print("\e[0;36m$text14\e[0m");
+        print("\e[0;36m$text15\e[0m");
         exit;
     }
 
@@ -456,4 +478,88 @@ class ConsoleCLI
 
         $this->printSuccess("Resource creado: {$fileName}");
     }
+
+    private function makeCommand()
+    {
+        $templateCommand = file_get_contents($this->templatesPath . 'command.stub');
+        $commandPath = $this->commandPath;
+        $nameCommand = ucfirst($this->command2);
+
+        if ($nameCommand === '' || !preg_match('/^[a-zA-Z][a-zA-Z0-9_]*$/', $nameCommand)) {
+            $this->printError('Nombre de comando invalido. Ej: php cronos make:command SendEmailsCommand');
+            exit;
+        }
+
+        if (!str_ends_with($nameCommand, 'Command')) {
+            $nameCommand .= 'Command';
+        }
+
+        $fileName = $nameCommand . '.php';
+        $namespaceSuffix = '';
+
+        if ($this->command3 !== '') {
+            $folder = trim(str_replace(['/', '\\'], '/', $this->command3), '/');
+            $commandPath = $this->commandPath . $folder . '/';
+            $namespaceSuffix = '\\' . str_replace('/', '\\', $folder);
+        }
+
+        if (!file_exists($commandPath)) {
+            mkdir($commandPath, 0777, true);
+        }
+
+        if (file_exists($commandPath . $fileName)) {
+            $this->printError("El archivo {$fileName} ya existe");
+            exit;
+        }
+
+        // Generar signature por defecto tipo: send-emails o app:send-emails
+        $baseName = preg_replace('/Command$/', '', $nameCommand);
+        $signature = strtolower((string) preg_replace('/(?<!^)[A-Z]/', '-$0', $baseName));
+        $signature = 'app:' . $signature;
+
+        $templateCommand = str_replace(
+            ['{{class}}', '{{namespace_suffix}}', '{{signature}}'],
+            [$nameCommand, $namespaceSuffix, $signature],
+            $templateCommand
+        );
+
+        file_put_contents($commandPath . $fileName, $templateCommand);
+
+        $this->printSuccess("Command creado: {$fileName}");
+    }
+
+    private function runCustomCommand(string $commandSignature): bool
+    {
+        if (!is_dir($this->commandPath)) {
+            return false;
+        }
+
+        $files = glob($this->commandPath . '*.php') ?: [];
+        // Buscar también en subcarpetas de un nivel
+        $subFiles = glob($this->commandPath . '*/*.php') ?: [];
+        $allFiles = array_merge($files, $subFiles);
+
+        foreach ($allFiles as $file) {
+            require_once $file;
+
+            $filename = basename($file, '.php');
+            // Obtener el namespace relativo si está en subcarpeta
+            $relativeDir = trim(str_replace([$this->commandPath, basename($file)], '', $file), '/\\');
+            $subNs = $relativeDir !== '' ? '\\' . str_replace(['/', '\\'], '\\', $relativeDir) : '';
+            $class = 'App\\Commands' . $subNs . '\\' . $filename;
+
+            if (class_exists($class) && is_subclass_of($class, Command::class)) {
+                $args = array_slice($this->argv, 2);
+                /** @var Command $instance */
+                $instance = new $class($args);
+                if ($instance->getSignature() === $commandSignature) {
+                    $exitCode = $instance->handle();
+                    exit($exitCode);
+                }
+            }
+        }
+
+        return false;
+    }
 }
+

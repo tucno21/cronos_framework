@@ -194,4 +194,45 @@ class ConsoleMakeCommandsTest extends TestCase
 
         unlink($file);
     }
+
+    public function test_make_command_crea_clase_command_con_firma_y_handle(): void
+    {
+        $root = dirname(__DIR__, 2);
+        $file = $root . '/App/Commands/TestTmpSendEmailsCommand.php';
+
+        if (file_exists($file)) {
+            unlink($file);
+        }
+
+        (new ConsoleCLI(['cronos', 'make:command', 'TestTmpSendEmailsCommand']))->run();
+
+        $this->assertFileExists($file);
+        $content = file_get_contents($file);
+        $this->assertStringContainsString('namespace App\Commands;', $content);
+        $this->assertStringContainsString('use Cronos\ConsoleCLI\Command;', $content);
+        $this->assertStringContainsString('class TestTmpSendEmailsCommand extends Command', $content);
+        $this->assertStringContainsString("protected string \$signature = 'app:test-tmp-send-emails';", $content);
+        $this->assertStringContainsString('public function handle(): int', $content);
+
+        unlink($file);
+    }
+
+    public function test_make_command_agrega_sufijo_command_si_falta(): void
+    {
+        $root = dirname(__DIR__, 2);
+        $file = $root . '/App/Commands/TestTmpNotifyCommand.php';
+
+        if (file_exists($file)) {
+            unlink($file);
+        }
+
+        (new ConsoleCLI(['cronos', 'make:command', 'TestTmpNotify']))->run();
+
+        $this->assertFileExists($file);
+        $content = file_get_contents($file);
+        $this->assertStringContainsString('class TestTmpNotifyCommand extends Command', $content);
+
+        unlink($file);
+    }
 }
+

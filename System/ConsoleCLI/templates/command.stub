@@ -1,0 +1,31 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Commands{{namespace_suffix}};
+
+use Cronos\ConsoleCLI\Command;
+
+class {{class}} extends Command
+{
+    /**
+     * El nombre o firma del comando en la terminal.
+     * Ejemplo de ejecución: php cronos {{signature}}
+     */
+    protected string $signature = '{{signature}}';
+
+    /**
+     * Descripción del comando.
+     */
+    protected string $description = 'Descripción del comando {{class}}';
+
+    /**
+     * Ejecuta la lógica del comando.
+     */
+    public function handle(): int
+    {
+        $this->info("Ejecutando comando {{class}} exitosamente.");
+
+        return 0;
+    }
+}
