@@ -240,16 +240,19 @@ php cronos migrate:fresh      # elimina TODAS las tablas y deja la BD vacia
 
 > Antes de escribir o editar CUALQUIER vista, leer **06-vistas.md** (herencia, componentes, slots, escape y el cheat sheet final para IAs).
 
-### Paso 6: middlewares y librerias demo (`App/Middlewares/`, `App/Library/`, `App/Help/`)
+### Paso 6: form requests, api resources, middlewares y librerias demo (`App/Requests/`, `App/Resources/`, `App/Middlewares/`)
 
-| Archivo | Accion |
+| Carpeta / Archivo | Accion |
 |---|---|
-| `CorsMiddleware.php` | CONSERVAR si la SPA consumira la API (ver config/cors.php y 10-configuracion.md) |
-| `AuthMiddleware.php`, `AuthApiMiddleware.php`, `TokenValidationMiddleware.php` | ELIMINAR (pertenecen a la demo de auth) |
-| `DahboardMiddleware.php` | ELIMINAR (protegia la ruta `/` demo eliminada en paso 1) |
-| `LogRequestMiddleware.php`, `ThrottleMiddleware.php` | OPCIONALES y genericos: conservar si el proyecto los usara |
+| `App/Requests/*` | **ELIMINAR TODOS**: `StorePublicacionRequest.php`, `UpdatePublicacionRequest.php` y la carpeta `Auth/` (`LoginRequest.php`, `RegisterRequest.php`, etc.). Pertenecen al demo. |
+| `App/Resources/*` | **ELIMINAR TODOS**: `PublicacionResource.php` y `UsuarioResource.php`. Pertenecen al demo. |
+| `App/Middlewares/CorsMiddleware.php` | CONSERVAR si la SPA consumira la API (ver config/cors.php y 10-configuracion.md) |
+| `App/Middlewares/AuthMiddleware.php`, `AuthApiMiddleware.php`, `TokenValidationMiddleware.php` | ELIMINAR (pertenecen a la demo de auth) |
+| `App/Middlewares/DahboardMiddleware.php` | ELIMINAR (protegia la ruta `/` demo eliminada en paso 1) |
+| `App/Middlewares/LogRequestMiddleware.php`, `ThrottleMiddleware.php` | OPCIONALES y genericos: conservar si el proyecto los usara |
 | `App/Library/JWT/JWTAuth.php` | ELIMINAR (solo lo usa AuthController); si el proyecto necesitara JWT, reimplementar con 09/10 como guia |
 | `App/Help/*` | Genericos (imagenes/archivos): conservar o eliminar segun uso |
+
 
 ### Paso 7: assets (`public/assets/`, `resources/css/`)
 
@@ -285,6 +288,8 @@ php -S localhost:8099 -t public        # o el servidor de preferencia
 | `routes/` | rutas demo (web y api) | estructura de archivos, `/` apuntando a la portada real |
 | `App/Controllers` | AuthController, PublicacionController, HomeController | SpaController |
 | `App/Models` | TODOS | (los nuevos del proyecto via make:model) |
+| `App/Requests` | TODOS (Store/UpdatePublicacionRequest, Auth/*) | (los nuevos via make:request) |
+| `App/Resources` | TODOS (PublicacionResource, UsuarioResource) | (los nuevos via make:resource) |
 | `App/Migrations` | TODAS | (las nuevas via make:migration) |
 | `App/Seeders` | los 8 seeders de datos | DatabaseSeeder.php (vacio) |
 | `App/Middlewares` | auth demo + DahboardMiddleware | CorsMiddleware (si hay API/SPA); Log/Throttle opcionales |
