@@ -28,6 +28,8 @@ class ConsoleCLI
 
     protected string $commandPath;
 
+    protected string $factoryPath;
+
     protected array $argv = [];
 
     public function __construct(array $data)
@@ -50,6 +52,7 @@ class ConsoleCLI
         $this->requestPath = dirname(__DIR__) . '/../App/Requests/';
         $this->resourcePath = dirname(__DIR__) . '/../App/Resources/';
         $this->commandPath = dirname(__DIR__) . '/../App/Commands/';
+        $this->factoryPath = dirname(__DIR__) . '/../App/Factories/';
 
         $this->migrationsPath = dirname(__DIR__) . '/../App/Migrations/';
     }
@@ -83,6 +86,10 @@ class ConsoleCLI
 
         if ($this->command1 == 'make:command') {
             return $this->makeCommand();
+        }
+
+        if ($this->command1 == 'make:factory') {
+            return $this->makeFactory();
         }
 
         if ($this->command1 == 'make:migration') {
@@ -129,14 +136,15 @@ class ConsoleCLI
         $text5 =   "make:request name folderName(optional)" . "\n";
         $text6 =   "make:resource name folderName(optional)" . "\n";
         $text7 =   "make:command name folderName(optional)" . "\n";
-        $text8 =   "make:migration name (ej: create_users_table)" . "\n";
-        $text9 =   "make:seeder name" . "\n";
-        $text10 =  "migrate" . "\n";
-        $text11 =  "migrate:rollback (steps opcional)" . "\n";
-        $text12 =  "migrate:status" . "\n";
-        $text13 =  "migrate:fresh" . "\n";
-        $text14 =  "migrate:refresh" . "\n";
-        $text15 =  "db:seed" . "\n";
+        $text8 =   "make:factory name folderName(optional)" . "\n";
+        $text9 =   "make:migration name (ej: create_users_table)" . "\n";
+        $text10 =  "make:seeder name" . "\n";
+        $text11 =  "migrate" . "\n";
+        $text12 =  "migrate:rollback (steps opcional)" . "\n";
+        $text13 =  "migrate:status" . "\n";
+        $text14 =  "migrate:fresh" . "\n";
+        $text15 =  "migrate:refresh" . "\n";
+        $text16 =  "db:seed" . "\n";
 
         print("\e[0;31m$text\e[0m");
         print("\e[0;36m$text2\e[0m");
@@ -153,6 +161,7 @@ class ConsoleCLI
         print("\e[0;36m$text13\e[0m");
         print("\e[0;36m$text14\e[0m");
         print("\e[0;36m$text15\e[0m");
+        print("\e[0;36m$text16\e[0m");
         exit;
     }
 
@@ -561,5 +570,53 @@ class ConsoleCLI
 
         return false;
     }
+
+    private function makeFactory()
+    {
+        $templateFactory = file_get_contents($this->templatesPath . 'factory.stub');
+        $factoryPath = $this->factoryPath;
+        $nameFactory = ucfirst($this->command2);
+
+        if ($nameFactory === '' || !preg_match('/^[a-zA-Z][a-zA-Z0-9_]*$/', $nameFactory)) {
+            $this->printError('Nombre de factory invalido. Ej: php cronos make:factory UserFactory');
+            exit;
+        }
+
+        if (!str_ends_with($nameFactory, 'Factory')) {
+            $nameFactory .= 'Factory';
+        }
+
+        $fileName = $nameFactory . '.php';
+        $namespaceSuffix = '';
+
+        if ($this->command3 !== '') {
+            $folder = trim(str_replace(['/', '\\'], '/', $this->command3), '/');
+            $factoryPath = $this->factoryPath . $folder . '/';
+            $namespaceSuffix = '\\' . str_replace('/', '\\', $folder);
+        }
+
+        if (!file_exists($factoryPath)) {
+            mkdir($factoryPath, 0777, true);
+        }
+
+        if (file_exists($factoryPath . $fileName)) {
+            $this->printError("El archivo {$fileName} ya existe");
+            exit;
+        }
+
+        // Deduce el modelo a partir del nombre de la factory (ej: UserFactory -> User)
+        $modelName = preg_replace('/Factory$/', '', $nameFactory);
+
+        $templateFactory = str_replace(
+            ['{{class}}', '{{namespace_suffix}}', '{{model}}'],
+            [$nameFactory, $namespaceSuffix, $modelName],
+            $templateFactory
+        );
+
+        file_put_contents($factoryPath . $fileName, $templateFactory);
+
+        $this->printSuccess("Factory creada: {$fileName}");
+    }
 }
+
 

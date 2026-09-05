@@ -1,0 +1,30 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Factories{{namespace_suffix}};
+
+use App\Models\{{model}};
+use Cronos\Model\Factory;
+
+class {{class}} extends Factory
+{
+    /**
+     * El modelo correspondiente a esta factory.
+     */
+    protected string $model = {{model}}::class;
+
+    /**
+     * Define los atributos predeterminados del modelo.
+     *
+     * @return array<string, mixed>
+     */
+    public function definition(): array
+    {
+        return [
+            // 'name' => 'Usuario de Prueba',
+            // 'email' => 'test_' . uniqid() . '@example.com',
+            // 'status' => 'active',
+        ];
+    }
+}

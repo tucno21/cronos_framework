@@ -234,5 +234,29 @@ class ConsoleMakeCommandsTest extends TestCase
 
         unlink($file);
     }
+
+    public function test_make_factory_crea_clase_factory_con_modelo(): void
+    {
+        $root = dirname(__DIR__, 2);
+        $file = $root . '/App/Factories/TestTmpUserFactory.php';
+
+        if (file_exists($file)) {
+            unlink($file);
+        }
+
+        (new ConsoleCLI(['cronos', 'make:factory', 'TestTmpUserFactory']))->run();
+
+        $this->assertFileExists($file);
+        $content = file_get_contents($file);
+        $this->assertStringContainsString('namespace App\Factories;', $content);
+        $this->assertStringContainsString('use App\Models\TestTmpUser;', $content);
+        $this->assertStringContainsString('use Cronos\Model\Factory;', $content);
+        $this->assertStringContainsString('class TestTmpUserFactory extends Factory', $content);
+        $this->assertStringContainsString('protected string $model = TestTmpUser::class;', $content);
+        $this->assertStringContainsString('public function definition(): array', $content);
+
+        unlink($file);
+    }
 }
+
 

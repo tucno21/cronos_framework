@@ -85,6 +85,35 @@ class SendEmailsCommand extends Command
 php cronos app:send-emails
 ```
 
+### Generar Model Factory
+
+Las factories de modelos se crean en `App/Factories/` y heredan de `Cronos\Model\Factory`. Permiten generar datos falsos para pruebas o sembrado de bases de datos.
+
+```bash
+php cronos make:factory UserFactory
+php cronos make:factory User           # genera UserFactory.php automáticamente
+php cronos make:factory User Auth      # crea en App/Factories/Auth/UserFactory.php
+```
+
+**Uso con el trait `HasFactory` en tu Modelo:**
+```php
+namespace App\Models;
+
+use Cronos\Model\Model;
+use Cronos\Model\HasFactory;
+
+class User extends Model
+{
+    use HasFactory;
+}
+
+// En tus tests o seeders:
+$user = User::factory()->make();               // Instancia en memoria
+$admin = User::factory()->state(['role' => 'admin'])->make();
+$users = User::factory()->count(10)->create(); // 10 registros persistidos en BD
+```
+
+
 
 ### Generar Migracion
 

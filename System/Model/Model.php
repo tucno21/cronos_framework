@@ -379,12 +379,13 @@ abstract class Model
         return array_key_exists($name, $this->relations);
     }
 
-    protected function setAttributes(array $data): void
+    public function setAttributes(array $data): void
     {
         foreach ($data as $key => $value) {
             $this->attributes[$key] = $value;
         }
     }
+
 
     /**
      * Crea una instancia del modelo a partir de una fila de la BD
