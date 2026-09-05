@@ -36,17 +36,43 @@ class ExceptionHandler
         }
 
         // For generic Throwable, check debug mode
-        if (env('CRONOS_APP_DEBUG', false)) {
-            return json([
-                "Type error" => get_class($e),
-                "message" => $e->getMessage(),
-                "file" => $e->getFile(),
-                "line" => $e->getLine(),
-                "trace" => $e->getTrace(),
-                "TraceAsString" => $e->getTraceAsString(),
-            ])->setStatusCode(500);
+        $debug = env('CRONOS_APP_DEBUG', false);
+        $isDebug = filter_var($debug, FILTER_VALIDATE_BOOLEAN);
+
+        if ($isDebug) {
+            // If request expects JSON / AJAX, return structured debug JSON
+            if (\Cronos\Debug\Dumper::isJsonRequest()) {
+                return json([
+                    "Type error" => get_class($e),
+                    "message" => $e->getMessage(),
+                    "file" => $e->getFile(),
+                    "line" => $e->getLine(),
+                    "trace" => $e->getTrace(),
+                    "TraceAsString" => $e->getTraceAsString(),
+                ])->setStatusCode(500);
+            }
+
+            // Render rich interactive dark HTML error page
+            $renderer = new \Cronos\Debug\ErrorRenderer();
+            return (new Response())
+                ->setContentType("text/html; charset=UTF-8")
+                ->setStatusCode(500)
+                ->setContent($renderer->render($e));
         }
 
-        return json(["message" => "An internal server error occurred."])->setStatusCode(500);
+        if (\Cronos\Debug\Dumper::isJsonRequest()) {
+            return json(["message" => "An internal server error occurred."])->setStatusCode(500);
+        }
+
+        // Generic friendly production 500 error page if view exists, otherwise text
+        try {
+            return view('errors.500')->setStatusCode(500);
+        } catch (Throwable) {
+            return (new Response())
+                ->setContentType("text/html; charset=UTF-8")
+                ->setStatusCode(500)
+                ->setContent('<!DOCTYPE html><html><head><title>500 Internal Server Error</title></head><body style="font-family:sans-serif;text-align:center;padding:50px;"><h1>500 Internal Server Error</h1><p>Something went wrong on our servers.</p></body></html>');
+        }
     }
 }
+

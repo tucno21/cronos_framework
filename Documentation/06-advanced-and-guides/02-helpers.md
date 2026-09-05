@@ -20,6 +20,14 @@ dd($user, $request->all(), 'Depuración crítica');
 > - En **Navegador Web**: Renderiza un panel oscuro con botón de colapsar/expandir nodos y origen del archivo.
 > - En **Peticiones API / JSON**: Emite una respuesta JSON estructurada (`__cronos_debug: true`) sin romper el cliente.
 
+### Pantalla Interactiva de Excepciones (ErrorRenderer)
+
+Cuando ocurre una excepción en la aplicación y `CRONOS_APP_DEBUG=true`:
+- **Navegador Web**: Presenta una pantalla interactiva con tema oscuro estilo Ignition / Whoops, mostrando el mensaje de error, archivo y línea, un **snippet de código fuente navegable con la línea exacta resaltada**, la lista completa de frames del **Stack Trace** (diferenciando código de la App con etiqueta `APP`), y pestañas con datos en vivo de la petición (`Request`, `Headers`, `Session`, `Server / Env`).
+- **Peticiones JSON / AJAX**: Devuelve automáticamente el error formateado en JSON con código HTTP 500.
+- **Modo Producción (`CRONOS_APP_DEBUG=false`)**: Muestra una vista limpia y segura (`errors.500`) sin exponer detalles internos sensibles del servidor ni del código fuente.
+
+
 
 ## Helpers Globales
 
