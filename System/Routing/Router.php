@@ -75,9 +75,6 @@ class Router
             $middlewares = array_merge($middlewares, $controller->middlewares());
         }
 
-        //obtener los parametros que se declara en la funcion o metodo de la ruta del framework
-        $params = DependencyInjection::resolveParameters($action, $route->parseParameters($request->uri()));
-
         // Construir el pipeline de middlewares en el orden correcto:
         // 1. Middlewares globales (se ejecutan en TODAS las rutas)
         // 2. Middlewares de la ruta
@@ -93,7 +90,9 @@ class Router
         return (new Pipeline())
             ->send($request)
             ->through($allMiddlewares)
-            ->then(function () use ($action, $params) {
+            ->then(function ($pipedRequest) use ($action, $route) {
+                // Resolver parámetros del método o closure después de que todos los middlewares hayan pasado
+                $params = DependencyInjection::resolveParameters($action, $route->parseParameters($pipedRequest->uri()));
                 $result = call_user_func($action, ...$params);
                 if ($result instanceof JsonResource || $result instanceof ResourceCollection) {
                     return $result->toResponse();

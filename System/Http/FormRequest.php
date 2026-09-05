@@ -139,17 +139,19 @@ abstract class FormRequest extends Request
      */
     protected function failedValidation(mixed $errors): void
     {
+        $errorArray = is_array($errors) || is_object($errors) ? $errors : ['error' => [$errors]];
+
         if ($this->expectsJson()) {
             $response = json([
                 'status' => 'error',
                 'message' => 'Los datos proporcionados no son válidos.',
-                'errors' => $errors,
+                'errors' => $errorArray,
             ], 422);
         } else {
-            $response = back()->withErrors($this->all(), $errors);
+            $response = back()->withErrors($this->all(), $errorArray);
         }
 
-        throw new ValidationException($errors, $response, 'Los datos proporcionados no son válidos.');
+        throw new ValidationException($errorArray, $response, 'Los datos proporcionados no son válidos.');
     }
 
     /**

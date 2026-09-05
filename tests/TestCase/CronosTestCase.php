@@ -5,6 +5,7 @@ namespace Tests\TestCase;
 use PHPUnit\Framework\TestCase;
 use Cronos\Session\PhpNativeSessionStorage;
 use Cronos\Session\Session;
+use Cronos\Testing\MakesHttpRequests;
 
 /**
  * TestCase base para tests del Cronos Framework.
@@ -14,6 +15,8 @@ use Cronos\Session\Session;
  */
 abstract class CronosTestCase extends TestCase
 {
+    use MakesHttpRequests;
+
     protected ?Session $session = null;
 
     /**

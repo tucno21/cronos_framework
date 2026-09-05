@@ -19,7 +19,12 @@ class BelongsTo
 
     public function get(): ?Model
     {
-        return $this->related->newQuery()->where($this->ownerKey, $this->parent->{$this->foreignKey})->first();
+        $foreignKeyValue = $this->parent->{$this->foreignKey} ?? null;
+        if ($foreignKeyValue === null || $foreignKeyValue === '') {
+            return null;
+        }
+
+        return $this->related->newQuery()->where($this->ownerKey, $foreignKeyValue)->first();
     }
 
     /**

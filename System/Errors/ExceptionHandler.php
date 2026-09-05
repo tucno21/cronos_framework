@@ -10,7 +10,11 @@ class ExceptionHandler
     public function handle(Throwable $e): Response
     {
         if ($e instanceof HttpNotFoundException) {
-            return view('errors.404')->setStatusCode(404);
+            try {
+                return view('errors.404')->setStatusCode(404);
+            } catch (Throwable) {
+                return json(['message' => 'Not Found', 'status' => 404], 404);
+            }
         }
 
         if ($e instanceof ValidationException) {

@@ -41,6 +41,9 @@ Antes de limpiar o construir, leer la documentacion en este orden. Cada doc es e
 | 12 | `12-tailwindcss.md` | Compilacion de CSS (Tailwind v4) | Al tocar estilos |
 | 13 | `13-reactapp-spa.md` | La SPA (`spa/index.php` + assets React) | Si el proyecto usa la parte SPA |
 | 14 | `14-migraciones-y-seeders.md` | Schema Builder, migraciones, seeders | Antes de crear tablas |
+| 15 | `15-form-requests.md` | Validación desacoplada y tipada en clases Request | Al crear endpoints complejos |
+| 16 | `16-api-resources.md` | Capa de transformación JSON de respuestas de API | Al estructurar respuestas REST |
+| 17 | `17-testing-http.md` | Testing funcional HTTP sintético en memoria sin servidor | Al testear rutas, middlewares y controladores |
 | — | `PROYECTO_CRONOS.md` | Vision general y roadmap del framework | Contexto, al inicio |
 
 ## Requisitos

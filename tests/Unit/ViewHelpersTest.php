@@ -10,14 +10,26 @@ use Tests\TestCase\CronosTestCase;
 
 class ViewHelpersTest extends CronosTestCase
 {
+    private ?string $originalRoot = null;
+
     protected function setUp(): void
     {
         parent::setUp();
 
         //baseline segura para asset() (App::$root puede no estar inicializado en unit tests)
+        $this->originalRoot = App::$root ?? null;
         if (!isset(App::$root)) {
             App::$root = sys_get_temp_dir();
         }
+    }
+
+    protected function tearDown(): void
+    {
+        if ($this->originalRoot !== null) {
+            App::$root = $this->originalRoot;
+        }
+
+        parent::tearDown();
     }
 
     public function test_e_escapa_html_y_comillas(): void

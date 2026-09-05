@@ -28,6 +28,15 @@ class Container
     }
 
     /**
+     * Vincula una instancia directamente en el contenedor (sobrescribiendo si ya existía).
+     */
+    public static function instance(string $class, object $instance): object
+    {
+        self::$instances[$class] = $instance;
+        return $instance;
+    }
+
+    /**
      * Resuelve una instancia de una clase del contenedor.
      * Si no existe como singleton, intenta resolverla usando autowiring.
      *

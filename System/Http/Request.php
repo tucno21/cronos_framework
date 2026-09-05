@@ -23,15 +23,93 @@ class Request
 
     protected array $files = [];
 
+    protected array $server = [];
+
     protected ?string $rawBody = null;
 
-    public function __construct()
+    public function __construct(bool $autoInitialize = true)
     {
-        $this->initializeRequest();
+        if ($autoInitialize) {
+            $this->initializeRequest();
+        }
+    }
+
+    /**
+     * Crea una instancia sintética de Request (ideal para testing funcional HTTP).
+     */
+    public static function create(
+        string $uri,
+        string $method = 'GET',
+        array $parameters = [],
+        array $cookies = [],
+        array $files = [],
+        array $server = [],
+        ?string $content = null
+    ): static {
+        $request = new static(false);
+
+        $request->uri = $request->sanitizeUri($uri);
+
+        try {
+            $request->method = HttpMethod::from(strtoupper($method));
+        } catch (\ValueError) {
+            $request->method = HttpMethod::GET;
+        }
+
+        // Normalizar headers desde $server o headers explícitos
+        $headers = [];
+        $serverVars = [];
+        foreach ($server as $key => $value) {
+            $upperKey = strtoupper($key);
+            $serverVars[$upperKey] = $value;
+            if (str_starts_with($upperKey, 'HTTP_')) {
+                $header = str_replace(' ', '-', ucwords(str_replace('_', ' ', strtolower(substr($key, 5)))));
+                $headers[$header] = $value;
+            } elseif (in_array($upperKey, ['CONTENT_TYPE', 'CONTENT_LENGTH', 'CONTENT_MD5'], true)) {
+                $header = str_replace(' ', '-', ucwords(str_replace('_', ' ', strtolower($key))));
+                $headers[$header] = $value;
+            } else {
+                // Posible header directo como "Content-Type" o "Authorization"
+                $headers[$key] = $value;
+            }
+        }
+
+        $request->headers = $headers;
+        $request->cookies = $request->sanitizeInput($cookies);
+        $request->server = $serverVars;
+        $request->files = !empty($files) ? $request->normalizeFiles($files) : [];
+
+        // Determinar si es JSON
+        $isJson = false;
+        foreach ($headers as $hKey => $hVal) {
+            if (strtolower($hKey) === 'content-type' && str_contains(strtolower((string)$hVal), 'application/json')) {
+                $isJson = true;
+                break;
+            }
+        }
+
+        if ($content !== null) {
+            $request->rawBody = $content;
+            if ($isJson) {
+                $decoded = json_decode($content, true) ?? [];
+                $request->data = $request->processInputData(array_merge($decoded, $parameters));
+            } else {
+                $request->data = $request->processInputData($parameters);
+            }
+        } elseif ($isJson) {
+            $request->rawBody = !empty($parameters) ? json_encode($parameters) : null;
+            $request->data = $request->processInputData($parameters);
+        } else {
+            $request->rawBody = null;
+            $request->data = $request->processInputData($parameters);
+        }
+
+        return $request;
     }
 
     private function initializeRequest(): void
     {
+        $this->server = $_SERVER ?? [];
         $this->uri = $this->sanitizeUri($_SERVER['REQUEST_URI'] ?? '/');
         $this->method = $this->determineMethod();
         $this->headers = $this->getHeaders();
@@ -462,14 +540,16 @@ class Request
 
     public function isSecure(): bool
     {
-        return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-            || ($_SERVER['SERVER_PORT'] ?? null) == 443
-            || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] == 'https')
-            || (!empty($_SERVER['HTTP_X_FORWARDED_SSL']) && $_SERVER['HTTP_X_FORWARDED_SSL'] == 'on');
+        $server = !empty($this->server) ? $this->server : $_SERVER;
+        return (!empty($server['HTTPS']) && $server['HTTPS'] !== 'off')
+            || ($server['SERVER_PORT'] ?? null) == 443
+            || (!empty($server['HTTP_X_FORWARDED_PROTO']) && $server['HTTP_X_FORWARDED_PROTO'] == 'https')
+            || (!empty($server['HTTP_X_FORWARDED_SSL']) && $server['HTTP_X_FORWARDED_SSL'] == 'on');
     }
 
     public function ip(): string
     {
+        $server = !empty($this->server) ? $this->server : $_SERVER;
         $headers = [
             'HTTP_CLIENT_IP',
             'HTTP_X_FORWARDED_FOR',
@@ -481,8 +561,8 @@ class Request
         ];
 
         foreach ($headers as $header) {
-            if (!empty($_SERVER[$header])) {
-                $ips = explode(',', $_SERVER[$header]);
+            if (!empty($server[$header])) {
+                $ips = explode(',', $server[$header]);
                 $ip = trim($ips[0]);
                 if (filter_var($ip, FILTER_VALIDATE_IP)) {
                     return $ip;
@@ -495,7 +575,7 @@ class Request
 
     public function userAgent(): string
     {
-        return $this->headers('User-Agent') ?? '';
+        return (string) ($this->headers('User-Agent') ?? '');
     }
 
     public function accepts(string $contentType): bool

@@ -265,7 +265,7 @@ class Route
             }
 
             // Carga el archivo de rutas
-            require_once $routesFile;
+            require $routesFile;
 
             // Limpia el prefijo después de cargar el archivo api.php
             if ($isApiFile) {

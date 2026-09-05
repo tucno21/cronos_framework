@@ -81,9 +81,9 @@ class Pipeline
     {
         $this->destination = $destination;
 
-        // Si no hay middlewares, ejecuta directamente el destino
+        // Si no hay middlewares, ejecuta directamente el destino pasándole el request
         if (count($this->middlewares) === 0) {
-            return call_user_func($this->destination);
+            return call_user_func($this->destination, $this->request);
         }
 
         // Crea la cadena de middlewares usando el patrón "onion"
