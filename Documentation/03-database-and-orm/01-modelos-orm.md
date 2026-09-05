@@ -50,8 +50,10 @@
 22. [Lo que el ORM NO soporta](#22-lo-que-el-orm-no-soporta)
 23. [Recetas de controlador](#23-recetas-de-controlador)
 24. [Cheat sheet rapido (para IAs)](#24-cheat-sheet-rapido-para-ias)
+25. [Model Factories (`User::factory()`)](03-model-factories.md)
 
 ---
+
 
 ## 1. Definir un modelo
 
