@@ -81,8 +81,15 @@ Para preservar su ligereza y facilidad de mantenimiento, Cronos deliberadamente 
 - Los atributos de componentes `<x-nombre>` son cadenas literales; para pasar variables se usa `:prop="$variable"`.
 - Los archivos compilados se almacenan en `storage/cache/`. Si se altera la gramática del compilador, debe limpiarse ese directorio.
 
+### Sub-sistema de Depuración y Errores (`System/Debug/` y `System/Errors/`)
+- Utiliza `dump(...$vars)`, `d(...$vars)` y `dd(...$vars)` para inspección de memoria en cualquier punto del framework.
+- El orquestador `Cronos\Debug\Dumper` detecta el entorno automáticamente: colores ANSI para terminal CLI, panel interactivo colapsable con tema oscuro para navegador web, y JSON estructurado (`__cronos_debug: true`) para llamadas API/AJAX.
+- Si `CRONOS_APP_DEBUG=true`, las excepciones no capturadas se presentan con `Cronos\Debug\ErrorRenderer` en una pantalla interactiva con snippet de código fuente navegable en vivo, línea resaltada y datos de contexto de la petición.
+- En producción (`CRONOS_APP_DEBUG=false`), los errores se capturan de forma silenciosa y segura mostrando `errors.500`.
+
 ### Testing Automatizado (`tests/`)
 - La suite completa de PHPUnit se ejecuta con `vendor/bin/phpunit`.
 - Toda prueba de ruta o middleware debe usar el trait `Cronos\Testing\MakesHttpRequests` heredando de `Tests\TestCase\OrmTestCase`.
 - Para consultar la documentación por temas específicos, consulta siempre el índice maestro en [`Documentation/README.md`](README.md).
+
  

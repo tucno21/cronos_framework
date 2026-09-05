@@ -1,8 +1,8 @@
 # Helpers y Funciones Auxiliares
 
-## Helpers de Depuración (Estilo Laravel / VarDumper)
+## Helpers de Depuración
 
-Cronos Framework cuenta con un subsistema nativo de depuración (`Cronos\Debug\Dumper`) con detección de origen (`📍 Archivo:línea`), soporte para múltiples argumentos, colores ANSI en terminal y visor interactivo con tema oscuro y acordeones colapsables en navegador:
+Cronos Framework cuenta con un subsistema nativo de depuración (`Cronos\Debug\Dumper` y `Cronos\Debug\ErrorRenderer`) inspirado en la ergonomía de Laravel VarDumper e Ignition:
 
 ```php
 // Vuelca una o más variables y CONTINÚA la ejecución
@@ -15,18 +15,7 @@ d($user, $params);
 dd($user, $request->all(), 'Depuración crítica');
 ```
 
-> **Detección automática de contexto:**
-> - En **Terminal / CLI**: Renderiza con colores ANSI y formateo estructurado limpio.
-> - En **Navegador Web**: Renderiza un panel oscuro con botón de colapsar/expandir nodos y origen del archivo.
-> - En **Peticiones API / JSON**: Emite una respuesta JSON estructurada (`__cronos_debug: true`) sin romper el cliente.
-
-### Pantalla Interactiva de Excepciones (ErrorRenderer)
-
-Cuando ocurre una excepción en la aplicación y `CRONOS_APP_DEBUG=true`:
-- **Navegador Web**: Presenta una pantalla interactiva con tema oscuro estilo Ignition / Whoops, mostrando el mensaje de error, archivo y línea, un **snippet de código fuente navegable con la línea exacta resaltada**, la lista completa de frames del **Stack Trace** (diferenciando código de la App con etiqueta `APP`), y pestañas con datos en vivo de la petición (`Request`, `Headers`, `Session`, `Server / Env`).
-- **Peticiones JSON / AJAX**: Devuelve automáticamente el error formateado en JSON con código HTTP 500.
-- **Modo Producción (`CRONOS_APP_DEBUG=false`)**: Muestra una vista limpia y segura (`errors.500`) sin exponer detalles internos sensibles del servidor ni del código fuente.
-
+> 📖 Para una explicación completa con ejemplos detallados, renderizado interactivo HTML, soporte CLI ANSI y manejo visual de excepciones, consulta la [**Guía Completa de Depuración y Manejo de Errores**](04-depuracion-y-errores.md).
 
 
 ## Helpers Globales
