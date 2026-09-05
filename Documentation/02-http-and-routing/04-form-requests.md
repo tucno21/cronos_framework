@@ -195,7 +195,7 @@ sequenceDiagram
    ```
 
 3. **`rules(): array`**
-   Retorna el mapa de reglas de validación soportadas por el motor de Cronos (ver [`Documentation/05-validaciones.md`](05-validaciones.md)).
+   Retorna el mapa de reglas de validación soportadas por el motor de Cronos (ver [`Documentation/06-advanced-and-guides/01-validaciones.md`](../06-advanced-and-guides/01-validaciones.md)).
 
 4. **`passedValidation(): void`**
    Se ejecuta inmediatamente después de que todas las reglas pasaron satisfactoriamente.
@@ -268,6 +268,6 @@ Al heredar de [`Cronos\Http\Request`](file:///D:/laragon/www/cronos_framework/Sy
 
 ### ❌ Qué NO PUEDE Hacer (Diferencias con Laravel):
 - ❌ **NO uses reglas de Laravel no implementadas en Cronos:** No uses `Rule::unique()`, invokable rules de Laravel (`ValidationRule`), ni closures dentro del array de `rules()`.
-- ❌ **NO uses arrays anidados de reglas complejas con asteriscos (`items.*.id`):** El motor de validación de Cronos valida claves directas y arreglos simples (ver `Documentation/05-validaciones.md`).
+- ❌ **NO uses arrays anidados de reglas complejas con asteriscos (`items.*.id`):** El motor de validación de Cronos valida claves directas y arreglos simples (ver `Documentation/06-advanced-and-guides/01-validaciones.md`).
 - ❌ **NO intentes acceder a `$this->route('param')`:** Para obtener parámetros de ruta, agrégalos como parámetros del método del controlador (ej: `public function update(UpdatePostRequest $request, Publicacion $publicacion)`).
 - ❌ **NO requiere registrar providers ni configurar middlewares especiales:** El contenedor de inyección de dependencias de Cronos resuelve y valida la clase automáticamente al inspeccionar el tipo de parámetro en la reflexión.

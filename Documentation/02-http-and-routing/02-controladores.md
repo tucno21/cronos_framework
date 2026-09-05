@@ -59,7 +59,7 @@ class DashboardController extends Controller
 
 Los metodos del controlador pueden recibir `Request` o clases especializadas `FormRequest` automaticamente mediante inyeccion de dependencias.
 
-> Para validaciones desacopladas y autorizacion previa automatica, use **Form Requests** (consulte la guia detallada en [`Documentation/15-form-requests.md`](15-form-requests.md)).
+> Para validaciones desacopladas y autorizacion previa automatica, use **Form Requests** (consulte la guia detallada en [`04-form-requests.md`](04-form-requests.md)).
 
 ```php
 public function user(Request $request);

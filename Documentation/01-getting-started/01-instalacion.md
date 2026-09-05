@@ -24,27 +24,27 @@ La division de capas que define que se limpia y que no:
 
 Antes de limpiar o construir, leer la documentacion en este orden. Cada doc es el contrato de una pieza: no adivinar comportamientos.
 
-| # | Documento | Que cubre | Leer cuando |
+| Módulo | Documento | Qué cubre | Leer cuando |
 |---|---|---|---|
-| 00 | `00-instalacion.md` (este) | Instalacion, estructura, capas, protocolo de limpieza | Primero, siempre |
-| 01 | `01-rutas.md` | Registro de rutas web/api, nombres, parametros, grupos | Antes de tocar `routes/` |
-| 02 | `02-consola.md` | CLI `php cronos`: make:*, migrate*, db:seed | Antes de generar archivos o migrar |
-| 03 | `03-controladores.md` | Controladores, request/response, redirect, validate | Antes de escribir controladores |
-| 04 | `04-modelos.md` | ORM completo: relaciones, query builder, casts, eventos | Antes de crear modelos (checklist del final) |
-| 05 | `05-validaciones.md` | Reglas de validacion y mensajes | Antes de validar formularios/API |
-| 06 | `06-vistas.md` | Motor Blade: herencia, componentes, slots, escape, cheat sheet | ANTES de escribir o editar cualquier vista |
-| 07 | `07-sesiones.md` | Sesiones, flash, old(), csrf | Antes de formularios y auth |
-| 08 | `08-middleware.md` | Middlewares, pipeline, grupos | Antes de proteger rutas |
-| 09 | `09-helpers.md` | Helpers globales disponibles | Consulta rapida permanente |
-| 10 | `10-configuracion.md` | Cada archivo de `config/` y `.env` | Al configurar BD, sesiones, CORS |
-| 11 | `11-guia-nuevo-modulo.md` | Receta integrada: modulo completo de punta a punta | Al agregar el primer modulo real |
-| 12 | `12-tailwindcss.md` | Compilacion de CSS (Tailwind v4) | Al tocar estilos |
-| 13 | `13-reactapp-spa.md` | La SPA (`spa/index.php` + assets React) | Si el proyecto usa la parte SPA |
-| 14 | `14-migraciones-y-seeders.md` | Schema Builder, migraciones, seeders | Antes de crear tablas |
-| 15 | `15-form-requests.md` | Validación desacoplada y tipada en clases Request | Al crear endpoints complejos |
-| 16 | `16-api-resources.md` | Capa de transformación JSON de respuestas de API | Al estructurar respuestas REST |
-| 17 | `17-testing-http.md` | Testing funcional HTTP sintético en memoria sin servidor | Al testear rutas, middlewares y controladores |
-| — | `PROYECTO_CRONOS.md` | Vision general y roadmap del framework | Contexto, al inicio |
+| **01-getting-started** | [`01-instalacion.md`](01-instalacion.md) (este) | Instalación, estructura, capas, protocolo de limpieza | Primero, siempre |
+| **01-getting-started** | [`02-configuracion.md`](02-configuracion.md) | Cada archivo de `config/` y `.env` | Al configurar BD, sesiones, CORS |
+| **01-getting-started** | [`03-consola-cli.md`](03-consola-cli.md) | CLI `php cronos`: make:*, migrate*, db:seed | Antes de generar archivos o migrar |
+| **02-http-and-routing** | [`01-rutas.md`](../02-http-and-routing/01-rutas.md) | Registro de rutas web/api, nombres, parámetros, grupos | Antes de tocar `routes/` |
+| **02-http-and-routing** | [`02-controladores.md`](../02-http-and-routing/02-controladores.md) | Controladores, request/response, redirect, validate | Antes de escribir controladores |
+| **02-http-and-routing** | [`03-middleware.md`](../02-http-and-routing/03-middleware.md) | Middlewares, pipeline, grupos | Antes de proteger rutas |
+| **02-http-and-routing** | [`04-form-requests.md`](../02-http-and-routing/04-form-requests.md) | Validación desacoplada y tipada en clases Request | Al crear endpoints complejos |
+| **02-http-and-routing** | [`05-api-resources.md`](../02-http-and-routing/05-api-resources.md) | Capa de transformación JSON de respuestas de API | Al estructurar respuestas REST |
+| **03-database-and-orm** | [`01-modelos-orm.md`](../03-database-and-orm/01-modelos-orm.md) | ORM completo: relaciones, query builder, casts, scopes | Antes de crear modelos |
+| **03-database-and-orm** | [`02-migraciones-y-seeders.md`](../03-database-and-orm/02-migraciones-y-seeders.md) | Schema Builder, migraciones, seeders | Antes de crear tablas |
+| **04-frontend-and-views** | [`01-vistas-blade.md`](../04-frontend-and-views/01-vistas-blade.md) | Motor Blade: herencia, componentes, slots, escape | ANTES de escribir o editar vistas |
+| **04-frontend-and-views** | [`02-sesiones.md`](../04-frontend-and-views/02-sesiones.md) | Sesiones, flash, old(), csrf | Antes de formularios y auth |
+| **04-frontend-and-views** | [`03-tailwindcss.md`](../04-frontend-and-views/03-tailwindcss.md) | Compilación de CSS (Tailwind v4) | Al tocar estilos |
+| **04-frontend-and-views** | [`04-reactapp-spa.md`](../04-frontend-and-views/04-reactapp-spa.md) | La SPA (`spa/index.php` + assets React) | Si el proyecto usa la parte SPA |
+| **05-testing** | [`01-testing-http.md`](../05-testing/01-testing-http.md) | Testing funcional HTTP sintético en memoria sin servidor | Al testear rutas, middlewares y controladores |
+| **06-advanced-and-guides** | [`01-validaciones.md`](../06-advanced-and-guides/01-validaciones.md) | Reglas de validación y mensajes | Antes de validar formularios/API |
+| **06-advanced-and-guides** | [`02-helpers.md`](../06-advanced-and-guides/02-helpers.md) | Helpers globales disponibles | Consulta rápida permanente |
+| **06-advanced-and-guides** | [`03-guia-nuevo-modulo.md`](../06-advanced-and-guides/03-guia-nuevo-modulo.md) | Receta integrada: módulo completo de punta a punta | Al agregar el primer módulo real |
+| — | [`PROYECTO_CRONOS.md`](../PROYECTO_CRONOS.md) | Visión general y roadmap del framework | Contexto, al inicio |
 
 ## Requisitos
 

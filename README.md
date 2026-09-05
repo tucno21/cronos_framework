@@ -35,24 +35,28 @@
 
 ## Documentacion
 
-La documentacion completa esta organizada en la carpeta `Documentation/`:
+La documentación completa y detallada se encuentra organizada temáticamente en la carpeta [`Documentation/`](Documentation/README.md):
 
-| Archivo | Descripcion |
-|---|---|
-| [00 - Instalacion](Documentation/00-instalacion.md) | Requisitos, instalacion, estructura de carpetas, flujo de ejecucion |
-| [01 - Rutas](Documentation/01-rutas.md) | Rutas web, API, parametros, grupos, middlewares en rutas |
-| [02 - Consola](Documentation/02-consola.md) | Comandos CLI: controller, model, middleware, migrate |
-| [03 - Controladores](Documentation/03-controladores.md) | Estructura, Request, Response, middleware en constructor |
-| [04 - Modelos](Documentation/04-modelos.md) | Configuracion, CRUD, query builder, relaciones, ModelCollection |
-| [05 - Validaciones](Documentation/05-validaciones.md) | Reglas, tabla completa, validacion de archivos |
-| [06 - Vistas](Documentation/06-vistas.md) | Directivas CronosEngine, layouts, componentes x-, slots, cache |
-| [07 - Sesiones](Documentation/07-sesiones.md) | Sesion basica, autenticacion, flash, errores de validacion |
-| [08 - Middleware](Documentation/08-middleware.md) | Tipos, Pipeline, Throttle, Log, CORS |
-| [09 - Helpers](Documentation/09-helpers.md) | Depuracion, HTTP, archivos/imagenes, constantes |
-| [10 - Configuracion](Documentation/10-configuracion.md) | Variables .env, archivos config/* |
-| [11 - Guia Nuevo Modulo](Documentation/11-guia-nuevo-modulo.md) | Paso a paso: modelo, migracion, controlador, vistas, rutas |
-| [12 - TailwindCSS](Documentation/12-tailwindcss.md) | CLI standalone, v3 vs v4, @theme, configuracion de build |
-| [13 - React SPA](Documentation/13-reactapp-spa.md) | SPA con Vite + React + TypeScript + Tailwind v4 en carpeta `reactapp/` |
+| Módulo | Documento | Descripción |
+|---|---|---|
+| **01 - Getting Started** | [Instalación](Documentation/01-getting-started/01-instalacion.md) | Requisitos, instalación, estructura de capas y protocolo de limpieza |
+| **01 - Getting Started** | [Configuración](Documentation/01-getting-started/02-configuracion.md) | Variables `.env`, archivos `config/*` y service providers |
+| **01 - Getting Started** | [Consola CLI](Documentation/01-getting-started/03-consola-cli.md) | Comandos `php cronos`: `make:*`, `migrate`, `db:seed` |
+| **02 - HTTP & Routing** | [Rutas](Documentation/02-http-and-routing/01-rutas.md) | Rutas web, API, prefijos, grupos y middlewares |
+| **02 - HTTP & Routing** | [Controladores](Documentation/02-http-and-routing/02-controladores.md) | Inyección de dependencias, ciclo de vida, Request/Response |
+| **02 - HTTP & Routing** | [Middleware](Documentation/02-http-and-routing/03-middleware.md) | Pipeline HTTP, Throttle, CORS y middlewares globales |
+| **02 - HTTP & Routing** | [Form Requests](Documentation/02-http-and-routing/04-form-requests.md) | Validación tipada y autorización previa automática |
+| **02 - HTTP & Routing** | [API Resources](Documentation/02-http-and-routing/05-api-resources.md) | Transformadores JSON estructurados (`JsonResource`) |
+| **03 - Database & ORM** | [Modelos y ORM](Documentation/03-database-and-orm/01-modelos-orm.md) | ActiveRecord, relaciones (1:1, 1:N, N:M), Scopes, Casts y CRUD |
+| **03 - Database & ORM** | [Migraciones y Seeders](Documentation/03-database-and-orm/02-migraciones-y-seeders.md) | Schema Builder DDL, migraciones versionadas y seeders |
+| **04 - Frontend & Views** | [Vistas Blade](Documentation/04-frontend-and-views/01-vistas-blade.md) | Motor Blade, layouts `@extends`, componentes `<x-* />`, slots |
+| **04 - Frontend & Views** | [Sesiones](Documentation/04-frontend-and-views/02-sesiones.md) | Sesiones nativas, flash data, `old()`, CSRF y autenticación |
+| **04 - Frontend & Views** | [Tailwind CSS](Documentation/04-frontend-and-views/03-tailwindcss.md) | Configuración con Tailwind CSS v4 y directivas `@theme` |
+| **04 - Frontend & Views** | [React SPA](Documentation/04-frontend-and-views/04-reactapp-spa.md) | SPA con Vite + React + TypeScript en carpeta `reactapp/` |
+| **05 - Testing** | [Testing HTTP Funcional](Documentation/05-testing/01-testing-http.md) | Tests en memoria con `MakesHttpRequests` y `TestResponse` |
+| **06 - Guías y Utilidades** | [Validaciones](Documentation/06-advanced-and-guides/01-validaciones.md) | Catálogo completo de 31 reglas nativas y reglas de BD |
+| **06 - Guías y Utilidades** | [Helpers](Documentation/06-advanced-and-guides/02-helpers.md) | Funciones globales (`view()`, `route()`, `asset()`, etc.) |
+| **06 - Guías y Utilidades** | [Guía Nuevo Módulo](Documentation/06-advanced-and-guides/03-guia-nuevo-modulo.md) | Receta paso a paso para construir un módulo de punta a punta |
 
 ## Inicio Rapido
 

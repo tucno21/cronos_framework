@@ -166,7 +166,7 @@ const OrmLab = () => {
             Laboratorio de Consultas ORM Cronos
           </h1>
           <p className="mt-1 text-sm text-gray-600">
-            Validador visual y ejecutor interactivo de todas las consultas documentadas en <code>Documentation/04-modelos.md</code> contra MySQL real.
+            Validador visual y ejecutor interactivo de todas las consultas documentadas en <code>Documentation/03-database-and-orm/01-modelos-orm.md</code> contra MySQL real.
           </p>
         </div>
         <button
