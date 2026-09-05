@@ -129,7 +129,7 @@ abstract class FormRequest extends Request
      */
     protected function failedAuthorization(): void
     {
-        throw new AuthorizationException('This action is unauthorized.', 403);
+        throw new AuthorizationException('Esta acción no está autorizada.', 403);
     }
 
     /**
@@ -142,14 +142,14 @@ abstract class FormRequest extends Request
         if ($this->expectsJson()) {
             $response = json([
                 'status' => 'error',
-                'message' => 'The given data was invalid.',
+                'message' => 'Los datos proporcionados no son válidos.',
                 'errors' => $errors,
             ], 422);
         } else {
             $response = back()->withErrors($this->all(), $errors);
         }
 
-        throw new ValidationException($errors, $response);
+        throw new ValidationException($errors, $response, 'Los datos proporcionados no son válidos.');
     }
 
     /**

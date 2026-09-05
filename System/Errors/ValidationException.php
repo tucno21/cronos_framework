@@ -12,7 +12,7 @@ class ValidationException extends CronosException
     protected array|object $errors;
     protected ?Response $response;
 
-    public function __construct(array|object $errors, ?Response $response = null, string $message = "The given data was invalid.")
+    public function __construct(array|object $errors, ?Response $response = null, string $message = "Los datos proporcionados no son válidos.")
     {
         parent::__construct($message, 422);
         $this->errors = $errors;

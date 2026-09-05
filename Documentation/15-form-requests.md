@@ -213,7 +213,7 @@ Si la validación falla o la petición envía cabecera `Accept: application/json
   ```json
   {
       "status": "error",
-      "message": "The given data was invalid.",
+      "message": "Los datos proporcionados no son válidos.",
       "errors": {
           "titulo": "El campo titulo es obligatorio",
           "email": "El campo email debe ser un correo valido"
@@ -232,7 +232,7 @@ Si no es una petición JSON:
 - **Cuerpo JSON:**
   ```json
   {
-      "message": "This action is unauthorized."
+      "message": "Esta acción no está autorizada."
   }
   ```
 
