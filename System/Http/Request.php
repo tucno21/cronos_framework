@@ -396,6 +396,19 @@ class Request
         }
     }
 
+    // Verificar la propiedad dinámica: permite que isset() y empty()
+    // funcionen sobre propiedades mágicas (ej: isset($request->password))
+    public function __isset(string $name): bool
+    {
+        return isset($this->data[$name]);
+    }
+
+    // Eliminar la propiedad dinámica de los datos recibidos
+    public function __unset(string $name): void
+    {
+        unset($this->data[$name]);
+    }
+
     // Establecer la propiedad dinámica
     public function __set(string $name, mixed $value)
     {
