@@ -12,8 +12,8 @@
 	],
 	"require": {
 		"php": "^8.3",
-		"vlucas/phpdotenv": "^5.5",
-		"firebase/php-jwt": "^7.0",
+		"vlucas/phpdotenv": "^5.7",
+		"firebase/php-jwt": "^7.1",
 		"intervention/image": "^3.11"
 	},
 	"require-dev": {
