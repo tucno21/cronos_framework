@@ -162,8 +162,8 @@ Leer al menos 00 (este), 01, 02, 03, 04, 06 y 14 antes de borrar o escribir nada
 
 ### Paso 1: rutas demo (`routes/`)
 
-- `routes/api.php`: eliminar TODAS las rutas demo (register, login, me, logout, blogs). Queda el archivo con el `use Cronos\Routing\Route;` y nada mas.
-- `routes/web.php`: eliminar login, register y dashboard (rutan hacia SpaController como demo). Dejar `/` apuntando a la portada que vaya a usar el proyecto:
+- `routes/api.php`: eliminar **TODAS** las rutas (TODAS son demo: register, login, me, logout, stats, usuarios, categorias/arbol, categorias, etiquetas, comentarios, orm-lab, blogs). Queda el archivo con el `use Cronos\Routing\Route;` y nada mas. **CRITICO:** no conservar ninguna ruta de api.php, todas apuntan a controladores demo que se eliminan en el paso 2 y romperian el bootstrap al resolver la clase inexistente.
+- `routes/web.php`: eliminar login, register y TODAS las rutas `/dashboard/*` (rutan hacia SpaController como demo). En la ruta `/` quitar el `DahboardMiddleware` y apuntarla a la portada que vaya a usar el proyecto:
 
 ```php
 <?php
@@ -285,7 +285,7 @@ php -S localhost:8099 -t public        # o el servidor de preferencia
 
 | Destino | Eliminar | Conservar |
 |---|---|---|
-| `routes/` | rutas demo (web y api) | estructura de archivos, `/` apuntando a la portada real |
+| `routes/` | api.php: TODAS las rutas (demo). web.php: login, register y `/dashboard/*` | estructura de archivos, `/` apuntando a la portada real |
 | `App/Controllers` | AuthController, PublicacionController, HomeController | SpaController |
 | `App/Models` | TODOS | (los nuevos del proyecto via make:model) |
 | `App/Requests` | TODOS (Store/UpdatePublicacionRequest, Auth/*) | (los nuevos via make:request) |

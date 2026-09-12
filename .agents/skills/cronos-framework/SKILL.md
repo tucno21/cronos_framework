@@ -18,6 +18,40 @@ Guía de uso del proyecto **cronos_framework** (PHP >= 8.3, MVC, sin dependencia
 5. **Nunca editar builds:** `public/assets/**` y `storage/cache/**` son generados. Los fuentes van en `resources/css/` y las vistas en `resources/views/`.
 6. **Límites del framework:** no hay colas/jobs, eventos asíncronos, multi-DB en runtime, ni validaciones anidadas `items.*.id`. No los inventes.
 
+## 🔍 Detección: repo base vs proyecto nuevo derivado
+
+Este repo cumple DOS roles: **plantilla base** (con demo blog+auth) y punto de partida para **proyectos nuevos**. Antes de borrar nada, determina en cuál estás:
+
+| Estado | Señal |
+|---|---|
+| **Repo base / copia sin limpiar** | Existen archivos demo: `App/Models/Usuario.php`, `PublicacionController.php`, `AuthController.php`, `App/Library/JWT/`, `App/Requests/`, `App/Resources/`, `resources/views/home/` |
+| **Proyecto derivado limpio** | Solo queda `SpaController.php`, `DatabaseSeeder.php` vacío, sin `App/Requests/` ni `views/home/` |
+
+Reglas:
+- Si hay archivos demo **Y** el usuario indica explícitamente que es un proyecto NUEVO → seguir el Protocolo de Limpieza de `Documentation/01-getting-started/01-instalacion.md` (pasos 1-9, EN ORDEN, verificando al final).
+- **NUNCA ejecutar limpieza sin confirmación explícita del usuario**: en el repo base el demo es fixture de los tests Integration (`tests/Integration/` usa los modelos demo).
+- Opcional: al terminar la limpieza, crear marcador `.cronos-initialized` en la raíz. Marcador presente = proyecto derivado, ya no volver a limpiar.
+
+## 🧹 Resumen del Protocolo de Limpieza (solo proyectos derivados)
+
+| Destino | Eliminar | Conservar |
+|---|---|---|
+| `routes/` | **api.php: TODAS las rutas** (quedan 0, solo el `use Cronos\Routing\Route;` — todas apuntan a controladores demo que se borran y romperían el bootstrap). web.php: login, register y `/dashboard/*`, y quitar `DahboardMiddleware` de `/` | estructura; `/` apuntando a la portada real |
+| `App/Controllers/` | AuthController, PublicacionController, HomeController | **SpaController** (siempre) |
+| `App/Models/` | TODOS | (los nuevos via `make:model`) |
+| `App/Requests/` | TODOS (incl. `Auth/`) | (los nuevos via `make:request`) |
+| `App/Resources/` | TODOS | (los nuevos via `make:resource`) |
+| `App/Migrations/` | TODAS las demo | (las nuevas via `make:migration`) |
+| `App/Seeders/` | los 8 seeders de datos | **DatabaseSeeder.php** (dejarlo vacío) |
+| `App/Middlewares/` | auth demo + DahboardMiddleware | CorsMiddleware (si hay API/SPA); Log/Throttle opcionales |
+| `App/Library/`, `App/Help/` | JWT | Help si se usa |
+| `resources/views/` | `home/`, links demo del nav (login/register) | `spa/` (JAMÁS), `errors/404.php` (obligatoria), `components/`, `layouts/`, `partials/` |
+| `resources/css/`, `public/assets/` | assets demo sin referencias | `app.css`, `error.css` y lo que `@asset()` referencie |
+| `tests/` | `Integration/` + `TestCase/OrmTestCase.php` | `Unit/` (red de seguridad del núcleo) |
+| `System/`, `config/`, `public/index.php`, `cronos`, `storage/` | NADA — **núcleo, jamás tocar** | TODO |
+
+Después de limpiar: `php cronos migrate:fresh`, verificar checklist del paso 9 (`phpunit` Unit en verde, `/` responde, 404 renderiza).
+
 ## 📋 Mapa de Ruteo: tarea → documentación a leer
 
 Antes de implementar, lee con la herramienta Read SOLO los archivos relevantes (rutas relativas a la raíz del proyecto):
