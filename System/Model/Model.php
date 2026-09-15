@@ -357,6 +357,37 @@ abstract class Model
     }
 
     /**
+     * isset() / empty() / ?? sobre atributos, relaciones y accessors.
+     * No dispara carga perezosa: la relacion no cargada solo reporta que existe.
+     */
+    public function __isset(string $property): bool
+    {
+        //Atributo de la BD
+        if (array_key_exists($property, $this->attributes)) {
+            return $this->attributes[$property] !== null;
+        }
+
+        //Relacion ya cargada (cache)
+        if (array_key_exists($property, $this->relations)) {
+            return $this->relations[$property] !== null;
+        }
+
+        //Accessor sin columna detras (campo calculado / $appends)
+        $accessor = 'get' . self::studly($property) . 'Attribute';
+        if (method_exists($this, $accessor)) {
+            return $this->{$accessor}(null) !== null;
+        }
+
+        //Relacion aun no cargada: existe el metodo que la define
+        return method_exists($this, $property);
+    }
+
+    public function __unset(string $property): void
+    {
+        unset($this->attributes[$property], $this->relations[$property]);
+    }
+
+    /**
      * Convierte snake_case a StudlyCase: nombre_completo -> NombreCompleto.
      */
     public static function studly(string $valor): string
